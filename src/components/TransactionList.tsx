@@ -1,15 +1,17 @@
-import React, { useMemo } from 'react';
-import { Trash2, Receipt, Calendar } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Trash2, Receipt, Calendar, Pencil } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND, formatDateLabel } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import type { Transaction } from '../types';
 import { useToast } from './Toast';
+import { EditTransactionModal } from './EditTransactionModal';
 
 export const TransactionList: React.FC = () => {
   const { transactions, removeTransaction } = useApp();
   const { showToast } = useToast();
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
 
   // Nhóm giao dịch theo ngày (date: "YYYY-MM-DD")
   const groupedTransactions = useMemo(() => {
@@ -105,7 +107,12 @@ export const TransactionList: React.FC = () => {
                 return (
                   <div
                     key={tx.id}
-                    className="flex items-center justify-between gap-3 p-3 hover:bg-white transition-colors group"
+                    onClick={() => {
+                      playActionClick();
+                      triggerHaptic(10);
+                      setEditingTx(tx);
+                    }}
+                    className="flex items-center justify-between gap-3 p-3 hover:bg-white transition-colors group cursor-pointer"
                   >
                     {/* Cột trái: Tên khoản chi / thu, danh mục, người chi / nhận */}
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -115,7 +122,7 @@ export const TransactionList: React.FC = () => {
                         }`}
                       />
                       <div className="min-w-0">
-                        <p className="text-xs font-medium text-[#1C1917] truncate">
+                        <p className="text-xs font-medium text-[#1C1917] truncate group-hover:text-[#0F3D39] transition-colors">
                           {tx.note || tx.categoryName}
                         </p>
                         <div className="flex items-center gap-1.5 mt-0.5">
@@ -138,8 +145,8 @@ export const TransactionList: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Cột phải: Số tiền thẳng hàng & Nút xóa */}
-                    <div className="flex items-center gap-2 shrink-0">
+                    {/* Cột phải: Số tiền thẳng hàng & Nút sửa, xóa */}
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                       <span
                         className={`text-xs font-semibold font-mono tabular-nums ${
                           isIncome ? 'text-[#047857] font-bold' : 'text-[#1C1917]'
@@ -147,10 +154,31 @@ export const TransactionList: React.FC = () => {
                       >
                         {isIncome ? `+ ${formatVND(tx.amount)}` : formatVND(tx.amount)}
                       </span>
+
                       <button
-                        onClick={() => handleDelete(tx)}
-                        className="text-[#A8A29E] hover:text-[#E11D48] p-1 rounded-lg hover:bg-[#FFF1F2] opacity-70 group-hover:opacity-100 transition-all"
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          playActionClick();
+                          triggerHaptic(10);
+                          setEditingTx(tx);
+                        }}
+                        className="text-[#A8A29E] hover:text-[#0F3D39] p-1 rounded-lg hover:bg-[#F5F3EF] opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
+                        title={`Sửa ${isIncome ? 'thu nhập' : 'khoản chi'}`}
+                        aria-label={`Chỉnh sửa ${tx.note || tx.categoryName}`}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(tx);
+                        }}
+                        className="text-[#A8A29E] hover:text-[#E11D48] p-1 rounded-lg hover:bg-[#FFF1F2] opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
                         title={`Xóa ${isIncome ? 'thu nhập' : 'khoản chi'}`}
+                        aria-label={`Xóa ${tx.note || tx.categoryName}`}
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -162,6 +190,13 @@ export const TransactionList: React.FC = () => {
           </div>
         ))}
       </div>
+
+      {/* Modal chỉnh sửa giao dịch */}
+      <EditTransactionModal
+        isOpen={Boolean(editingTx)}
+        onClose={() => setEditingTx(null)}
+        transaction={editingTx}
+      />
     </section>
   );
 };

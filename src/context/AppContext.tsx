@@ -16,6 +16,7 @@ import {
   getUserHouseholds,
   addTransactionWithSummary, 
   deleteTransactionWithSummary,
+  updateTransactionWithSummary,
   subscribeTransactions, 
   subscribeCategories, 
   subscribeMonthlySummary,
@@ -72,6 +73,7 @@ interface AppContextType {
   
   // Hành động tài chính & tổ ấm
   logTransaction: (tx: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'>) => Promise<void>;
+  editTransaction: (oldTx: Transaction, updatedTx: Transaction) => Promise<void>;
   removeTransaction: (tx: Transaction) => Promise<void>;
   updateBudget: (newBudget: number) => Promise<void>;
   createNewHousehold: (name: string, budget: number) => Promise<void>;
@@ -363,6 +365,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // HÀNH ĐỘNG CẬP NHẬT GIAO DỊCH
+  const editTransaction = async (oldTx: Transaction, updatedTx: Transaction) => {
+    playSuccessChime();
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      await updateTransactionWithSummary(activeHousehold.id, oldTx, updatedTx);
+    } else {
+      // Cập nhật Mock Data cục bộ
+      setTransactions((prev) =>
+        prev.map((item) => (item.id === oldTx.id ? updatedTx : item))
+      );
+    }
+  };
+
   // HÀNH ĐỘNG XÓA GIAO DỊCH
   const removeTransaction = async (tx: Transaction) => {
     if (isFirebaseActive && activeHousehold && firebaseUser) {
@@ -565,6 +581,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         soundEnabled,
         toggleSound,
         logTransaction,
+        editTransaction,
         removeTransaction,
         updateBudget,
         createNewHousehold,

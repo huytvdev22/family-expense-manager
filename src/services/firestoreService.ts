@@ -203,6 +203,121 @@ export async function deleteTransactionWithSummary(
 }
 
 /**
+ * CẬP NHẬT GIAO DỊCH NGUYÊN TỬ (Điều chỉnh số liệu tổng hợp tháng)
+ */
+export async function updateTransactionWithSummary(
+  householdId: string,
+  oldTx: Transaction,
+  updatedTx: Transaction
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+  const firestore = db;
+
+  const oldYearMonth = oldTx.date.substring(0, 7);
+  const newYearMonth = updatedTx.date.substring(0, 7);
+  const txRef = doc(firestore, `households/${householdId}/transactions/${oldTx.id}`);
+
+  const oldIsExpense = oldTx.type === 'EXPENSE';
+  const newIsExpense = updatedTx.type === 'EXPENSE';
+
+  await runTransaction(firestore, async (transaction) => {
+    // 1. Cập nhật bản ghi giao dịch
+    transaction.set(txRef, {
+      ...updatedTx,
+      updatedAt: Date.now()
+    }, { merge: true });
+
+    // 2. Điều chỉnh số liệu tháng
+    if (oldYearMonth === newYearMonth) {
+      // Trường hợp cùng tháng: tính chênh lệch trực tiếp
+      const summaryRef = doc(firestore, `households/${householdId}/monthly_summaries/${newYearMonth}`);
+      const updates: Record<string, any> = {
+        yearMonth: newYearMonth,
+        updatedAt: Date.now()
+      };
+
+      // Khoản chi cũ & mới
+      const oldExpenseAmount = oldIsExpense ? oldTx.amount : 0;
+      const newExpenseAmount = newIsExpense ? updatedTx.amount : 0;
+      const expenseDelta = newExpenseAmount - oldExpenseAmount;
+      if (expenseDelta !== 0) {
+        updates.totalExpense = increment(expenseDelta);
+      }
+
+      // Khoản thu cũ & mới
+      const oldIncomeAmount = !oldIsExpense ? oldTx.amount : 0;
+      const newIncomeAmount = !newIsExpense ? updatedTx.amount : 0;
+      const incomeDelta = newIncomeAmount - oldIncomeAmount;
+      if (incomeDelta !== 0) {
+        updates.totalIncome = increment(incomeDelta);
+      }
+
+      // Theo danh mục (chỉ tính với EXPENSE)
+      if (oldIsExpense && newIsExpense) {
+        if (oldTx.categoryId === updatedTx.categoryId) {
+          if (expenseDelta !== 0) {
+            updates[`byCategory.${updatedTx.categoryId}`] = increment(expenseDelta);
+          }
+        } else {
+          updates[`byCategory.${oldTx.categoryId}`] = increment(-oldTx.amount);
+          updates[`byCategory.${updatedTx.categoryId}`] = increment(updatedTx.amount);
+        }
+      } else if (oldIsExpense && !newIsExpense) {
+        // Đổi từ chi tiêu sang thu nhập
+        updates[`byCategory.${oldTx.categoryId}`] = increment(-oldTx.amount);
+      } else if (!oldIsExpense && newIsExpense) {
+        // Đổi từ thu nhập sang chi tiêu
+        updates[`byCategory.${updatedTx.categoryId}`] = increment(updatedTx.amount);
+      }
+
+      // Theo thành viên (chỉ tính với EXPENSE)
+      if (oldIsExpense && newIsExpense) {
+        if (oldTx.paidBy === updatedTx.paidBy) {
+          if (expenseDelta !== 0) {
+            updates[`byMember.${updatedTx.paidBy}`] = increment(expenseDelta);
+          }
+        } else {
+          updates[`byMember.${oldTx.paidBy}`] = increment(-oldTx.amount);
+          updates[`byMember.${updatedTx.paidBy}`] = increment(updatedTx.amount);
+        }
+      } else if (oldIsExpense && !newIsExpense) {
+        updates[`byMember.${oldTx.paidBy}`] = increment(-oldTx.amount);
+      } else if (!oldIsExpense && newIsExpense) {
+        updates[`byMember.${updatedTx.paidBy}`] = increment(updatedTx.amount);
+      }
+
+      transaction.set(summaryRef, updates, { merge: true });
+    } else {
+      // Trường hợp khác tháng: trừ khỏi tháng cũ và cộng vào tháng mới
+      const oldSummaryRef = doc(firestore, `households/${householdId}/monthly_summaries/${oldYearMonth}`);
+      const newSummaryRef = doc(firestore, `households/${householdId}/monthly_summaries/${newYearMonth}`);
+
+      // Giảm trừ tháng cũ
+      transaction.set(oldSummaryRef, {
+        yearMonth: oldYearMonth,
+        totalExpense: oldIsExpense ? increment(-oldTx.amount) : increment(0),
+        totalIncome: !oldIsExpense ? increment(-oldTx.amount) : increment(0),
+        [`byCategory.${oldTx.categoryId}`]: oldIsExpense ? increment(-oldTx.amount) : increment(0),
+        [`byMember.${oldTx.paidBy}`]: oldIsExpense ? increment(-oldTx.amount) : increment(0),
+        transactionCount: increment(-1),
+        updatedAt: Date.now()
+      }, { merge: true });
+
+      // Cộng vào tháng mới
+      transaction.set(newSummaryRef, {
+        yearMonth: newYearMonth,
+        totalExpense: newIsExpense ? increment(updatedTx.amount) : increment(0),
+        totalIncome: !newIsExpense ? increment(updatedTx.amount) : increment(0),
+        [`byCategory.${updatedTx.categoryId}`]: newIsExpense ? increment(updatedTx.amount) : increment(0),
+        [`byMember.${updatedTx.paidBy}`]: newIsExpense ? increment(updatedTx.amount) : increment(0),
+        transactionCount: increment(1),
+        updatedAt: Date.now()
+      }, { merge: true });
+    }
+  });
+}
+
+/**
  * LẮNG NGHE REALTIME DANH MỤC CỦA TỔ ẤM
  */
 export function subscribeCategories(
