@@ -24,12 +24,14 @@ export const App: React.FC = () => {
   // Trạng thái mở các Modal
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [isLetterOpen, setIsLetterOpen] = useState(false);
+  const [joinCodeParam, setJoinCodeParam] = useState<string>('');
 
   // Kiểm tra link mời tham gia từ URL (?join=CODE)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const joinCode = params.get('join');
     if (joinCode) {
+      setJoinCodeParam(joinCode);
       setIsInviteOpen(true);
     }
   }, []);
@@ -163,6 +165,7 @@ export const App: React.FC = () => {
       <InviteModal
         isOpen={isInviteOpen}
         onClose={() => setIsInviteOpen(false)}
+        initialCode={joinCodeParam}
       />
 
       {/* Modal Bức thư tháng */}

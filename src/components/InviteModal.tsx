@@ -7,21 +7,35 @@ import { triggerHaptic } from '../utils/haptics';
 interface InviteModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialCode?: string;
 }
 
-export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose }) => {
+export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initialCode }) => {
   const { activeHousehold, generateInviteCode, joinWithInviteCode } = useApp();
   
-  const [activeTab, setActiveTab] = useState<'create' | 'join'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'join'>(initialCode ? 'join' : 'create');
   const [inviteCode, setInviteCode] = useState<string>('');
-  const [inputCode, setInputCode] = useState<string>('');
+  const [inputCode, setInputCode] = useState<string>(initialCode || '');
   const [copied, setCopied] = useState<boolean>(false);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [isJoining, setIsJoining] = useState<boolean>(false);
 
+  React.useEffect(() => {
+    if (initialCode) {
+      setInputCode(initialCode);
+      setActiveTab('join');
+    }
+  }, [initialCode]);
+
   if (!isOpen) return null;
 
+  const isHouseholdFull = (activeHousehold?.members?.length || 0) >= 2;
+
   const handleGenerate = async () => {
+    if (isHouseholdFull) {
+      alert('Tổ ấm đã có đủ 2 thành viên (Vợ & Chồng), không thể tạo thêm mã mời.');
+      return;
+    }
     try {
       setIsGenerating(true);
       playActionClick();
@@ -60,7 +74,14 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose }) => 
       alert('Đã kết nối vào tổ ấm thành công!');
       onClose();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Mã mời không hợp lệ hoặc đã hết hạn';
+      let msg = 'Mã mời không hợp lệ hoặc đã hết hạn';
+      if (err instanceof Error) {
+        if (err.message.includes('permission-denied') || err.message.includes('Missing or insufficient permissions')) {
+          msg = '⚠️ Không thể tham gia: Tổ ấm này đã đủ 2 thành viên (Vợ & Chồng) hoặc bạn không có quyền truy cập.';
+        } else {
+          msg = err.message;
+        }
+      }
       alert(msg);
     } finally {
       setIsJoining(false);
@@ -78,7 +99,9 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose }) => 
             </div>
             <div>
               <h3 className="text-sm font-semibold text-[#1C1917]">Mời thành viên</h3>
-              <p className="text-[11px] text-[#78716C]">Kết nối bạn đời vào {activeHousehold?.name || 'tổ ấm'}</p>
+              <p className="text-[11px] text-[#78716C]">
+                {isHouseholdFull ? 'Tổ ấm đã đủ 2 thành viên' : `Kết nối bạn đời vào ${activeHousehold?.name || 'tổ ấm'}`}
+              </p>
             </div>
           </div>
           <button
@@ -124,55 +147,69 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose }) => 
 
         {/* Nội dung Tab 1: Tạo mã mời */}
         {activeTab === 'create' ? (
-          <div className="space-y-3 py-1">
-            <p className="text-xs text-[#78716C] leading-relaxed">
-              Mã mời có thời hạn **48 giờ**. Bạn có thể gửi mã hoặc đường dẫn trực tiếp qua Zalo / iMessage cho người thân để cùng quản lý sổ cái.
-            </p>
-
-            {inviteCode ? (
-              <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] space-y-3">
-                <div className="text-center">
-                  <span className="text-[11px] text-[#78716C] uppercase tracking-wider font-mono">
-                    Mã mời tổ ấm của bạn
-                  </span>
-                  <div className="mt-1 text-2xl font-bold font-mono text-[#0F3D39] tracking-widest">
-                    {inviteCode}
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleCopyLink}
-                  className="w-full py-2.5 rounded-xl bg-[#0F3D39] text-white text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#174E4A] active:scale-98 transition-all tactile-btn"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Đã sao chép liên kết!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Sao chép liên kết 1-chạm</span>
-                    </>
-                  )}
-                </button>
+          isHouseholdFull ? (
+            <div className="p-4 rounded-2xl bg-[#ECFDF5] border border-[#10B981]/20 text-center space-y-2.5 my-2">
+              <div className="w-10 h-10 rounded-2xl bg-[#10B981]/15 text-[#047857] flex items-center justify-center mx-auto text-lg">
+                🏡
               </div>
-            ) : (
-              <button
-                disabled={isGenerating}
-                onClick={handleGenerate}
-                className="w-full py-3 rounded-2xl bg-[#0F3D39] text-white text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#174E4A] active:scale-98 transition-all tactile-btn shadow-xs"
-              >
-                <LinkIcon className="w-3.5 h-3.5" />
-                <span>{isGenerating ? 'Đang tạo mã...' : 'Tạo liên kết mời bạn đời'}</span>
-              </button>
-            )}
-
-            <div className="flex items-center gap-1.5 text-[11px] text-[#A8A29E] pt-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
-              <span>Dữ liệu được mã hóa và cô lập riêng cho tổ ấm của bạn</span>
+              <h4 className="text-xs font-bold text-[#0F3D39]">
+                Tổ ấm đã gắn kết trọn vẹn (2/2 thành viên)
+              </h4>
+              <p className="text-[11px] text-[#047857] leading-relaxed">
+                Tổ ấm của bạn hiện đã đủ 2 thành viên đồng hành (Vợ & Chồng). Mỗi tổ ấm được thiết kế riêng tư và bảo mật cho 2 người, không thể mời thêm thành viên thứ 3.
+              </p>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-3 py-1">
+              <p className="text-xs text-[#78716C] leading-relaxed">
+                Mã mời có thời hạn **48 giờ**. Bạn có thể gửi mã hoặc đường dẫn trực tiếp qua Zalo / iMessage cho người thân để cùng quản lý sổ cái.
+              </p>
+
+              {inviteCode ? (
+                <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] space-y-3">
+                  <div className="text-center">
+                    <span className="text-[11px] text-[#78716C] uppercase tracking-wider font-mono">
+                      Mã mời tổ ấm của bạn
+                    </span>
+                    <div className="mt-1 text-2xl font-bold font-mono text-[#0F3D39] tracking-widest">
+                      {inviteCode}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleCopyLink}
+                    className="w-full py-2.5 rounded-xl bg-[#0F3D39] text-white text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#174E4A] active:scale-98 transition-all tactile-btn"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Đã sao chép liên kết!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Sao chép liên kết 1-chạm</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <button
+                  disabled={isGenerating}
+                  onClick={handleGenerate}
+                  className="w-full py-3 rounded-2xl bg-[#0F3D39] text-white text-xs font-semibold flex items-center justify-center gap-2 hover:bg-[#174E4A] active:scale-98 transition-all tactile-btn shadow-xs"
+                >
+                  <LinkIcon className="w-3.5 h-3.5" />
+                  <span>{isGenerating ? 'Đang tạo mã...' : 'Tạo liên kết mời bạn đời'}</span>
+                </button>
+              )}
+
+              <div className="flex items-center gap-1.5 text-[11px] text-[#A8A29E] pt-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-[#10B981]" />
+                <span>Giới hạn tối đa 2 người (Vợ & Chồng) để bảo mật tài chính</span>
+              </div>
+            </div>
+          )
         ) : (
           /* Nội dung Tab 2: Nhập mã gia nhập */
           <div className="space-y-3 py-1">

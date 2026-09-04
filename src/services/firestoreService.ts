@@ -275,6 +275,15 @@ export async function createInvitation(
 ): Promise<string> {
   if (!db) throw new Error('Firestore chưa được khởi tạo');
 
+  // Kiểm tra số lượng thành viên hiện tại của tổ ấm (tối đa 2 người: Vợ & Chồng)
+  const householdSnap = await getDoc(doc(db, 'households', householdId));
+  if (householdSnap.exists()) {
+    const data = householdSnap.data() as Household;
+    if (data.members && data.members.length >= 2) {
+      throw new Error('Tổ ấm đã đủ 2 thành viên đồng hành (Vợ & Chồng), không thể tạo thêm mã mời.');
+    }
+  }
+
   // Sinh mã ngắn ngẫu nhiên 6 ký tự (Ví dụ: TOAM-8868)
   const randNum = Math.floor(1000 + Math.random() * 9000);
   const inviteCode = `TOAM-${randNum}`;

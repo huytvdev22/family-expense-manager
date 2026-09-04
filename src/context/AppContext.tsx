@@ -345,7 +345,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // CHẤP NHẬN MÃ MỜI
   const joinWithInviteCode = async (code: string) => {
     if (isFirebaseActive && currentUser) {
-      await acceptInvitation(code, currentUser);
+      const newHouseholdId = await acceptInvitation(code, currentUser);
+      // Nạp và chuyển sang tổ ấm mới ngay lập tức
+      const newHousehold = await getHousehold(newHouseholdId);
+      if (newHousehold) {
+        setActiveHousehold(newHousehold);
+        setCurrentUser((prev) => prev ? {
+          ...prev,
+          activeHouseholdId: newHouseholdId,
+          householdIds: Array.from(new Set([...(prev.householdIds || []), newHouseholdId]))
+        } : null);
+      }
     } else {
       alert(`Đã tham gia tổ ấm với mã ${code} (Chế độ mô phỏng)`);
     }

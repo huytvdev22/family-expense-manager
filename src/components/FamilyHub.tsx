@@ -89,56 +89,94 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
         {/* Cột trái: Thành viên & Bức thư tháng */}
         <div className="space-y-4">
-          {/* 2. Thành viên tổ ấm (Vợ & Chồng) */}
+          {/* 2. Thành viên tổ ấm (Vợ & Chồng - Tối đa 2 người) */}
           <div className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-3.5">
               <div className="flex items-center gap-2">
                 <Users className="w-4 h-4 text-[#0F3D39]" />
                 <h3 className="text-xs uppercase font-semibold text-[#78716C] tracking-wider">
-                  Thành viên đồng hành
+                  Thành viên đồng hành ({activeHousehold?.members?.length || 1}/2)
                 </h3>
               </div>
-              <button
-                onClick={() => {
-                  playActionClick();
-                  triggerHaptic(10);
-                  onOpenInvite();
-                }}
-                className="flex items-center gap-1 text-xs font-semibold text-[#0F3D39] hover:underline"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>Mời bạn đời</span>
-              </button>
+              {((activeHousehold?.members?.length || 0) < 2) ? (
+                <button
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(10);
+                    onOpenInvite();
+                  }}
+                  className="flex items-center gap-1 text-xs font-semibold text-[#0F3D39] hover:underline"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>Mời bạn đời</span>
+                </button>
+              ) : (
+                <span className="flex items-center gap-1 text-[11px] font-semibold text-[#047857] bg-[#ECFDF5] px-2 py-0.5 rounded-full border border-[#10B981]/20">
+                  <ShieldCheck className="w-3 h-3 text-[#10B981]" />
+                  <span>Đã đủ 2 người</span>
+                </span>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2.5">
-              {/* Người thứ 1: Chồng */}
+              {/* Người thứ 1: Chủ nhà */}
               <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-[#0F3D39] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
                   👨
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-[#1C1917] truncate">Chồng</p>
+                  <p className="text-xs font-bold text-[#1C1917] truncate">
+                    {activeHousehold?.members?.[0]
+                      ? (activeHousehold?.memberNames?.[activeHousehold.members[0]] || 'Chồng')
+                      : 'Chồng'}
+                  </p>
                   <p className="text-[10px] text-[#047857] font-mono flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block" />
-                    Đang trực tuyến
+                    Chủ nhà
                   </p>
                 </div>
               </div>
 
-              {/* Người thứ 2: Vợ */}
-              <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#B45309] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
-                  👩
+              {/* Người thứ 2: Bạn đời (hoặc ô mời) */}
+              {((activeHousehold?.members?.length || 0) >= 2) ? (
+                <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#B45309] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                    👩
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-[#1C1917] truncate">
+                      {activeHousehold?.members?.[1]
+                        ? (activeHousehold?.memberNames?.[activeHousehold.members[1]] || 'Vợ')
+                        : 'Vợ'}
+                    </p>
+                    <p className="text-[10px] text-[#047857] font-mono flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block" />
+                      Đồng hành
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-[#1C1917] truncate">Vợ</p>
-                  <p className="text-[10px] text-[#78716C] font-mono flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block" />
-                    Đồng hành
-                  </p>
-                </div>
-              </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(10);
+                    onOpenInvite();
+                  }}
+                  className="p-3 rounded-2xl border border-dashed border-[#D6D2CA] bg-[#FAF9F6]/60 hover:bg-[#FAF9F6] flex items-center gap-2.5 text-left transition-all group"
+                >
+                  <div className="w-9 h-9 rounded-xl border border-dashed border-[#A8A29E] text-[#A8A29E] group-hover:border-[#0F3D39] group-hover:text-[#0F3D39] flex items-center justify-center font-bold text-xs shrink-0 transition-colors">
+                    <UserPlus className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-[#78716C] group-hover:text-[#0F3D39] truncate transition-colors">
+                      + Mời bạn đời
+                    </p>
+                    <p className="text-[10px] text-[#A8A29E] font-mono truncate">
+                      Gắn kết 2 người
+                    </p>
+                  </div>
+                </button>
+              )}
             </div>
           </div>
 
