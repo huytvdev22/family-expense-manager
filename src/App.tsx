@@ -43,7 +43,7 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col pb-28 sm:pb-8">
+    <div className="min-h-screen bg-[#FAF9F6] text-[#1C1917] flex flex-col pb-24 sm:pb-8">
       {/* Header cố định */}
       <Header
         onOpenInvite={() => setIsInviteOpen(true)}

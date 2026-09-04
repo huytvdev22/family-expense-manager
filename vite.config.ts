@@ -19,7 +19,7 @@ export default defineConfig({
         name: 'Tổ Ấm Nhỏ - Quản Lý Chi Tiêu Gia Đình',
         short_name: 'Tổ Ấm Nhỏ',
         description: 'Ứng dụng quản lý tài chính gia đình ấm áp, minh bạch và gắn kết',
-        theme_color: '#0F3D39',
+        theme_color: '#FAF9F6',
         background_color: '#FAF9F6',
         display: 'standalone',
         orientation: 'portrait',
