@@ -23,7 +23,12 @@ import {
   createInvitation,
   acceptInvitation,
   setMemberRole,
-  syncMemberPhoto
+  syncMemberPhoto,
+  saveCategory,
+  updateCategory,
+  archiveCategory,
+  unarchiveCategory,
+  deleteCategoryPermanently
 } from '../services/firestoreService';
 import { 
   MOCK_USER, 
@@ -50,6 +55,10 @@ interface AppContextType {
   // Tổ ấm hiện tại
   activeHousehold: Household | null;
   categories: Category[];
+  createCategory: (catData: Omit<Category, 'id' | 'createdAt' | 'isArchived' | 'order'>) => Promise<void>;
+  editCategory: (categoryId: string, updates: Partial<Category>) => Promise<void>;
+  removeCategory: (category: Category) => Promise<void>;
+  restoreCategory: (categoryId: string) => Promise<void>;
   
   // Thời gian xem sổ cái
   currentYearMonth: string;
@@ -454,6 +463,82 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setActiveHousehold((prev) => prev ? { ...prev, monthlyBudget: newBudget } : null);
   };
 
+  // THÊM DANH MỤC MỚI
+  const createCategory = async (catData: Omit<Category, 'id' | 'createdAt' | 'isArchived' | 'order'>) => {
+    const newCat: Category = {
+      ...catData,
+      id: `cat_${Date.now()}`,
+      order: categories.length + 1,
+      isArchived: false,
+      createdAt: new Date().toISOString()
+    };
+    playSuccessChime();
+    triggerHaptic(10);
+    setCategories((prev) => [...prev, newCat]);
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      await saveCategory(activeHousehold.id, newCat);
+    }
+    showToast(`Đã tạo nhóm "${newCat.name}"`, 'success');
+  };
+
+  // CHỈNH SỬA DANH MỤC
+  const editCategory = async (categoryId: string, updates: Partial<Category>) => {
+    playActionClick();
+    triggerHaptic(10);
+    setCategories((prev) =>
+      prev.map((c) => (c.id === categoryId ? { ...c, ...updates } : c))
+    );
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      await updateCategory(activeHousehold.id, categoryId, updates);
+    }
+    showToast('Đã lưu thay đổi danh mục', 'success');
+  };
+
+  // XÓA HOẶC ẨN DANH MỤC AN TOÀN
+  const removeCategory = async (category: Category) => {
+    playActionClick();
+    triggerHaptic(15);
+
+    // Kiểm tra xem danh mục đã phát sinh giao dịch nào chưa
+    const isUsed = transactions.some((t) => t.categoryId === category.id);
+
+    if (isUsed) {
+      // Đã có giao dịch: Ẩn danh mục (Soft Delete) để không làm mất lịch sử
+      setCategories((prev) =>
+        prev.map((c) => (c.id === category.id ? { ...c, isArchived: true } : c))
+      );
+
+      if (isFirebaseActive && activeHousehold && firebaseUser) {
+        await archiveCategory(activeHousehold.id, category.id);
+      }
+      showToast(`Đã ẩn danh mục "${category.name}" để bảo vệ lịch sử thu chi`, 'info');
+    } else {
+      // Chưa có giao dịch: Xóa vĩnh viễn
+      setCategories((prev) => prev.filter((c) => c.id !== category.id));
+
+      if (isFirebaseActive && activeHousehold && firebaseUser) {
+        await deleteCategoryPermanently(activeHousehold.id, category.id);
+      }
+      showToast(`Đã xóa danh mục "${category.name}"`, 'info');
+    }
+  };
+
+  // KHÔI PHỤC DANH MỤC ĐÃ ẨN
+  const restoreCategory = async (categoryId: string) => {
+    playSuccessChime();
+    triggerHaptic(10);
+    setCategories((prev) =>
+      prev.map((c) => (c.id === categoryId ? { ...c, isArchived: false } : c))
+    );
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      await unarchiveCategory(activeHousehold.id, categoryId);
+    }
+    showToast('Đã khôi phục danh mục thành công!', 'success');
+  };
+
   // TẠO TỔ ẤM MỚI
   const createNewHousehold = async (name: string, budget: number) => {
     if (isFirebaseActive && currentUser) {
@@ -625,6 +710,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         updateUserRole,
         activeHousehold,
         categories,
+        createCategory,
+        editCategory,
+        removeCategory,
+        restoreCategory,
         currentYearMonth,
         setCurrentYearMonth,
         goToPreviousMonth,

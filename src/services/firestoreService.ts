@@ -330,7 +330,6 @@ export function subscribeCategories(
 
   const q = query(
     collection(db, `households/${householdId}/categories`),
-    where('isArchived', '==', false),
     orderBy('order', 'asc')
   );
 
@@ -343,6 +342,81 @@ export function subscribeCategories(
   }, (err) => {
     console.warn('Lỗi subscribeCategories:', err);
   });
+}
+
+/**
+ * LƯU DANH MỤC MỚI VÀO TỔ ẤM
+ */
+export async function saveCategory(
+  householdId: string,
+  category: Category
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const catRef = doc(db, `households/${householdId}/categories/${category.id}`);
+  await setDoc(catRef, category);
+}
+
+/**
+ * CẬP NHẬT THÔNG TIN DANH MỤC (Tên, màu sắc, hạn mức...)
+ */
+export async function updateCategory(
+  householdId: string,
+  categoryId: string,
+  updates: Partial<Category>
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const catRef = doc(db, `households/${householdId}/categories/${categoryId}`);
+  await updateDoc(catRef, {
+    ...updates,
+    updatedAt: Date.now()
+  });
+}
+
+/**
+ * ẨN / LƯU TRỮ DANH MỤC (Soft Delete để bảo vệ lịch sử)
+ */
+export async function archiveCategory(
+  householdId: string,
+  categoryId: string
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const catRef = doc(db, `households/${householdId}/categories/${categoryId}`);
+  await updateDoc(catRef, {
+    isArchived: true,
+    updatedAt: Date.now()
+  });
+}
+
+/**
+ * KHÔI PHỤC DANH MỤC ĐÃ ẨN
+ */
+export async function unarchiveCategory(
+  householdId: string,
+  categoryId: string
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const catRef = doc(db, `households/${householdId}/categories/${categoryId}`);
+  await updateDoc(catRef, {
+    isArchived: false,
+    updatedAt: Date.now()
+  });
+}
+
+/**
+ * XÓA VĨNH VIỄN DANH MỤC (Hard Delete - áp dụng khi danh mục chưa phát sinh giao dịch)
+ */
+export async function deleteCategoryPermanently(
+  householdId: string,
+  categoryId: string
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const catRef = doc(db, `households/${householdId}/categories/${categoryId}`);
+  await deleteDoc(catRef);
 }
 
 /**

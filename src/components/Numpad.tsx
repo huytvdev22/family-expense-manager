@@ -33,10 +33,11 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
     }
   }, [userRole]);
 
-  // Lọc danh mục theo loại giao dịch
+  // Lọc danh mục theo loại giao dịch (chỉ lấy danh mục đang hoạt động, bỏ qua danh mục đã ẩn)
   const currentCategories = useMemo(() => {
-    const list = categories.filter((c) => (c.type || 'EXPENSE') === txType);
-    return list.length > 0 ? list : categories;
+    const activeList = categories.filter((c) => !c.isArchived);
+    const list = activeList.filter((c) => (c.type || 'EXPENSE') === txType);
+    return list.length > 0 ? list : activeList;
   }, [categories, txType]);
 
   // Nhóm chi/thu được chọn

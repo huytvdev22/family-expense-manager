@@ -44,9 +44,9 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 
   // Lọc danh mục theo loại giao dịch
   const currentCategories = useMemo(() => {
-    const list = categories.filter((c) => (c.type || 'EXPENSE') === txType);
+    const list = categories.filter((c) => (!c.isArchived || c.id === transaction?.categoryId) && (c.type || 'EXPENSE') === txType);
     return list.length > 0 ? list : categories;
-  }, [categories, txType]);
+  }, [categories, txType, transaction?.categoryId]);
 
   // Đảm bảo selectedCategoryId luôn hợp lệ với loại giao dịch
   useEffect(() => {
