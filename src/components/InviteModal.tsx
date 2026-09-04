@@ -35,12 +35,21 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
   const [previewInvite, setPreviewInvite] = useState<Invitation | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState<boolean>(false);
 
+  // Chỉ đánh giá tổ ấm đã đầy nếu người dùng đã đăng nhập với dữ liệu tổ ấm thật
+  const isHouseholdFull = Boolean(
+    firebaseUser && 
+    activeHousehold && 
+    (activeHousehold.members?.length || 0) >= 2
+  );
+
   useEffect(() => {
-    if (initialCode) {
+    if (isHouseholdFull) {
+      setActiveTab('create');
+    } else if (initialCode) {
       setInputCode(initialCode);
       setActiveTab('join');
     }
-  }, [initialCode]);
+  }, [initialCode, isHouseholdFull]);
 
   // Tải thông tin mã mời (nếu có) để hiển thị thiệp mời trực quan
   useEffect(() => {
@@ -57,13 +66,6 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
   }, [initialCode, inputCode]);
 
   if (!isOpen) return null;
-
-  // Chỉ đánh giá tổ ấm đã đầy nếu người dùng đã đăng nhập với dữ liệu tổ ấm thật
-  const isHouseholdFull = Boolean(
-    firebaseUser && 
-    activeHousehold && 
-    (activeHousehold.members?.length || 0) >= 2
-  );
 
   const handleGenerate = async () => {
     if (!firebaseUser) {
@@ -185,17 +187,27 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
         <div className="flex items-center justify-between pb-3 border-b border-[#F5F3EF]">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-xl bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center">
-              {activeTab === 'join' ? <Heart className="w-4 h-4 text-[#C15C3D]" /> : <UserPlus className="w-4 h-4" />}
+              {isHouseholdFull ? (
+                <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+              ) : activeTab === 'join' ? (
+                <Heart className="w-4 h-4 text-[#C15C3D]" />
+              ) : (
+                <UserPlus className="w-4 h-4 text-[#0F3D39]" />
+              )}
             </div>
             <div>
               <h3 className="text-sm font-semibold text-[#1C1917]">
-                {activeTab === 'join' ? 'Gia nhập tổ ấm' : 'Mời thành viên'}
+                {isHouseholdFull
+                  ? 'Tổ ấm trọn vẹn'
+                  : activeTab === 'join'
+                  ? 'Gia nhập tổ ấm'
+                  : 'Mời thành viên'}
               </h3>
               <p className="text-[11px] text-[#78716C]">
                 {!firebaseUser
                   ? 'Đồng hành quản lý tài chính gia đình'
                   : isHouseholdFull
-                  ? 'Tổ ấm đã đủ 2 thành viên'
+                  ? 'Đã đủ 2 thành viên đồng hành (Vợ & Chồng)'
                   : `Kết nối bạn đời vào ${activeHousehold?.name || 'tổ ấm'}`}
               </p>
             </div>
@@ -211,40 +223,42 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
           </button>
         </div>
 
-        {/* Tab chuyển đổi: Tạo mã mời vs Nhập mã */}
-        <div className="flex items-center bg-[#F5F3EF] p-1 rounded-2xl my-3 border border-[#E6E2DA]">
-          <button
-            onClick={() => {
-              playActionClick();
-              setActiveTab('create');
-            }}
-            className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'create'
-                ? 'bg-white text-[#0F3D39] shadow-xs'
-                : 'text-[#78716C] hover:text-[#1C1917]'
-            }`}
-          >
-            Gửi lời mời
-          </button>
-          <button
-            onClick={() => {
-              playActionClick();
-              setActiveTab('join');
-            }}
-            className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === 'join'
-                ? 'bg-white text-[#0F3D39] shadow-xs'
-                : 'text-[#78716C] hover:text-[#1C1917]'
-            }`}
-          >
-            Nhập mã gia nhập
-          </button>
-        </div>
+        {/* Tab chuyển đổi: Chỉ hiển thị khi tổ ấm chưa đủ 2 người */}
+        {!isHouseholdFull && (
+          <div className="flex items-center bg-[#F5F3EF] p-1 rounded-2xl my-3 border border-[#E6E2DA]">
+            <button
+              onClick={() => {
+                playActionClick();
+                setActiveTab('create');
+              }}
+              className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === 'create'
+                  ? 'bg-white text-[#0F3D39] shadow-xs'
+                  : 'text-[#78716C] hover:text-[#1C1917]'
+              }`}
+            >
+              Gửi lời mời
+            </button>
+            <button
+              onClick={() => {
+                playActionClick();
+                setActiveTab('join');
+              }}
+              className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                activeTab === 'join'
+                  ? 'bg-white text-[#0F3D39] shadow-xs'
+                  : 'text-[#78716C] hover:text-[#1C1917]'
+              }`}
+            >
+              Nhập mã gia nhập
+            </button>
+          </div>
+        )}
 
         {/* =========================================================================
-            NỘI DUNG TAB 1: TẠO MÃ MỜI
+            NỘI DUNG TAB 1: TẠO MÃ MỜI (HOẶC THÔNG BÁO TỔ ẤM ĐÃ ĐỦ 2 NGƯỜI)
             ========================================================================= */}
-        {activeTab === 'create' ? (
+        {activeTab === 'create' || isHouseholdFull ? (
           !firebaseUser ? (
             /* Chưa đăng nhập: Gợi ý đăng nhập để lưu trữ dữ liệu thật */
             <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] text-center space-y-3 my-2">
