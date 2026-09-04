@@ -28,9 +28,9 @@ export const TransactionList: React.FC = () => {
 
   if (transactions.length === 0) {
     return (
-      <div className="surface-card p-8 text-center text-[#516361]">
+      <div className="surface-card p-8 text-center text-on-surface-variant">
         <p className="text-sm font-medium">Chưa có giao dịch nào trong tháng.</p>
-        <p className="text-xs text-[#516361]/80 mt-1">Chạm vào một Quick Tag ở trên để ghi khoản chi đầu tiên!</p>
+        <p className="text-xs text-on-surface-variant/80 mt-1">Chạm vào một Quick Tag ở trên để ghi khoản chi đầu tiên!</p>
       </div>
     );
   }
@@ -38,10 +38,10 @@ export const TransactionList: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between px-1">
-        <h2 className="text-xs font-bold uppercase tracking-wider text-[#516361]">
+        <h2 className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
           Dòng Thời Gian Chi Tiêu
         </h2>
-        <span className="text-xs text-[#516361]">
+        <span className="text-xs text-on-surface-variant">
           {transactions.length} giao dịch
         </span>
       </div>
@@ -56,17 +56,17 @@ export const TransactionList: React.FC = () => {
           return (
             <div key={date} className="surface-card p-3.5 space-y-2.5">
               {/* Tiêu đề Ngày */}
-              <div className="flex items-center justify-between border-b border-[#D2DDD8]/60 pb-2 text-xs">
-                <span className="font-bold text-[#0F3D39]">
+              <div className="flex items-center justify-between border-b border-border/60 pb-2 text-xs">
+                <span className="font-bold text-primary">
                   {formatDateVN(date)}
                 </span>
-                <span className="font-mono text-[#516361]">
-                  Tổng ngày: <strong className="text-[#192423] font-bold">{formatVND(totalDayExpense)}</strong>
+                <span className="font-mono text-on-surface-variant">
+                  Tổng ngày: <strong className="text-on-surface font-bold">{formatVND(totalDayExpense)}</strong>
                 </span>
               </div>
 
               {/* Các dòng giao dịch */}
-              <div className="divide-y divide-[#D2DDD8]/40">
+              <div className="divide-y divide-border/40">
                 {txs.map((tx) => {
                   const IconComp = CATEGORY_ICON_MAP[tx.categoryId] || ShoppingCart;
                   const isExpense = tx.type === 'EXPENSE';
@@ -74,35 +74,35 @@ export const TransactionList: React.FC = () => {
                   return (
                     <div
                       key={tx.id}
-                      className="py-2 flex items-center justify-between gap-3 group hover:bg-[#FAF9F6] rounded-xl px-1 transition-colors"
+                      className="py-2 flex items-center justify-between gap-3 group hover:bg-neutral rounded-xl px-1 transition-colors"
                     >
                       {/* Icon & Diễn giải */}
                       <div className="flex items-center gap-2.5 min-w-0">
                         <div
                           className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                             isExpense
-                              ? 'bg-[#F0F4F2] text-[#0F3D39]'
-                              : 'bg-[#DCFCE7] text-[#14532D]'
+                              ? 'bg-surface-container text-primary'
+                              : 'bg-income-container text-income-text'
                           }`}
                         >
                           <IconComp className="w-4 h-4" />
                         </div>
 
                         <div className="min-w-0">
-                          <p className="text-xs font-semibold text-[#192423] truncate">
+                          <p className="text-xs font-semibold text-on-surface truncate">
                             {tx.note}
                           </p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span
                               className={`text-[10px] px-1.5 py-0.2 rounded-md font-semibold ${
                                 tx.paidBy === 'Chồng'
-                                  ? 'bg-[#0F3D39]/10 text-[#0F3D39]'
-                                  : 'bg-[#B45309]/15 text-[#B45309]'
+                                  ? 'bg-primary/10 text-primary'
+                                  : 'bg-tertiary/15 text-tertiary'
                               }`}
                             >
                               {tx.paidBy}
                             </span>
-                            <span className="text-[10px] text-[#516361] truncate">
+                            <span className="text-[10px] text-on-surface-variant truncate">
                               {tx.categoryName}
                             </span>
                           </div>
@@ -114,7 +114,7 @@ export const TransactionList: React.FC = () => {
                         <div className="text-right">
                           <p
                             className={`text-sm font-bold font-mono ${
-                              isExpense ? 'text-[#192423]' : 'text-[#10B981]'
+                              isExpense ? 'text-on-surface' : 'text-income'
                             }`}
                           >
                             {isExpense ? '-' : '+'}
@@ -125,7 +125,7 @@ export const TransactionList: React.FC = () => {
                         <button
                           onClick={() => deleteTransaction(tx.id)}
                           title="Xóa giao dịch"
-                          className="opacity-40 hover:opacity-100 hover:text-[#E11D48] p-1.5 transition-opacity"
+                          className="opacity-40 hover:opacity-100 hover:text-expense p-1.5 transition-opacity"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

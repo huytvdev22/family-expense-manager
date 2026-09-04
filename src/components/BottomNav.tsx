@@ -24,7 +24,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#FAF9F6]/95 backdrop-blur-md border-t border-[#D2DDD8] safe-bottom px-4 py-2">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-neutral/95 backdrop-blur-md border-t border-border safe-bottom px-4 py-2">
       <div className="max-w-md mx-auto flex items-center justify-between relative">
         {/* Tab Trang Chủ */}
         <button
@@ -33,7 +33,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             triggerHaptic(8);
           }}
           className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-colors ${
-            activeTab === 'home' ? 'text-[#0F3D39] font-bold' : 'text-[#516361]'
+            activeTab === 'home' ? 'text-primary font-bold' : 'text-on-surface-variant'
           }`}
         >
           <Home className="w-5 h-5" />
@@ -47,7 +47,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             triggerHaptic(8);
           }}
           className={`flex flex-col items-center gap-1 py-1 px-3 rounded-xl transition-colors ${
-            activeTab === 'categories' ? 'text-[#0F3D39] font-bold' : 'text-[#516361]'
+            activeTab === 'categories' ? 'text-primary font-bold' : 'text-on-surface-variant'
           }`}
         >
           <FolderKanban className="w-5 h-5" />
@@ -58,7 +58,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         <div className="relative -top-4 flex items-center justify-center">
           <button
             onClick={handleNumpadClick}
-            className="w-14 h-14 rounded-full bg-[#0F3D39] text-[#FFFFFF] shadow-lg hover:bg-[#164E48] active:scale-95 flex items-center justify-center border-4 border-[#FAF9F6] transition-transform"
+            className="w-14 h-14 rounded-full bg-primary text-on-primary shadow-lg hover:bg-primary-hover active:scale-95 flex items-center justify-center border-4 border-neutral transition-transform"
             title="Ghi khoản chi siêu tốc (3-5s)"
           >
             <Plus className="w-7 h-7" />
@@ -71,7 +71,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             triggerHaptic(8);
             onOpenLetter();
           }}
-          className="flex flex-col items-center gap-1 py-1 px-3 rounded-xl text-[#516361] hover:text-[#0F3D39] transition-colors"
+          className="flex flex-col items-center gap-1 py-1 px-3 rounded-xl text-on-surface-variant hover:text-primary transition-colors"
         >
           <Mail className="w-5 h-5" />
           <span className="text-[10px]">Thư Tháng</span>
@@ -83,7 +83,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             triggerHaptic(8);
             onOpenInvite();
           }}
-          className="flex flex-col items-center gap-1 py-1 px-3 rounded-xl text-[#516361] hover:text-[#0F3D39] transition-colors"
+          className="flex flex-col items-center gap-1 py-1 px-3 rounded-xl text-on-surface-variant hover:text-primary transition-colors"
         >
           <UserPlus className="w-5 h-5" />
           <span className="text-[10px]">Mời Bạn</span>

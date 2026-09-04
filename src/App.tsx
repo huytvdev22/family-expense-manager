@@ -65,7 +65,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] text-[#192423] pb-28">
+    <div className="min-h-screen bg-neutral text-on-surface pb-28">
       {/* Header */}
       <Header
         onOpenInvite={() => setIsInviteOpen(true)}

@@ -82,21 +82,21 @@ export const Numpad: React.FC<NumpadProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-sm transition-opacity">
       <div 
-        className="w-full max-w-lg bg-[#FAF9F6] rounded-t-3xl border-t border-[#D2DDD8] shadow-2xl p-5 pb-8 safe-bottom animate-in slide-in-from-bottom duration-200"
+        className="w-full max-w-lg bg-neutral rounded-t-3xl border-t border-border shadow-2xl p-5 pb-8 safe-bottom animate-in slide-in-from-bottom duration-200"
       >
         {/* Thanh kéo & Nút đóng */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#D2DDD8]/60">
+        <div className="flex items-center justify-between pb-3 border-b border-border/60">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-[#516361]">
-              Ghi bởi: <strong className="text-[#0F3D39] font-bold">{currentMember}</strong>
+            <span className="text-xs font-semibold text-on-surface-variant">
+              Ghi bởi: <strong className="text-primary font-bold">{currentMember}</strong>
             </span>
             {/* Chuyển Loại Thu / Chi */}
-            <div className="flex bg-[#F0F4F2] p-0.5 rounded-lg border border-[#D2DDD8] text-xs">
+            <div className="flex bg-surface-container p-0.5 rounded-lg border border-border text-xs">
               <button
                 type="button"
                 onClick={() => setType('EXPENSE')}
                 className={`px-2 py-0.5 rounded-md font-semibold ${
-                  type === 'EXPENSE' ? 'bg-[#E11D48] text-white' : 'text-[#516361]'
+                  type === 'EXPENSE' ? 'bg-expense text-white' : 'text-on-surface-variant'
                 }`}
               >
                 Chi tiêu
@@ -105,7 +105,7 @@ export const Numpad: React.FC<NumpadProps> = ({
                 type="button"
                 onClick={() => setType('INCOME')}
                 className={`px-2 py-0.5 rounded-md font-semibold ${
-                  type === 'INCOME' ? 'bg-[#10B981] text-white' : 'text-[#516361]'
+                  type === 'INCOME' ? 'bg-income text-white' : 'text-on-surface-variant'
                 }`}
               >
                 Thu nhập
@@ -115,7 +115,7 @@ export const Numpad: React.FC<NumpadProps> = ({
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-[#F0F4F2] flex items-center justify-center text-[#516361] hover:text-[#192423]"
+            className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface"
           >
             <X className="w-4 h-4" />
           </button>
@@ -123,10 +123,10 @@ export const Numpad: React.FC<NumpadProps> = ({
 
         {/* Màn hình hiển thị số tiền to rõ */}
         <div className="py-4 text-center">
-          <div className="text-xs font-medium text-[#516361] uppercase tracking-wider mb-1">
+          <div className="text-xs font-medium text-on-surface-variant uppercase tracking-wider mb-1">
             Số tiền ({type === 'EXPENSE' ? 'Chi trả' : 'Thu vào'})
           </div>
-          <div className="text-4xl font-extrabold font-mono text-[#0F3D39] tracking-tight min-h-[48px] flex items-center justify-center">
+          <div className="text-4xl font-extrabold font-mono text-primary tracking-tight min-h-[48px] flex items-center justify-center">
             {numericAmount > 0 ? formatVND(numericAmount) : '0 đ'}
           </div>
         </div>
@@ -144,8 +144,8 @@ export const Numpad: React.FC<NumpadProps> = ({
                 }}
                 className={`px-3 py-1.5 rounded-xl text-xs font-medium shrink-0 border transition-all ${
                   selectedCatId === cat.id
-                    ? 'bg-[#0F3D39] text-[#FFFFFF] border-[#0F3D39] shadow-sm'
-                    : 'bg-[#FFFFFF] text-[#516361] border-[#D2DDD8] hover:border-[#0F3D39]'
+                    ? 'bg-primary text-on-primary border-primary shadow-sm'
+                    : 'bg-surface text-on-surface-variant border-border hover:border-primary'
                 }`}
               >
                 {cat.name}
@@ -154,8 +154,8 @@ export const Numpad: React.FC<NumpadProps> = ({
           </div>
 
           {/* Ô ghi chú ngắn */}
-          <div className="flex items-center gap-2 bg-[#FFFFFF] border border-[#D2DDD8] rounded-xl px-3 py-2">
-            <Tag className="w-4 h-4 text-[#516361] shrink-0" />
+          <div className="flex items-center gap-2 bg-surface border border-border rounded-xl px-3 py-2">
+            <Tag className="w-4 h-4 text-on-surface-variant shrink-0" />
             <input
               type="text"
               value={note}
@@ -172,7 +172,7 @@ export const Numpad: React.FC<NumpadProps> = ({
             <button
               key={num}
               onClick={() => handleKeyPress(num)}
-              className="h-14 rounded-2xl bg-[#FFFFFF] border border-[#D2DDD8] text-2xl font-bold font-mono text-[#192423] shadow-sm active:bg-[#F0F4F2] flex items-center justify-center"
+              className="h-14 rounded-2xl bg-surface border border-border text-2xl font-bold font-mono text-on-surface shadow-sm active:bg-surface-container flex items-center justify-center"
             >
               {num}
             </button>
@@ -181,21 +181,21 @@ export const Numpad: React.FC<NumpadProps> = ({
           {/* Hàng cuối: 000, 0, Backspace */}
           <button
             onClick={() => handleKeyPress('000')}
-            className="h-14 rounded-2xl bg-[#FFFFFF] border border-[#D2DDD8] text-lg font-bold font-mono text-[#516361] shadow-sm active:bg-[#F0F4F2] flex items-center justify-center"
+            className="h-14 rounded-2xl bg-surface border border-border text-lg font-bold font-mono text-on-surface-variant shadow-sm active:bg-surface-container flex items-center justify-center"
           >
             .000
           </button>
 
           <button
             onClick={() => handleKeyPress('0')}
-            className="h-14 rounded-2xl bg-[#FFFFFF] border border-[#D2DDD8] text-2xl font-bold font-mono text-[#192423] shadow-sm active:bg-[#F0F4F2] flex items-center justify-center"
+            className="h-14 rounded-2xl bg-surface border border-border text-2xl font-bold font-mono text-on-surface shadow-sm active:bg-surface-container flex items-center justify-center"
           >
             0
           </button>
 
           <button
             onClick={handleBackspace}
-            className="h-14 rounded-2xl bg-[#F0F4F2] border border-[#D2DDD8] text-[#516361] shadow-sm active:bg-[#E4ECE7] flex items-center justify-center"
+            className="h-14 rounded-2xl bg-surface-container border border-border text-on-surface-variant shadow-sm active:bg-surface-container-high flex items-center justify-center"
           >
             <Delete className="w-6 h-6" />
           </button>
@@ -206,7 +206,7 @@ export const Numpad: React.FC<NumpadProps> = ({
           <button
             type="button"
             onClick={handleClear}
-            className="px-4 py-3.5 rounded-2xl bg-[#F0F4F2] border border-[#D2DDD8] text-xs font-semibold text-[#516361] hover:bg-[#E4ECE7]"
+            className="px-4 py-3.5 rounded-2xl bg-surface-container border border-border text-xs font-semibold text-on-surface-variant hover:bg-surface-container-high"
           >
             Xóa
           </button>
@@ -217,8 +217,8 @@ export const Numpad: React.FC<NumpadProps> = ({
             onClick={handleSubmit}
             className={`flex-1 py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 shadow-md transition-all ${
               numericAmount > 0
-                ? 'bg-[#0F3D39] text-[#FFFFFF] hover:bg-[#164E48] active:scale-[0.98]'
-                : 'bg-[#D2DDD8] text-[#FAF9F6] cursor-not-allowed'
+                ? 'bg-primary text-on-primary hover:bg-primary-hover active:scale-[0.98]'
+                : 'bg-border text-neutral cursor-not-allowed'
             }`}
           >
             <Check className="w-5 h-5" />

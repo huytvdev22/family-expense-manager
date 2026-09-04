@@ -1,4 +1,6 @@
 @theme {
+  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
   --color-primary: #0f3d39;
   --color-primary-hover: #164e48;
   --color-on-primary: #ffffff;
@@ -58,12 +60,8 @@
   --radius-lg: 18px;
   --radius-xl: 24px;
   --radius-full: 9999px;
-  --spacing-2xs: 4px;
-  --spacing-xs: 8px;
-  --spacing-sm: 12px;
-  --spacing-md: 16px;
-  --spacing-lg: 24px;
-  --spacing-xl: 32px;
-  --spacing-2xl: 48px;
-  --spacing-3xl: 64px;
+  --shadow-sm: 0 1px 3px rgba(15, 61, 57, 0.05);
+  --shadow-md: 0 4px 12px -2px rgba(15, 61, 57, 0.08);
+  --shadow-lg: 0 10px 25px -4px rgba(15, 61, 57, 0.12);
+  --shadow-modal: 0 20px 40px -8px rgba(15, 61, 57, 0.18);
 }

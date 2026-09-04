@@ -16,13 +16,13 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ onClose }) => 
   const [newCatColor, setNewCatColor] = useState('#0F3D39');
 
   const COLOR_OPTIONS = [
-    '#0F3D39', // Pine Emerald
-    '#4A6B68', // Muted Sage
-    '#B45309', // Warm Amber
-    '#10B981', // Emerald Green
-    '#E11D48', // Rose Red
-    '#6366F1', // Indigo
-    '#8B5CF6'  // Purple
+    '#0F3D39', // Pine Emerald (Primary)
+    '#4A6B68', // Muted Sage (Secondary)
+    '#B45309', // Warm Amber (Tertiary)
+    '#10B981', // Emerald Green (Income)
+    '#E11D48', // Rose Red (Expense)
+    '#6366F1', // Indigo Accent
+    '#8B5CF6'  // Purple Accent
   ];
 
   const handleCreateCategory = (e: React.FormEvent) => {
@@ -47,22 +47,22 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ onClose }) => 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-md bg-[#FAF9F6] rounded-3xl border border-[#D2DDD8] shadow-2xl p-5 space-y-4 max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-md bg-neutral rounded-3xl border border-border shadow-2xl p-5 space-y-4 max-h-[90vh] flex flex-col">
         {/* Tiêu đề & Nút đóng */}
-        <div className="flex items-center justify-between pb-2 border-b border-[#D2DDD8]">
+        <div className="flex items-center justify-between pb-2 border-b border-border">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-[#0F3D39] text-[#FAF9F6] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-primary text-neutral flex items-center justify-center">
               <FolderKanban className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-[#0F3D39]">Quản Lý Nhóm Chi Tiêu</h2>
-              <p className="text-[11px] text-[#516361]">Tùy biến danh mục riêng của tổ ấm</p>
+              <h2 className="text-sm font-bold text-primary">Quản Lý Nhóm Chi Tiêu</h2>
+              <p className="text-[11px] text-on-surface-variant">Tùy biến danh mục riêng của tổ ấm</p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-[#F0F4F2] flex items-center justify-center text-[#516361] hover:text-[#192423]"
+            className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant hover:text-on-surface"
           >
             <X className="w-4 h-4" />
           </button>
@@ -78,7 +78,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ onClose }) => 
             return (
               <div
                 key={cat.id}
-                className="p-3 bg-[#FFFFFF] rounded-2xl border border-[#D2DDD8] space-y-2"
+                className="p-3 bg-surface rounded-2xl border border-border space-y-2"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -86,26 +86,26 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ onClose }) => 
                       className="w-3.5 h-3.5 rounded-full"
                       style={{ backgroundColor: cat.color }}
                     />
-                    <span className="text-xs font-bold text-[#192423]">{cat.name}</span>
+                    <span className="text-xs font-bold text-on-surface">{cat.name}</span>
                     {cat.isDefault && (
-                      <span className="text-[10px] bg-[#F0F4F2] text-[#516361] px-1.5 py-0.2 rounded-md">
+                      <span className="text-[10px] bg-surface-container text-on-surface-variant px-1.5 py-0.2 rounded-md">
                         Mặc định
                       </span>
                     )}
                   </div>
 
-                  <span className="text-xs font-mono font-bold text-[#0F3D39]">
+                  <span className="text-xs font-mono font-bold text-primary">
                     {formatVND(spent)}
                   </span>
                 </div>
 
                 {limit > 0 && (
                   <div>
-                    <div className="flex justify-between text-[10px] text-[#516361] mb-1 font-mono">
+                    <div className="flex justify-between text-[10px] text-on-surface-variant mb-1 font-mono">
                       <span>Đã dùng: {percent}%</span>
                       <span>Hạn mức: {formatVND(limit)}</span>
                     </div>
-                    <div className="w-full h-1.5 bg-[#F0F4F2] rounded-full overflow-hidden">
+                    <div className="w-full h-1.5 bg-surface-container rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all"
                         style={{
@@ -123,8 +123,8 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ onClose }) => 
 
         {/* Form thêm danh mục mới */}
         {isAdding ? (
-          <form onSubmit={handleCreateCategory} className="p-3 bg-[#FFFFFF] rounded-2xl border border-[#0F3D39] space-y-3">
-            <h3 className="text-xs font-bold text-[#0F3D39]">Tạo danh mục mới</h3>
+          <form onSubmit={handleCreateCategory} className="p-3 bg-surface rounded-2xl border border-primary space-y-3">
+            <h3 className="text-xs font-bold text-primary">Tạo danh mục mới</h3>
 
             <input
               type="text"
@@ -145,7 +145,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ onClose }) => 
 
             {/* Chọn màu */}
             <div>
-              <label className="block text-[11px] text-[#516361] mb-1 font-medium">Màu sắc đại diện:</label>
+              <label className="block text-[11px] text-on-surface-variant mb-1 font-medium">Màu sắc đại diện:</label>
               <div className="flex gap-2">
                 {COLOR_OPTIONS.map(c => (
                   <button
@@ -153,7 +153,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ onClose }) => 
                     type="button"
                     onClick={() => setNewCatColor(c)}
                     className={`w-6 h-6 rounded-full border-2 transition-all ${
-                      newCatColor === c ? 'border-[#192423] scale-110' : 'border-transparent'
+                      newCatColor === c ? 'border-on-surface scale-110' : 'border-transparent'
                     }`}
                     style={{ backgroundColor: c }}
                   />
@@ -165,13 +165,13 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ onClose }) => 
               <button
                 type="button"
                 onClick={() => setIsAdding(false)}
-                className="flex-1 py-2 text-xs font-semibold bg-[#F0F4F2] rounded-xl text-[#516361]"
+                className="flex-1 py-2 text-xs font-semibold bg-surface-container rounded-xl text-on-surface-variant"
               >
                 Hủy
               </button>
               <button
                 type="submit"
-                className="flex-1 py-2 text-xs font-semibold bg-[#0F3D39] text-[#FFFFFF] rounded-xl flex items-center justify-center gap-1"
+                className="flex-1 py-2 text-xs font-semibold bg-primary text-on-primary rounded-xl flex items-center justify-center gap-1"
               >
                 <Check className="w-3.5 h-3.5" />
                 Lưu Nhóm
@@ -184,7 +184,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ onClose }) => 
               setIsAdding(true);
               triggerHaptic(10);
             }}
-            className="w-full py-2.5 rounded-2xl border border-dashed border-[#0F3D39] text-[#0F3D39] hover:bg-[#F0F4F2] text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
+            className="w-full py-2.5 rounded-2xl border border-dashed border-primary text-primary hover:bg-surface-container text-xs font-bold flex items-center justify-center gap-1.5 transition-colors"
           >
             <Plus className="w-4 h-4" />
             Thêm Danh Mục Mới

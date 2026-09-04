@@ -1,7 +1,4 @@
 :root {
-  /* ==========================================================================
-     Colors - Harmony Ledger Design System
-     ========================================================================== */
   --color-primary: #0f3d39;
   --color-primary-hover: #164e48;
   --color-on-primary: #ffffff;
@@ -23,16 +20,6 @@
   --color-warning: #92400e;
   --color-warning-container: #fef3c7;
   --color-warning-text: #78350f;
-
-  /* ==========================================================================
-     Typography
-     ========================================================================== */
-  --font-family-base: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-family-mono: "JetBrains Mono", monospace;
-
-  /* ==========================================================================
-     Spacing Scale
-     ========================================================================== */
   --spacing-2xs: 4px;
   --spacing-xs: 8px;
   --spacing-sm: 12px;
@@ -41,22 +28,11 @@
   --spacing-xl: 32px;
   --spacing-2xl: 48px;
   --spacing-3xl: 64px;
-
-  /* ==========================================================================
-     Rounding (Border Radius) Scale
-     ========================================================================== */
   --rounded-none: 0px;
   --rounded-sm: 6px;
   --rounded-md: 12px;
   --rounded-lg: 18px;
   --rounded-xl: 24px;
   --rounded-full: 9999px;
-
-  /* ==========================================================================
-     Elevation & Shadows (Harmony Ledger)
-     ========================================================================== */
-  --shadow-sm: 0 1px 3px rgba(15, 61, 57, 0.05);
-  --shadow-md: 0 4px 12px -2px rgba(15, 61, 57, 0.08);
-  --shadow-lg: 0 10px 25px -4px rgba(15, 61, 57, 0.12);
-  --shadow-modal: 0 20px 40px -8px rgba(15, 61, 57, 0.18);
 }
+
