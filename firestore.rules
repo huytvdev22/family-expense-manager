@@ -1,0 +1,58 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Kiểm tra đã đăng nhập
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Kiểm tra là thành viên của hộ gia đình
+    function isHouseholdMember(householdId) {
+      return isAuthenticated() && 
+        request.auth.uid in get(/databases/$(database)/documents/households/$(householdId)).data.members;
+    }
+
+    // 1. Hồ sơ người dùng (users): Chỉ chính chủ mới có quyền đọc và chỉnh sửa
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // 2. Không gian hộ gia đình (households)
+    match /households/{householdId} {
+      // Cho phép tạo tổ ấm mới nếu đã đăng nhập
+      allow create: if isAuthenticated();
+      // Cho phép đọc và cập nhật nếu là thành viên của tổ ấm
+      allow read, update: if isHouseholdMember(householdId);
+      // Chỉ người tạo (ownerUid) mới có quyền xóa tổ ấm
+      allow delete: if isAuthenticated() && resource.data.ownerUid == request.auth.uid;
+
+      // 2.1. Sub-collection: Quản lý danh mục (categories)
+      match /categories/{categoryId} {
+        allow read, write: if isHouseholdMember(householdId);
+      }
+
+      // 2.2. Sub-collection: Chi tiết giao dịch (transactions)
+      match /transactions/{transactionId} {
+        allow read, write: if isHouseholdMember(householdId);
+      }
+
+      // 2.3. Sub-collection: Tổng hợp số liệu tháng (monthly_summaries)
+      match /monthly_summaries/{yearMonth} {
+        allow read, write: if isHouseholdMember(householdId);
+      }
+    }
+
+    // 3. Hệ thống mã mời (invitations)
+    match /invitations/{inviteCode} {
+      // Người dùng đã đăng nhập được đọc mã để xem thông tin mời trước khi nhận
+      allow read: if isAuthenticated();
+      // Chỉ thành viên của tổ ấm mới được quyền tạo mã mời cho tổ ấm đó
+      allow create: if isAuthenticated() && isHouseholdMember(request.resource.data.householdId);
+      // Người nhận được cập nhật trạng thái ACCEPTED khi gia nhập
+      allow update: if isAuthenticated();
+      // Không cho phép xóa trực tiếp từ client
+      allow delete: if false;
+    }
+  }
+}

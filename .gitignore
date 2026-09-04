@@ -21,7 +21,9 @@ yarn-error.log*
 # OS / Editor files
 .DS_Store
 Thumbs.db
-.idea/
-.vscode/
-*.swp
-*.swo
+# Service Account / Credentials (Private Keys)
+*-*.json
+*service_account*.json
+*.pem
+toamnho-family-*.json
+

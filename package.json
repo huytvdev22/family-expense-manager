@@ -1,9 +1,14 @@
 {
   "name": "family-expense-manager",
   "version": "1.0.0",
-  "description": "Ứng dụng Quản lý Chi tiêu Gia đình áp dụng chuẩn thiết kế Google Labs DESIGN.md",
-  "main": "index.js",
+  "description": "Ứng dụng Quản lý Chi tiêu Gia đình Tổ Ấm Nhỏ áp dụng chuẩn thiết kế Google Labs DESIGN.md",
+  "type": "module",
   "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && firebase deploy",
+    "deploy:rules": "firebase deploy --only firestore:rules,firestore:indexes",
     "lint:design": "design.md lint DESIGN.md",
     "export:css": "design.md export DESIGN.md --format css-vars > src/styles/tokens.css",
     "export:tailwind": "design.md export DESIGN.md --format css-tailwind > src/styles/theme.css"
@@ -13,11 +18,30 @@
     "expense-manager",
     "design-system",
     "design-md",
-    "google-labs"
+    "google-labs",
+    "pwa",
+    "react"
   ],
   "author": "",
   "license": "MIT",
+  "dependencies": {
+    "canvas-confetti": "^1.9.4",
+    "clsx": "^2.1.1",
+    "firebase": "^11.4.0",
+    "lucide-react": "^1.16.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.0.2"
+  },
   "devDependencies": {
-    "@google/design.md": "^0.4.0"
+    "@google/design.md": "^0.4.0",
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/node": "^22.13.9",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0",
+    "vite-plugin-pwa": "^0.21.1"
   }
 }
