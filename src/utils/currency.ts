@@ -32,9 +32,14 @@ export function getCurrentYearMonth(): string {
   return `${year}-${month}`;
 }
 
-export function formatYearMonthLabel(yearMonth: string): string {
-  const [year, month] = yearMonth.split('-');
-  return `Tháng ${month}/${year}`;
+export function formatYearMonthLabel(yearMonth?: string): string {
+  if (!yearMonth || typeof yearMonth !== 'string') {
+    const now = new Date();
+    return `Tháng ${now.getMonth() + 1}/${now.getFullYear()}`;
+  }
+  const parts = yearMonth.split('-');
+  if (parts.length < 2) return `Tháng ${yearMonth}`;
+  return `Tháng ${parts[1]}/${parts[0]}`;
 }
 
 export function formatDateLabel(dateString: string): string {

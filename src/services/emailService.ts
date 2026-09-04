@@ -29,24 +29,22 @@ export interface SendEmailOptions {
  * Tạo mã HTML Email Responsive theo ngôn ngữ thiết kế Warm Linen & Deep Pine
  * Tương thích tốt với Gmail, Apple Mail, Outlook trên cả Mobile và Desktop
  */
-export const generateMonthlyReportHtml = (data: EmailReportData): string => {
-  const {
-    householdName,
-    yearMonth,
-    totalIncome,
-    totalExpense,
-    netSavings,
-    savingsRatio,
-    husbandExpense,
-    wifeExpense,
-    husbandRatio,
-    wifeRatio,
-    husbandIncome,
-    wifeIncome,
-    husbandIncomeRatio,
-    wifeIncomeRatio,
-    topCategories
-  } = data;
+export const generateMonthlyReportHtml = (data?: EmailReportData): string => {
+  const householdName = data?.householdName || 'Tổ Ấm Nhỏ';
+  const yearMonth = data?.yearMonth || '';
+  const totalIncome = Number(data?.totalIncome) || 0;
+  const totalExpense = Number(data?.totalExpense) || 0;
+  const netSavings = Number(data?.netSavings) || 0;
+  const savingsRatio = Number(data?.savingsRatio) || 0;
+  const husbandExpense = Number(data?.husbandExpense) || 0;
+  const wifeExpense = Number(data?.wifeExpense) || 0;
+  const husbandRatio = Number(data?.husbandRatio) || 50;
+  const wifeRatio = Number(data?.wifeRatio) || 50;
+  const husbandIncome = Number(data?.husbandIncome) || 0;
+  const wifeIncome = Number(data?.wifeIncome) || 0;
+  const husbandIncomeRatio = Number(data?.husbandIncomeRatio) || 50;
+  const wifeIncomeRatio = Number(data?.wifeIncomeRatio) || 50;
+  const topCategories = Array.isArray(data?.topCategories) ? data.topCategories : [];
 
   const monthLabel = formatYearMonthLabel(yearMonth);
   const isSurplus = netSavings > 0;

@@ -10,7 +10,11 @@ import {
   Sparkles, 
   User, 
   Users, 
-  Loader2 
+  Loader2,
+  TrendingUp,
+  Receipt,
+  PiggyBank,
+  Wallet
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from './Toast';
@@ -19,7 +23,7 @@ import {
   sendMonthlyReportEmail, 
   EmailReportData 
 } from '../services/emailService';
-import { formatYearMonthLabel } from '../utils/currency';
+import { formatVND, formatYearMonthLabel } from '../utils/currency';
 import { playActionClick, playSuccessChime } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 
@@ -42,20 +46,25 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
   const [activeTab, setActiveTab] = useState<'compose' | 'preview'>('compose');
   const [recipientTarget, setRecipientTarget] = useState<RecipientTarget>('both');
   const [customEmail, setCustomEmail] = useState<string>('');
-  const [subject, setSubject] = useState<string>(
-    `[${reportData.householdName}] Báo cáo tài chính ${formatYearMonthLabel(reportData.yearMonth)}`
-  );
+  
+  // Khởi tạo subject an toàn
+  const [subject, setSubject] = useState<string>(() => {
+    const name = reportData?.householdName || 'Tổ Ấm';
+    const ymLabel = formatYearMonthLabel(reportData?.yearMonth);
+    return `[${name}] Báo cáo tài chính ${ymLabel}`;
+  });
+
   const [isSending, setIsSending] = useState<boolean>(false);
   const [copiedHtml, setCopiedHtml] = useState<boolean>(false);
 
-  // Nhận diện email Chồng & Vợ từ activeHousehold
+  // Nhận diện email Chồng & Vợ từ activeHousehold an toàn
   const { husbandEmail, wifeEmail, husbandName, wifeName } = useMemo(() => {
     let hEmail = '';
     let wEmail = '';
     let hName = 'Chồng';
     let wName = 'Vợ';
 
-    if (activeHousehold?.members) {
+    if (activeHousehold?.members && Array.isArray(activeHousehold.members)) {
       activeHousehold.members.forEach((uid) => {
         const role = activeHousehold.memberRoles?.[uid];
         const email = activeHousehold.memberEmails?.[uid] || '';
@@ -88,7 +97,48 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
     };
   }, [activeHousehold]);
 
-  if (!isOpen) return null;
+  // Trích xuất an toàn các chỉ số
+  const safeData = useMemo(() => {
+    const inc = Number(reportData?.totalIncome) || 0;
+    const exp = Number(reportData?.totalExpense) || 0;
+    const sav = Number(reportData?.netSavings) || 0;
+    const ratio = Number(reportData?.savingsRatio) || 0;
+    const hExp = Number(reportData?.husbandExpense) || 0;
+    const wExp = Number(reportData?.wifeExpense) || 0;
+    const hRatio = Number(reportData?.husbandRatio) || 50;
+    const wRatio = Number(reportData?.wifeRatio) || 50;
+    const hInc = Number(reportData?.husbandIncome) || 0;
+    const wInc = Number(reportData?.wifeIncome) || 0;
+    const hIncRatio = Number(reportData?.husbandIncomeRatio) || 50;
+    const wIncRatio = Number(reportData?.wifeIncomeRatio) || 50;
+    const cats = Array.isArray(reportData?.topCategories) ? reportData.topCategories : [];
+
+    return {
+      totalIncome: inc,
+      totalExpense: exp,
+      netSavings: sav,
+      savingsRatio: ratio,
+      husbandExpense: hExp,
+      wifeExpense: wExp,
+      husbandRatio: hRatio,
+      wifeRatio: wRatio,
+      husbandIncome: hInc,
+      wifeIncome: wInc,
+      husbandIncomeRatio: hIncRatio,
+      wifeIncomeRatio: wIncRatio,
+      topCategories: cats
+    };
+  }, [reportData]);
+
+  // Tạo HTML email preview an toàn với try/catch
+  const htmlContent = useMemo(() => {
+    try {
+      return generateMonthlyReportHtml(reportData);
+    } catch (err) {
+      console.error('Lỗi khi tạo HTML email:', err);
+      return '';
+    }
+  }, [reportData]);
 
   // Danh sách người nhận được chọn
   const selectedRecipients = useMemo(() => {
@@ -110,8 +160,7 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
     return list;
   }, [recipientTarget, husbandEmail, wifeEmail, husbandName, wifeName, customEmail]);
 
-  // Tạo HTML email preview
-  const htmlContent = generateMonthlyReportHtml(reportData);
+  if (!isOpen) return null;
 
   // Sao chép HTML vào clipboard
   const handleCopyHtml = async () => {
@@ -132,10 +181,10 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
     const emails = selectedRecipients.map(r => r.email).join(',');
     const mailtoSubject = encodeURIComponent(subject);
     const mailtoBody = encodeURIComponent(
-      `Thân gửi hai vợ chồng,\n\nDưới đây là tóm tắt Báo cáo tài chính ${formatYearMonthLabel(reportData.yearMonth)} của ${reportData.householdName}:\n` +
-      `- Tổng Thu nhập: ${reportData.totalIncome.toLocaleString()} đ\n` +
-      `- Tổng Chi tiêu: ${reportData.totalExpense.toLocaleString()} đ\n` +
-      `- Tích lũy: ${reportData.netSavings.toLocaleString()} đ (${reportData.savingsRatio}%)\n\n` +
+      `Thân gửi hai vợ chồng,\n\nDưới đây là tóm tắt Báo cáo tài chính ${formatYearMonthLabel(reportData?.yearMonth)} của ${reportData?.householdName || 'Tổ Ấm'}:\n` +
+      `- Tổng Thu nhập: ${formatVND(safeData.totalIncome)}\n` +
+      `- Tổng Chi tiêu: ${formatVND(safeData.totalExpense)}\n` +
+      `- Tích lũy: ${formatVND(safeData.netSavings)} (${safeData.savingsRatio}%)\n\n` +
       `Xem chi tiết tại: https://family-expense-manager.web.app\n` +
       `Sổ Cái Gia Đình - Hạnh phúc từ sự sẻ chia!`
     );
@@ -190,7 +239,7 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
                 Gửi Báo Cáo Tài Chính Qua Email
               </h3>
               <p className="text-[11px] text-[#78716C]">
-                {formatYearMonthLabel(reportData.yearMonth)} • {reportData.householdName}
+                {formatYearMonthLabel(reportData?.yearMonth)} • {reportData?.householdName || 'Tổ Ấm'}
               </p>
             </div>
           </div>
@@ -235,7 +284,7 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
               }`}
             >
               <Eye className="w-3.5 h-3.5" />
-              <span>Xem trước Email (Live Preview)</span>
+              <span>Xem trước bản tin</span>
             </button>
           </div>
         </div>
@@ -375,37 +424,119 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
                 />
               </div>
 
-              {/* Thẻ tóm tắt nhanh số liệu gửi */}
+              {/* Thẻ tóm tắt nhanh số liệu gửi (An toàn tuyệt đối) */}
               <div className="p-3 rounded-2xl bg-[#E7EFEF]/60 border border-[#0F3D39]/15 flex items-center justify-between text-[11px]">
                 <span className="text-[#0F3D39] font-medium flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-[#B45309]" />
-                  Tổng thu: <strong>{reportData.totalIncome.toLocaleString()} đ</strong> • Chi: <strong>{reportData.totalExpense.toLocaleString()} đ</strong>
+                  Tổng thu: <strong>{formatVND(safeData.totalIncome)}</strong> • Chi: <strong>{formatVND(safeData.totalExpense)}</strong>
                 </span>
                 <span className="font-mono font-bold text-[#0F3D39] bg-white px-2 py-0.5 rounded-full shadow-2xs">
-                  {reportData.netSavings >= 0 ? `+${reportData.netSavings.toLocaleString()} đ` : `-${Math.abs(reportData.netSavings).toLocaleString()} đ`}
+                  {safeData.netSavings >= 0 ? `+${formatVND(safeData.netSavings)}` : `-${formatVND(Math.abs(safeData.netSavings))}`}
                 </span>
               </div>
             </div>
           ) : (
-            /* Tab 2: Xem trước Email (Live Preview) */
-            <div className="space-y-2.5">
+            /* Tab 2: Xem trước Email (Visual Native Preview - An toàn 100% không sợ lỗi iframe trên Mobile) */
+            <div className="space-y-3">
               <div className="flex items-center justify-between text-[11px] text-[#78716C] px-1">
-                <span>Giao diện email chuẩn responsive (như người nhận sẽ thấy):</span>
+                <span>Bản xem trước nội dung sẽ gửi:</span>
                 <button
                   onClick={handleCopyHtml}
                   className="flex items-center gap-1 text-[#0F3D39] font-semibold hover:underline cursor-pointer"
                 >
-                  {copiedHtml ? <Check className="w-3 h-3 text-[#10B981]" /> : <Copy className="w-3 h-3" />}
-                  <span>{copiedHtml ? 'Đã chép HTML' : 'Sao chép HTML'}</span>
+                  {copiedHtml ? <Check className="w-3 h-3 text-[#10B981]" /> : <Copy className="w-3 h-3 text-[#0F3D39]" />}
+                  <span>{copiedHtml ? 'Đã sao chép HTML' : 'Sao chép mã HTML'}</span>
                 </button>
               </div>
 
-              <div className="border border-[#E6E2DA] rounded-2xl overflow-hidden bg-white shadow-xs">
-                <iframe
-                  title="Email Preview"
-                  srcDoc={htmlContent}
-                  className="w-full h-80 sm:h-96 border-0"
-                />
+              {/* Bản mô phỏng giao diện email sang trọng bằng Native React Components */}
+              <div className="border border-[#E6E2DA] rounded-2xl overflow-hidden bg-white shadow-xs p-4 space-y-4">
+                {/* Email Header */}
+                <div className="bg-[#0F3D39] text-[#FAF9F6] p-4 rounded-xl text-center space-y-1">
+                  <span className="inline-block text-[9px] uppercase tracking-widest font-mono bg-[#B45309] text-white px-2 py-0.5 rounded-full font-bold">
+                    Bản Tin Tổ Ấm
+                  </span>
+                  <h4 className="text-base font-bold font-serif">
+                    Báo Cáo Tài Chính {formatYearMonthLabel(reportData?.yearMonth)}
+                  </h4>
+                  <p className="text-[10px] text-[#D1E0DE] italic">
+                    Dành riêng cho hai vợ chồng {reportData?.householdName || 'Tổ Ấm'}
+                  </p>
+                </div>
+
+                {/* 3 Thẻ chỉ số */}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-2.5 rounded-xl bg-[#ECFDF5] border border-[#10B981]/25">
+                    <span className="text-[9px] uppercase font-bold text-[#047857] block">Thu Nhập</span>
+                    <span className="text-xs font-mono font-bold text-[#065F46] block mt-0.5">
+                      {formatVND(safeData.totalIncome)}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-[#FFF7ED] border border-[#EA580C]/25">
+                    <span className="text-[9px] uppercase font-bold text-[#C2410C] block">Chi Tiêu</span>
+                    <span className="text-xs font-mono font-bold text-[#9A3412] block mt-0.5">
+                      {formatVND(safeData.totalExpense)}
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-[#E7EFEF] border border-[#0F3D39]/20">
+                    <span className="text-[9px] uppercase font-bold text-[#0F3D39] block">Tích Lũy</span>
+                    <span className="text-xs font-mono font-bold text-[#0F3D39] block mt-0.5">
+                      {safeData.netSavings >= 0 ? `+${formatVND(safeData.netSavings)}` : `-${formatVND(Math.abs(safeData.netSavings))}`}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Tỷ lệ chia sẻ */}
+                <div className="p-3 rounded-xl bg-[#FAF9F6] border border-[#E6E2DA] space-y-2 text-[11px]">
+                  <div className="font-bold text-[#0F3D39] uppercase tracking-wider text-[9px] font-mono">
+                    Sự Đồng Hành Của Vợ & Chồng
+                  </div>
+                  
+                  {/* Thu nhập */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] text-[#78716C]">
+                      <span>Đóng góp thu nhập:</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-[#E6E2DA] flex overflow-hidden">
+                      <div style={{ width: `${safeData.husbandIncomeRatio}%` }} className="bg-[#0F3D39] h-full" />
+                      <div style={{ width: `${safeData.wifeIncomeRatio}%` }} className="bg-[#B45309] h-full" />
+                    </div>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-[#0F3D39] font-medium">👔 Chồng: {formatVND(safeData.husbandIncome)} ({safeData.husbandIncomeRatio}%)</span>
+                      <span className="text-[#B45309] font-medium">👗 Vợ: {formatVND(safeData.wifeIncome)} ({safeData.wifeIncomeRatio}%)</span>
+                    </div>
+                  </div>
+
+                  {/* Chi tiêu */}
+                  <div className="space-y-1 pt-1 border-t border-[#F5F3EF]">
+                    <div className="flex justify-between text-[10px] text-[#78716C]">
+                      <span>Gánh vác chi tiêu:</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-[#E6E2DA] flex overflow-hidden">
+                      <div style={{ width: `${safeData.husbandRatio}%` }} className="bg-[#0F3D39] h-full" />
+                      <div style={{ width: `${safeData.wifeRatio}%` }} className="bg-[#B45309] h-full" />
+                    </div>
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-[#0F3D39] font-medium">👔 Chồng: {formatVND(safeData.husbandExpense)} ({safeData.husbandRatio}%)</span>
+                      <span className="text-[#B45309] font-medium">👗 Vợ: {formatVND(safeData.wifeExpense)} ({safeData.wifeRatio}%)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Top chi tiêu */}
+                {safeData.topCategories.length > 0 && (
+                  <div className="p-3 rounded-xl bg-[#FAF9F6] border border-[#E6E2DA] space-y-1.5 text-[11px]">
+                    <div className="font-bold text-[#0F3D39] uppercase tracking-wider text-[9px] font-mono">
+                      Các Khoản Chi Lớn Nhất
+                    </div>
+                    {safeData.topCategories.slice(0, 3).map((cat, i) => (
+                      <div key={i} className="flex justify-between border-b border-dashed border-[#E6E2DA] pb-1 last:border-0 last:pb-0">
+                        <span>{i + 1}. {cat.name}</span>
+                        <span className="font-mono font-bold text-[#0F3D39]">{formatVND(cat.amount)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -324,20 +324,20 @@ export const MonthlyLetterModal: React.FC<MonthlyLetterModalProps> = ({ isOpen, 
         onClose={() => setIsEmailModalOpen(false)}
         reportData={{
           householdName: activeHousehold?.name || 'Tổ Ấm Nhỏ',
-          yearMonth: currentYearMonth,
-          totalIncome,
-          totalExpense,
-          netSavings,
-          savingsRatio,
-          husbandExpense,
-          wifeExpense,
-          husbandRatio,
-          wifeRatio,
-          husbandIncome,
-          wifeIncome,
-          husbandIncomeRatio,
-          wifeIncomeRatio,
-          topCategories
+          yearMonth: currentYearMonth || '',
+          totalIncome: totalIncome ?? 0,
+          totalExpense: totalExpense ?? 0,
+          netSavings: netSavings ?? 0,
+          savingsRatio: savingsRatio ?? 0,
+          husbandExpense: husbandExpense ?? 0,
+          wifeExpense: wifeExpense ?? 0,
+          husbandRatio: husbandRatio ?? 50,
+          wifeRatio: wifeRatio ?? 50,
+          husbandIncome: husbandIncome ?? 0,
+          wifeIncome: wifeIncome ?? 0,
+          husbandIncomeRatio: husbandIncomeRatio ?? 50,
+          wifeIncomeRatio: wifeIncomeRatio ?? 50,
+          topCategories: topCategories || []
         }}
       />
     </div>
