@@ -9,7 +9,8 @@ import {
   LogOut, 
   Home, 
   FolderTree,
-  MailOpen
+  MailOpen,
+  Loader2
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatYearMonthLabel } from '../utils/currency';
@@ -35,6 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
     soundEnabled,
     toggleSound,
     firebaseUser,
+    isAuthenticating,
     loginWithGoogle,
     logout,
     isFirebaseActive
@@ -172,11 +174,20 @@ export const Header: React.FC<HeaderProps> = ({
             ) : (
               <button
                 onClick={loginWithGoogle}
-                className="h-9 px-2.5 rounded-xl border border-[#0F3D39] bg-[#0F3D39] text-[#FAF9F6] text-xs font-medium flex items-center gap-1.5 active:scale-95 transition-all shadow-xs tactile-btn"
-                title={isFirebaseActive ? "Đăng nhập với Google" : "Chế độ Demo"}
+                disabled={isAuthenticating}
+                className={`h-9 px-2.5 rounded-xl border border-[#0F3D39] bg-[#0F3D39] text-[#FAF9F6] text-xs font-medium flex items-center gap-1.5 transition-all shadow-xs tactile-btn ${
+                  isAuthenticating ? 'opacity-70 cursor-wait' : 'active:scale-95'
+                }`}
+                title={isFirebaseActive ? (isAuthenticating ? "Đang kết nối Google..." : "Đăng nhập với Google") : "Chế độ Demo"}
               >
-                <LogIn className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Google</span>
+                {isAuthenticating ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <LogIn className="w-3.5 h-3.5" />
+                )}
+                <span className="hidden sm:inline">
+                  {isAuthenticating ? 'Đang vào...' : 'Google'}
+                </span>
               </button>
             )}
 

@@ -93,6 +93,22 @@ export async function createHousehold(name: string, monthlyBudget: number, user:
 }
 
 /**
+ * LẤY THÔNG TIN HỘ GIA ĐÌNH THEO ID
+ */
+export async function getHousehold(householdId: string): Promise<Household | null> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const householdRef = doc(db, 'households', householdId);
+  const snap = await getDoc(householdRef);
+
+  if (!snap.exists()) {
+    return null;
+  }
+
+  return snap.data() as Household;
+}
+
+/**
  * THÊM GIAO DỊCH NGUYÊN TỬ (ATOMIC TRANSACTION)
  * Cập nhật đồng thời bản ghi giao dịch và bảng tổng hợp tháng theo DATABASE_DESIGN.md
  */

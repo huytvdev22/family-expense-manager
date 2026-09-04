@@ -1,9 +1,17 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, type ReactNode } from 'react';
-import { onAuthStateChanged, signInWithPopup, signOut, type User as FirebaseUser } from 'firebase/auth';
+import { 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  signInWithRedirect, 
+  getRedirectResult, 
+  signOut, 
+  type User as FirebaseUser 
+} from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../services/firebase';
 import { 
   getOrCreateUserProfile, 
   createHousehold, 
+  getHousehold,
   addTransactionWithSummary, 
   deleteTransactionWithSummary,
   subscribeTransactions, 
@@ -68,6 +76,7 @@ interface AppContextType {
   joinWithInviteCode: (code: string) => Promise<void>;
   
   // Xác thực Google
+  isAuthenticating: boolean;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -83,6 +92,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(MOCK_SUMMARY);
   const [currentYearMonth, setCurrentYearMonth] = useState<string>(getCurrentYearMonth());
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
   const [soundEnabled, setSoundState] = useState<boolean>(isSoundEnabled());
 
   const isFirebaseActive = Boolean(isFirebaseConfigured && auth);
@@ -111,6 +121,22 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCurrentYearMonth(`${y}-${m}`);
   };
 
+  // Xử lý kết quả chuyển hướng đăng nhập (dành cho Mobile Safari/PWA khi popup bị chặn)
+  useEffect(() => {
+    if (!isFirebaseActive || !auth) return;
+
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result?.user) {
+          console.log('Đăng nhập thành công qua chuyển hướng redirect:', result.user.email);
+        }
+      })
+      .catch((error: any) => {
+        console.error('Lỗi khi xử lý redirect đăng nhập:', error);
+        handleAuthError(error);
+      });
+  }, [isFirebaseActive]);
+
   // Lắng nghe trạng thái đăng nhập Firebase
   useEffect(() => {
     if (!isFirebaseActive || !auth) {
@@ -131,11 +157,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           });
           setCurrentUser(profile);
 
-          // Nếu người dùng chưa có tổ ấm, khởi tạo tổ ấm mặc định đầu tiên
-          if (profile.householdIds.length === 0) {
-            const newH = await createHousehold('Tổ Ấm Nhỏ', 30000000, profile);
-            setActiveHousehold(newH);
+          // Tải tổ ấm hiện tại của người dùng hoặc khởi tạo mới nếu chưa có
+          const targetHouseholdId = profile.activeHouseholdId || (profile.householdIds.length > 0 ? profile.householdIds[0] : null);
+          let loadedHousehold: Household | null = null;
+
+          if (targetHouseholdId) {
+            try {
+              loadedHousehold = await getHousehold(targetHouseholdId);
+            } catch (hhErr) {
+              console.warn('Không thể tải tổ ấm từ Firestore:', hhErr);
+            }
           }
+
+          // Nếu người dùng chưa có tổ ấm hoặc tổ ấm cũ không còn tồn tại, khởi tạo mặc định
+          if (!loadedHousehold) {
+            loadedHousehold = await createHousehold('Tổ Ấm Nhỏ', 30000000, profile);
+          }
+
+          setActiveHousehold(loadedHousehold);
         } catch (err) {
           console.error('Lỗi khởi tạo hồ sơ người dùng:', err);
         }
@@ -312,16 +351,66 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // XỬ LÝ LỖI XÁC THỰC GOOGLE
+  const handleAuthError = (error: any) => {
+    const errorCode = error?.code || '';
+    console.error('Chi tiết lỗi Firebase Auth:', errorCode, error);
+
+    switch (errorCode) {
+      case 'auth/configuration-not-found':
+      case 'auth/operation-not-allowed':
+        alert(
+          '⚠️ Chưa kích hoạt Google Sign-In trong Firebase Console!\n\n' +
+          'Vui lòng thực hiện:\n' +
+          '1. Vào Firebase Console > Build > Authentication > Sign-in method.\n' +
+          '2. Bật (Enable) "Google" và chọn Project support email.\n' +
+          '3. Lưu lại và thử đăng nhập lại.'
+        );
+        break;
+      case 'auth/unauthorized-domain':
+        alert(
+          '⚠️ Tên miền hiện tại chưa được cấp phép (Authorized Domains) trong Firebase!\n\n' +
+          `Vui lòng thêm "${window.location.hostname}" vào: Firebase Console > Authentication > Settings > Authorized domains.`
+        );
+        break;
+      case 'auth/popup-blocked':
+        alert('Trình duyệt đã chặn cửa sổ Popup. Hệ thống sẽ chuyển hướng trang để đăng nhập Google.');
+        if (auth) {
+          signInWithRedirect(auth, googleProvider).catch((e) => {
+            console.error('Lỗi khi redirect:', e);
+          });
+        }
+        break;
+      case 'auth/popup-closed-by-user':
+      case 'auth/cancelled-popup-request':
+        // Người dùng chủ động tắt popup hoặc bấm nhiều lần
+        console.warn('Cửa sổ đăng nhập đã được đóng bởi người dùng.');
+        break;
+      case 'auth/network-request-failed':
+        alert('Lỗi kết nối mạng khi xác thực với Google. Vui lòng kiểm tra lại đường truyền Internet.');
+        break;
+      default:
+        alert(`Không thể đăng nhập Google: ${error?.message || 'Lỗi không xác định'} (Mã lỗi: ${errorCode || 'UNKNOWN'})`);
+        break;
+    }
+  };
+
   // ĐĂNG NHẬP GOOGLE
   const loginWithGoogle = async () => {
     if (!isFirebaseActive || !auth) {
       alert('Chưa cấu hình Firebase hoặc thiếu biến môi trường. Đang chạy chế độ Demo.');
       return;
     }
+
+    if (isAuthenticating) return;
+
+    setIsAuthenticating(true);
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
-      console.error('Đăng nhập Google thất bại:', error);
+    } catch (error: any) {
+      handleAuthError(error);
+    } finally {
+      setIsAuthenticating(false);
     }
   };
 
@@ -342,6 +431,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         currentUser,
         firebaseUser,
         isLoading,
+        isAuthenticating,
         activeHousehold,
         categories,
         currentYearMonth,
