@@ -438,6 +438,64 @@ export const generateMonthlyReportHtml = (data?: EmailReportData): string => {
  * Gửi email báo cáo tài chính
  * Hỗ trợ Web API hoặc Fallback Mailto client
  */
+export interface EmailJsConfig {
+  serviceId: string;
+  templateId: string;
+  publicKey: string;
+}
+
+const EMAILJS_STORAGE_KEY = 'harmony_emailjs_config';
+
+/**
+ * Đọc cấu hình EmailJS từ localStorage hoặc biến môi trường
+ */
+export const getEmailJsConfig = (): EmailJsConfig | null => {
+  try {
+    const saved = localStorage.getItem(EMAILJS_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.serviceId && parsed.templateId && parsed.publicKey) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Lỗi khi đọc cấu hình EmailJS:', e);
+  }
+
+  // Fallback từ biến môi trường Vite
+  const envServiceId = (import.meta as any).env?.VITE_EMAILJS_SERVICE_ID;
+  const envTemplateId = (import.meta as any).env?.VITE_EMAILJS_TEMPLATE_ID;
+  const envPublicKey = (import.meta as any).env?.VITE_EMAILJS_PUBLIC_KEY;
+
+  if (envServiceId && envTemplateId && envPublicKey) {
+    return {
+      serviceId: envServiceId,
+      templateId: envTemplateId,
+      publicKey: envPublicKey
+    };
+  }
+
+  return null;
+};
+
+/**
+ * Lưu cấu hình EmailJS vào localStorage
+ */
+export const saveEmailJsConfig = (config: EmailJsConfig): void => {
+  localStorage.setItem(EMAILJS_STORAGE_KEY, JSON.stringify(config));
+};
+
+/**
+ * Xóa cấu hình EmailJS khỏi localStorage
+ */
+export const removeEmailJsConfig = (): void => {
+  localStorage.removeItem(EMAILJS_STORAGE_KEY);
+};
+
+/**
+ * Gửi email báo cáo tài chính
+ * Ưu tiên: EmailJS REST API -> Resend API -> Fallback
+ */
 export const sendMonthlyReportEmail = async (options: SendEmailOptions): Promise<{ success: boolean; message: string }> => {
   const { recipients, subject, reportData } = options;
 
@@ -452,31 +510,55 @@ export const sendMonthlyReportEmail = async (options: SendEmailOptions): Promise
 
   const htmlContent = generateMonthlyReportHtml(reportData);
 
-  // Tạo nội dung văn bản thuần (Text Summary) cho Email client
-  const textSummary = `BÁO CÁO TÀI CHÍNH TỔ ẤM - THÁNG ${formatYearMonthLabel(reportData.yearMonth)}
-Gia đình: ${reportData.householdName}
-
-1. BỘ CHỈ SỐ CHÍNH:
-- Thu Nhập: ${formatVND(reportData.totalIncome)}
-- Chi Tiêu: ${formatVND(reportData.totalExpense)}
-- Tích Lũy: ${reportData.netSavings >= 0 ? formatVND(reportData.netSavings) : `-${formatVND(Math.abs(reportData.netSavings))}`} (${reportData.savingsRatio}% thu nhập)
-
-2. ĐỒNG HÀNH VỢ & CHỒNG:
-- Thu nhập: Chồng ${formatVND(reportData.husbandIncome)} (${reportData.husbandIncomeRatio}%) | Vợ ${formatVND(reportData.wifeIncome)} (${reportData.wifeIncomeRatio}%)
-- Chi tiêu: Chồng ${formatVND(reportData.husbandExpense)} (${reportData.husbandRatio}%) | Vợ ${formatVND(reportData.wifeExpense)} (${reportData.wifeRatio}%)
-
-3. KHOẢN CHI LỚN NHẤT:
-${reportData.topCategories.slice(0, 3).map((c, i) => `${i + 1}. ${c.name}: ${formatVND(c.amount)} (${c.percent}%)`).join('\n')}
-
-Xem chi tiết tại: https://family-expense-manager.web.app
-Sổ Cái Gia Đình - Hạnh phúc từ sự sẻ chia!`;
-
   try {
-    // 1. Kiểm tra xem có cấu hình API Resend hoặc EmailJS không
+    // 1. Ưu tiên hàng đầu: Gửi qua EmailJS (kết nối trực tiếp với Gmail của bạn)
+    const emailJsConfig = getEmailJsConfig();
+
+    if (emailJsConfig?.serviceId && emailJsConfig?.templateId && emailJsConfig?.publicKey) {
+      // Gửi lần lượt tới từng người nhận bằng EmailJS REST API chính thức
+      const sendPromises = recipients.map(async (r) => {
+        const response = await fetch('https://api.emailjs.com/api/v1.0/email/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            service_id: emailJsConfig.serviceId.trim(),
+            template_id: emailJsConfig.templateId.trim(),
+            user_id: emailJsConfig.publicKey.trim(),
+            template_params: {
+              to_email: r.email,
+              to_name: r.name || 'Người thương',
+              subject,
+              html_content: htmlContent,
+              household_name: reportData.householdName,
+              year_month: formatYearMonthLabel(reportData.yearMonth),
+              total_income: formatVND(reportData.totalIncome),
+              total_expense: formatVND(reportData.totalExpense),
+              net_savings: formatVND(reportData.netSavings),
+              savings_ratio: `${reportData.savingsRatio}%`
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(errText || `Lỗi EmailJS HTTP ${response.status}`);
+        }
+        return response;
+      });
+
+      await Promise.all(sendPromises);
+
+      return {
+        success: true,
+        message: `Đã gửi bản tin tài chính HTML thành công qua Gmail tới ${emailList.join(', ')}!`
+      };
+    }
+
+    // 2. Kiểm tra nếu có cấu hình Resend API
     const resendApiKey = (import.meta as any).env?.VITE_RESEND_API_KEY;
-    
     if (resendApiKey) {
-      // Gửi qua Resend API trực tiếp
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -494,22 +576,21 @@ Sổ Cái Gia Đình - Hạnh phúc từ sự sẻ chia!`;
       if (response.ok) {
         return { 
           success: true, 
-          message: `Đã gửi báo cáo thành công tới ${emailList.join(', ')}!` 
+          message: `Đã gửi báo cáo thành công tới ${emailList.join(', ')} qua Resend!` 
         };
       }
     }
 
-    // 2. Fallback chuyên nghiệp: Mở ứng dụng Mail hoặc gửi bản tin
-    // Chúng ta trả về thành công kèm thông báo hướng dẫn tiện lợi
+    // 3. Chưa cấu hình EmailJS: Hướng dẫn người dùng cấu hình
     return {
-      success: true,
-      message: `Đã chuẩn bị bản tin tài chính gửi tới ${emailList.join(', ')}!`
+      success: false,
+      message: 'Chưa cấu hình EmailJS! Vui lòng bấm vào biểu tượng ⚙️ (Cài đặt) ở góc trên để kết nối Gmail trong 1 phút.'
     };
   } catch (error: any) {
     console.error('Lỗi khi gửi email báo cáo:', error);
     return {
       success: false,
-      message: error?.message || 'Có lỗi xảy ra khi gửi email báo cáo.'
+      message: error?.message || 'Có lỗi xảy ra khi gửi email qua EmailJS. Vui lòng kiểm tra lại mã cấu hình.'
     };
   }
 };
