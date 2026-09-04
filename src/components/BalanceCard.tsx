@@ -28,25 +28,25 @@ export const BalanceCard: React.FC = () => {
             <TrendingDown className="w-3.5 h-3.5 text-[#E11D48]" />
             <span>Tổng chi tháng này</span>
           </div>
-          <p className="text-xl font-bold font-mono text-[#0F3D39]">
+          <p className="text-lg sm:text-xl font-bold font-mono text-[#0F3D39] truncate">
             {formatVND(totalExpense)}
           </p>
-          <p className="text-[11px] text-[#516361] mt-1">
+          <p className="text-[11px] text-[#516361] mt-1 truncate">
             Hạn mức: <span className="font-mono">{formatVND(budget)}</span>
           </p>
         </div>
 
         {/* Khối Tích Lũy */}
-        <div className="bg-[#DCFCE7]/40 p-3.5 rounded-2xl border border-[#10B981]/20">
+        <div className="bg-[#DCFCE7]/40 p-3.5 rounded-2xl border border-[#10B981]/20 min-w-0">
           <div className="flex items-center gap-1.5 text-xs font-semibold text-[#14532D] mb-1">
-            <PiggyBank className="w-3.5 h-3.5 text-[#10B981]" />
-            <span>Số dư tích lũy</span>
+            <PiggyBank className="w-3.5 h-3.5 text-[#10B981] shrink-0" />
+            <span className="truncate">Số dư tích lũy</span>
           </div>
-          <p className="text-xl font-bold font-mono text-[#14532D]">
+          <p className="text-lg sm:text-xl font-bold font-mono text-[#14532D] truncate">
             {formatVND(monthlySummary.netSavings)}
           </p>
           <div className="flex items-center gap-1 mt-1">
-            <span className="text-[11px] font-semibold text-[#10B981] bg-[#DCFCE7] px-1.5 py-0.5 rounded-full font-mono">
+            <span className="text-[11px] font-semibold text-[#10B981] bg-[#DCFCE7] px-1.5 py-0.5 rounded-full font-mono truncate">
               +{monthlySummary.savingsPercent}% thu nhập
             </span>
           </div>
@@ -99,13 +99,13 @@ export const BalanceCard: React.FC = () => {
         </div>
 
         {/* Chú giải số liệu */}
-        <div className="flex justify-between items-center text-xs mt-2 font-mono">
+        <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center text-xs mt-2 font-mono gap-1 sm:gap-0">
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#0F3D39]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#0F3D39] shrink-0" />
             <span className="text-[#192423] font-medium">Chồng: {formatVND(husbandExpense)} ({husbandPercent}%)</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#B45309]" />
+            <span className="w-2.5 h-2.5 rounded-full bg-[#B45309] shrink-0" />
             <span className="text-[#192423] font-medium">Vợ: {formatVND(wifeExpense)} ({wifePercent}%)</span>
           </div>
         </div>

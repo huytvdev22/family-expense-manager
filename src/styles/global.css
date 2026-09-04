@@ -2,6 +2,18 @@
 @import "./theme.css";
 @import "./tokens.css";
 
+/* Phòng vệ: Xóa các spacing tokens làm ghi đè và co hẹp max-w-*, w-*, h-* của Tailwind v4 */
+@theme {
+  --spacing-2xs: initial;
+  --spacing-xs: initial;
+  --spacing-sm: initial;
+  --spacing-md: initial;
+  --spacing-lg: initial;
+  --spacing-xl: initial;
+  --spacing-2xl: initial;
+  --spacing-3xl: initial;
+}
+
 /* ==========================================================================
    CSS Reset & Base Typography — Chuẩn Google Labs DESIGN.md
    ========================================================================== */
