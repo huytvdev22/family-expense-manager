@@ -7,13 +7,17 @@ import { CategoryManager } from './components/CategoryManager';
 import { InviteModal } from './components/InviteModal';
 import { MonthlyLetterModal } from './components/MonthlyLetterModal';
 import { BottomNav, type MobileTab } from './components/BottomNav';
+import { Dashboard } from './components/Dashboard';
 import { useApp } from './context/AppContext';
 
 export const App: React.FC = () => {
   const { isLoading } = useApp();
 
-  // Tab di động hiện tại ('ledger' | 'numpad' | 'categories')
+  // Tab di động hiện tại ('ledger' | 'dashboard' | 'numpad' | 'categories')
   const [mobileTab, setMobileTab] = useState<MobileTab>('ledger');
+
+  // Chế độ xem Desktop ('ledger' | 'dashboard')
+  const [desktopView, setDesktopView] = useState<'ledger' | 'dashboard'>('ledger');
 
   // Trạng thái mở các Modal
   const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -49,6 +53,8 @@ export const App: React.FC = () => {
         onOpenInvite={() => setIsInviteOpen(true)}
         onOpenCategories={() => setIsCategoryOpen(true)}
         onOpenMonthlyLetter={() => setIsLetterOpen(true)}
+        desktopView={desktopView}
+        onChangeDesktopView={setDesktopView}
       />
 
       {/* Main Content Container */}
@@ -61,6 +67,12 @@ export const App: React.FC = () => {
             <div className="space-y-4 animate-in fade-in duration-150">
               <BalanceCard />
               <TransactionList />
+            </div>
+          )}
+
+          {mobileTab === 'dashboard' && (
+            <div className="animate-in fade-in duration-150">
+              <Dashboard />
             </div>
           )}
 
@@ -89,19 +101,27 @@ export const App: React.FC = () => {
         </div>
 
         {/* =========================================================================
-            2. GIAO DIỆN MÁY TÍNH (DESKTOP - BỐ CỤC SỔ CÁI HAI CỘT SONG PHƯƠNG)
+            2. GIAO DIỆN MÁY TÍNH (DESKTOP - CHUYỂN ĐỔI SỔ CÁI / DASHBOARD)
             ========================================================================= */}
-        <div className="hidden sm:grid sm:grid-cols-12 gap-6 items-start">
-          {/* Cột trái (5 cols): Thẻ cân bằng tài chính + Bàn phím số Numpad nhanh */}
-          <div className="sm:col-span-5 space-y-5 sticky top-20">
-            <BalanceCard />
-            <Numpad />
-          </div>
+        <div className="hidden sm:block">
+          {desktopView === 'ledger' ? (
+            <div className="grid grid-cols-12 gap-6 items-start">
+              {/* Cột trái (5 cols): Thẻ cân bằng tài chính + Bàn phím số Numpad nhanh */}
+              <div className="col-span-5 space-y-5 sticky top-20">
+                <BalanceCard />
+                <Numpad />
+              </div>
 
-          {/* Cột phải (7 cols): Sổ cái chi tiết các giao dịch theo ngày */}
-          <div className="sm:col-span-7 space-y-5">
-            <TransactionList />
-          </div>
+              {/* Cột phải (7 cols): Sổ cái chi tiết các giao dịch theo ngày */}
+              <div className="col-span-7 space-y-5">
+                <TransactionList />
+              </div>
+            </div>
+          ) : (
+            <div className="animate-in fade-in duration-150">
+              <Dashboard />
+            </div>
+          )}
         </div>
       </main>
 

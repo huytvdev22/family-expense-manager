@@ -10,7 +10,9 @@ import {
   Home, 
   FolderTree,
   MailOpen,
-  Loader2
+  Loader2,
+  Receipt,
+  BarChart3
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatYearMonthLabel } from '../utils/currency';
@@ -21,12 +23,16 @@ interface HeaderProps {
   onOpenInvite: () => void;
   onOpenCategories: () => void;
   onOpenMonthlyLetter: () => void;
+  desktopView?: 'ledger' | 'dashboard';
+  onChangeDesktopView?: (view: 'ledger' | 'dashboard') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenInvite,
   onOpenCategories,
-  onOpenMonthlyLetter
+  onOpenMonthlyLetter,
+  desktopView = 'ledger',
+  onChangeDesktopView
 }) => {
   const {
     activeHousehold,
@@ -77,29 +83,70 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Bộ chuyển đổi Tháng trung tâm (Desktop: sm:flex) */}
-          <div className="hidden sm:flex items-center bg-[#F5F3EF] border border-[#E6E2DA] rounded-xl p-0.5 shadow-2xs shrink-0">
-            <button
-              onClick={() => handleMonthNav(goToPreviousMonth)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-[#78716C] hover:text-[#1C1917] hover:bg-white/80 active:scale-95 transition-all tactile-btn"
-              title="Tháng trước"
-              aria-label="Tháng trước"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            
-            <span className="text-xs font-semibold px-2.5 text-[#1C1917] font-mono tracking-tight select-none min-w-[105px] text-center whitespace-nowrap">
-              {formatYearMonthLabel(currentYearMonth)}
-            </span>
+          {/* Cụm trung tâm Desktop: [Bộ chuyển đổi Tháng] + [Bộ chuyển chế độ xem Sổ cái / Tổng quan] */}
+          <div className="hidden sm:flex items-center gap-2 shrink-0">
+            {/* Bộ chuyển đổi Tháng */}
+            <div className="flex items-center bg-[#F5F3EF] border border-[#E6E2DA] rounded-xl p-0.5 shadow-2xs shrink-0">
+              <button
+                onClick={() => handleMonthNav(goToPreviousMonth)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-[#78716C] hover:text-[#1C1917] hover:bg-white/80 active:scale-95 transition-all tactile-btn"
+                title="Tháng trước"
+                aria-label="Tháng trước"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              
+              <span className="text-xs font-semibold px-2.5 text-[#1C1917] font-mono tracking-tight select-none min-w-[105px] text-center whitespace-nowrap">
+                {formatYearMonthLabel(currentYearMonth)}
+              </span>
 
-            <button
-              onClick={() => handleMonthNav(goToNextMonth)}
-              className="w-8 h-8 flex items-center justify-center rounded-lg text-[#78716C] hover:text-[#1C1917] hover:bg-white/80 active:scale-95 transition-all tactile-btn"
-              title="Tháng sau"
-              aria-label="Tháng sau"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
+              <button
+                onClick={() => handleMonthNav(goToNextMonth)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-[#78716C] hover:text-[#1C1917] hover:bg-white/80 active:scale-95 transition-all tactile-btn"
+                title="Tháng sau"
+                aria-label="Tháng sau"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Chuyển đổi Sổ cái / Tổng quan trên Desktop */}
+            {onChangeDesktopView && (
+              <div className="flex items-center bg-[#F5F3EF] border border-[#E6E2DA] rounded-xl p-0.5 shadow-2xs shrink-0">
+                <button
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(10);
+                    onChangeDesktopView('ledger');
+                  }}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all tactile-btn ${
+                    desktopView === 'ledger'
+                      ? 'bg-white text-[#0F3D39] shadow-2xs'
+                      : 'text-[#78716C] hover:text-[#1C1917]'
+                  }`}
+                  title="Xem sổ cái chi tiết"
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  <span>Sổ cái</span>
+                </button>
+                <button
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(10);
+                    onChangeDesktopView('dashboard');
+                  }}
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all tactile-btn ${
+                    desktopView === 'dashboard'
+                      ? 'bg-white text-[#0F3D39] shadow-2xs'
+                      : 'text-[#78716C] hover:text-[#1C1917]'
+                  }`}
+                  title="Xem bảng phân tích tổng quan"
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  <span>Tổng quan</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Cụm công cụ bên phải */}
