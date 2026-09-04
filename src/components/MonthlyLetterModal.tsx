@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Heart, 
@@ -9,12 +9,14 @@ import {
   PiggyBank, 
   ArrowUpRight, 
   ArrowDownRight,
-  Wallet
+  Wallet,
+  Mail
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { useApp } from '../context/AppContext';
 import { formatVND, formatYearMonthLabel } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
+import { SendReportEmailModal } from './SendReportEmailModal';
 
 interface MonthlyLetterModalProps {
   isOpen: boolean;
@@ -40,6 +42,8 @@ export const MonthlyLetterModal: React.FC<MonthlyLetterModalProps> = ({ isOpen, 
     transactions
   } = useApp();
 
+  const [isEmailModalOpen, setIsEmailModalOpen] = useState<boolean>(false);
+
   // Bắn pháo giấy chúc mừng nhẹ nhàng khi mở thư nếu có tích lũy thặng dư >= 15%
   useEffect(() => {
     if (isOpen && netSavings > 0 && savingsRatio >= 15) {
@@ -54,7 +58,7 @@ export const MonthlyLetterModal: React.FC<MonthlyLetterModalProps> = ({ isOpen, 
 
   if (!isOpen) return null;
 
-  // Tìm danh mục chi nhiều nhất
+  // Tìm danh mục chi nhiều nhất & danh sách top categories
   const categoryTotals: Record<string, number> = {};
   transactions.forEach((tx) => {
     if (tx.type === 'EXPENSE') {
@@ -63,6 +67,14 @@ export const MonthlyLetterModal: React.FC<MonthlyLetterModalProps> = ({ isOpen, 
   });
 
   const topCategory = Object.entries(categoryTotals).sort((a, b) => b[1] - a[1])[0] || ['Chưa rõ', 0];
+
+  const topCategories = Object.entries(categoryTotals)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, amount]) => ({
+      name,
+      amount,
+      percent: totalExpense > 0 ? Math.round((amount / totalExpense) * 100) : 0
+    }));
 
   const hasIncome = totalIncome > 0;
   const isSurplus = netSavings > 0;
@@ -280,6 +292,20 @@ export const MonthlyLetterModal: React.FC<MonthlyLetterModalProps> = ({ isOpen, 
               Tiền bạc là công cụ để vun đắp tổ ấm. Dù tháng này chi nhiều hay ít, sự minh bạch, thấu hiểu và đồng lòng của hai vợ chồng chính là tài sản quý giá nhất!
             </p>
           </div>
+
+          {/* Nút hành động: Gửi Báo Cáo Qua Email */}
+          <div className="pt-1">
+            <button
+              onClick={() => {
+                playActionClick();
+                setIsEmailModalOpen(true);
+              }}
+              className="w-full py-3 px-4 rounded-2xl bg-[#0F3D39] hover:bg-[#174E4A] active:scale-98 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all tactile-btn cursor-pointer"
+            >
+              <Mail className="w-4 h-4 text-[#FEF3C7]" />
+              <span>Gửi Báo Cáo Này Qua Email (Chồng / Vợ)</span>
+            </button>
+          </div>
         </div>
 
         {/* Chữ ký chân thành */}
@@ -291,6 +317,29 @@ export const MonthlyLetterModal: React.FC<MonthlyLetterModalProps> = ({ isOpen, 
           <span className="font-serif italic text-[11px]">Tình yêu trong từng con số</span>
         </div>
       </div>
+
+      {/* Modal gửi báo cáo qua Email */}
+      <SendReportEmailModal
+        isOpen={isEmailModalOpen}
+        onClose={() => setIsEmailModalOpen(false)}
+        reportData={{
+          householdName: activeHousehold?.name || 'Tổ Ấm Nhỏ',
+          yearMonth: currentYearMonth,
+          totalIncome,
+          totalExpense,
+          netSavings,
+          savingsRatio,
+          husbandExpense,
+          wifeExpense,
+          husbandRatio,
+          wifeRatio,
+          husbandIncome,
+          wifeIncome,
+          husbandIncomeRatio,
+          wifeIncomeRatio,
+          topCategories
+        }}
+      />
     </div>
   );
 };
