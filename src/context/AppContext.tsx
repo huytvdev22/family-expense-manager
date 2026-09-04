@@ -21,7 +21,9 @@ import {
   subscribeCategories, 
   subscribeMonthlySummary,
   createInvitation,
-  acceptInvitation
+  acceptInvitation,
+  setMemberRole,
+  syncMemberPhoto
 } from '../services/firestoreService';
 import { 
   MOCK_USER, 
@@ -32,7 +34,8 @@ import {
 } from '../services/mockData';
 import type { Household, Category, Transaction, MonthlySummary, UserProfile } from '../types';
 import { getCurrentYearMonth } from '../utils/currency';
-import { isSoundEnabled, setSoundEnabled, playSuccessChime } from '../utils/audio';
+import { isSoundEnabled, setSoundEnabled, playSuccessChime, playActionClick } from '../utils/audio';
+import { triggerHaptic } from '../utils/haptics';
 import { useToast } from '../components/Toast';
 
 interface AppContextType {
@@ -41,6 +44,8 @@ interface AppContextType {
   currentUser: UserProfile | null;
   firebaseUser: FirebaseUser | null;
   isLoading: boolean;
+  userRole: 'Chồng' | 'Vợ';
+  updateUserRole: (role: 'Chồng' | 'Vợ') => Promise<void>;
   
   // Tổ ấm hiện tại
   activeHousehold: Household | null;
@@ -105,8 +110,63 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
   const [soundEnabled, setSoundState] = useState<boolean>(isSoundEnabled());
+  const [userRole, setUserRole] = useState<'Chồng' | 'Vợ'>(() => {
+    return (localStorage.getItem('user_role') as 'Chồng' | 'Vợ') || 'Chồng';
+  });
 
   const isFirebaseActive = Boolean(isFirebaseConfigured && auth);
+
+  // Đồng bộ vai trò và avatar
+  useEffect(() => {
+    if (activeHousehold && currentUser) {
+      const roleFromHh = activeHousehold.memberRoles?.[currentUser.uid];
+      const roleFromUser = currentUser.role;
+      const savedRole = localStorage.getItem('user_role') as 'Chồng' | 'Vợ' | null;
+      const resolvedRole = roleFromHh || roleFromUser || savedRole || 'Chồng';
+      setUserRole(resolvedRole);
+      localStorage.setItem('user_role', resolvedRole);
+
+      // Đồng bộ avatar Google nếu có
+      if (currentUser.photoURL && activeHousehold.id) {
+        const currentPhoto = activeHousehold.memberPhotos?.[currentUser.uid];
+        if (!currentPhoto || currentPhoto !== currentUser.photoURL) {
+          syncMemberPhoto(activeHousehold.id, currentUser.uid, currentUser.photoURL);
+        }
+      }
+    }
+  }, [activeHousehold?.id, currentUser?.uid, currentUser?.photoURL]);
+
+  // CẬP NHẬT VAI TRÒ CỦA BẢN THÂN TRONG TỔ ẤM
+  const updateUserRole = async (role: 'Chồng' | 'Vợ') => {
+    setUserRole(role);
+    localStorage.setItem('user_role', role);
+    triggerHaptic(10);
+    playActionClick();
+
+    if (currentUser) {
+      setCurrentUser((prev) => prev ? { ...prev, role } : null);
+    }
+
+    if (activeHousehold && currentUser) {
+      setActiveHousehold((prev) => prev ? {
+        ...prev,
+        memberRoles: {
+          ...(prev.memberRoles || {}),
+          [currentUser.uid]: role
+        }
+      } : null);
+
+      if (isFirebaseActive && firebaseUser) {
+        try {
+          await setMemberRole(activeHousehold.id, currentUser.uid, role);
+        } catch (err) {
+          console.error('Lỗi khi lưu vai trò:', err);
+        }
+      }
+    }
+
+    showToast(`Đã lưu vai trò của bạn là "${role}"`, 'success');
+  };
 
   // Chuyển đổi bật/tắt âm thanh
   const toggleSound = () => {
@@ -561,6 +621,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         firebaseUser,
         isLoading,
         isAuthenticating,
+        userRole,
+        updateUserRole,
         activeHousehold,
         categories,
         currentYearMonth,

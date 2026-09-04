@@ -8,6 +8,7 @@ export interface UserProfile {
   email: string;
   displayName: string;
   photoURL?: string;
+  role?: 'Chồng' | 'Vợ';
   householdIds: string[];
   activeHouseholdId: string;
   createdAt: string;
@@ -21,6 +22,8 @@ export interface Household {
   members: string[];
   memberNames: Record<string, string>; // UID -> Biệt danh ("Chồng", "Vợ"...)
   memberEmails: Record<string, string>; // UID -> Email
+  memberPhotos?: Record<string, string>; // UID -> photoURL
+  memberRoles?: Record<string, 'Chồng' | 'Vợ'>; // UID -> 'Chồng' | 'Vợ'
   currency: string;
   monthlyBudget: number;
   createdAt: string;

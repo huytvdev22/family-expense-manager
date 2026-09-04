@@ -39,7 +39,9 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
     loginWithGoogle,
     logout,
     isFirebaseActive,
-    categories
+    categories,
+    userRole,
+    updateUserRole
   } = useApp();
 
   const [isEditingBudget, setIsEditingBudget] = useState(false);
@@ -143,43 +145,90 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
               )}
             </div>
 
+            {/* Lưới 2 thành viên */}
             <div className="grid grid-cols-2 gap-2.5">
-              {/* Người thứ 1: Chủ nhà */}
-              <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-[#0F3D39] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
-                  👨
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-[#1C1917] truncate">
-                    {activeHousehold?.members?.[0]
-                      ? (activeHousehold?.memberNames?.[activeHousehold.members[0]] || 'Chồng')
-                      : 'Chồng'}
-                  </p>
-                  <p className="text-[10px] text-[#047857] font-mono flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block" />
-                    Chủ nhà
-                  </p>
-                </div>
-              </div>
+              {/* Thành viên 1 */}
+              {(() => {
+                const uid1 = activeHousehold?.members?.[0];
+                const isMe1 = uid1 === currentUser?.uid;
+                const name1 = uid1
+                  ? (isMe1 && currentUser?.displayName ? currentUser.displayName : activeHousehold?.memberNames?.[uid1] || 'Thành viên')
+                  : 'Thành viên';
+                const photo1 = isMe1
+                  ? (currentUser?.photoURL || (uid1 ? activeHousehold?.memberPhotos?.[uid1] : undefined))
+                  : (uid1 ? activeHousehold?.memberPhotos?.[uid1] : undefined);
+                const role1 = isMe1
+                  ? userRole
+                  : (uid1 && activeHousehold?.memberRoles?.[uid1]) || (userRole === 'Chồng' ? 'Vợ' : 'Chồng');
 
-              {/* Người thứ 2: Bạn đời (hoặc ô mời) */}
+                return (
+                  <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] flex items-center gap-2.5">
+                    {photo1 ? (
+                      <img
+                        src={photo1}
+                        alt={name1}
+                        className="w-10 h-10 rounded-2xl object-cover border border-[#E6E2DA] shadow-2xs shrink-0"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className={`w-10 h-10 rounded-2xl ${role1 === 'Chồng' ? 'bg-[#0F3D39]' : 'bg-[#B45309]'} text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs`}>
+                        {name1.charAt(0).toUpperCase() || (role1 === 'Chồng' ? 'C' : 'V')}
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-[#1C1917] truncate">
+                        {name1} {isMe1 && <span className="font-normal text-[#78716C] text-[10px]">(Bạn)</span>}
+                      </p>
+                      <p className="text-[10px] text-[#047857] font-mono flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block" />
+                        {role1}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Thành viên 2: Bạn đời (hoặc ô mời) */}
               {((activeHousehold?.members?.length || 0) >= 2) ? (
-                <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-[#B45309] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
-                    👩
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-[#1C1917] truncate">
-                      {activeHousehold?.members?.[1]
-                        ? (activeHousehold?.memberNames?.[activeHousehold.members[1]] || 'Vợ')
-                        : 'Vợ'}
-                    </p>
-                    <p className="text-[10px] text-[#047857] font-mono flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block" />
-                      Đồng hành
-                    </p>
-                  </div>
-                </div>
+                (() => {
+                  const uid2 = activeHousehold?.members?.[1];
+                  const isMe2 = uid2 === currentUser?.uid;
+                  const name2 = uid2
+                    ? (isMe2 && currentUser?.displayName ? currentUser.displayName : activeHousehold?.memberNames?.[uid2] || 'Bạn đời')
+                    : 'Bạn đời';
+                  const photo2 = isMe2
+                    ? (currentUser?.photoURL || (uid2 ? activeHousehold?.memberPhotos?.[uid2] : undefined))
+                    : (uid2 ? activeHousehold?.memberPhotos?.[uid2] : undefined);
+                  const role2 = isMe2
+                    ? userRole
+                    : (uid2 && activeHousehold?.memberRoles?.[uid2]) || (userRole === 'Chồng' ? 'Vợ' : 'Chồng');
+
+                  return (
+                    <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] flex items-center gap-2.5">
+                      {photo2 ? (
+                        <img
+                          src={photo2}
+                          alt={name2}
+                          className="w-10 h-10 rounded-2xl object-cover border border-[#E6E2DA] shadow-2xs shrink-0"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className={`w-10 h-10 rounded-2xl ${role2 === 'Chồng' ? 'bg-[#0F3D39]' : 'bg-[#B45309]'} text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs`}>
+                          {name2.charAt(0).toUpperCase() || (role2 === 'Chồng' ? 'C' : 'V')}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-[#1C1917] truncate">
+                          {name2} {isMe2 && <span className="font-normal text-[#78716C] text-[10px]">(Bạn)</span>}
+                        </p>
+                        <p className="text-[10px] text-[#047857] font-mono flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block" />
+                          {role2}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()
               ) : (
                 <button
                   onClick={() => {
@@ -187,9 +236,9 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
                     triggerHaptic(10);
                     onOpenInvite();
                   }}
-                  className="p-3 rounded-2xl border border-dashed border-[#D6D2CA] bg-[#FAF9F6]/60 hover:bg-[#FAF9F6] flex items-center gap-2.5 text-left transition-all group"
+                  className="p-3 rounded-2xl border border-dashed border-[#D6D2CA] bg-[#FAF9F6]/60 hover:bg-[#FAF9F6] flex items-center gap-2.5 text-left transition-all group cursor-pointer"
                 >
-                  <div className="w-9 h-9 rounded-xl border border-dashed border-[#A8A29E] text-[#A8A29E] group-hover:border-[#0F3D39] group-hover:text-[#0F3D39] flex items-center justify-center font-bold text-xs shrink-0 transition-colors">
+                  <div className="w-10 h-10 rounded-2xl border border-dashed border-[#A8A29E] text-[#A8A29E] group-hover:border-[#0F3D39] group-hover:text-[#0F3D39] flex items-center justify-center font-bold text-xs shrink-0 transition-colors">
                     <UserPlus className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
@@ -202,6 +251,44 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
                   </div>
                 </button>
               )}
+            </div>
+
+            {/* Bộ chọn vai trò của bạn trong tổ ấm */}
+            <div className="mt-3 pt-3 border-t border-[#F5F3EF]">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[11px] font-medium text-[#78716C]">
+                  Vai trò của bạn trong tổ ấm:
+                </span>
+                <span className="text-[11px] font-bold text-[#0F3D39]">
+                  {userRole}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 bg-[#FAF9F6] p-1 rounded-2xl border border-[#E6E2DA]">
+                <button
+                  type="button"
+                  onClick={() => updateUserRole('Chồng')}
+                  className={`py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    userRole === 'Chồng'
+                      ? 'bg-[#0F3D39] text-white shadow-xs'
+                      : 'text-[#78716C] hover:text-[#1C1917]'
+                  }`}
+                >
+                  <span>👔 Chồng</span>
+                  {userRole === 'Chồng' && <Check className="w-3.5 h-3.5 ml-1" />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateUserRole('Vợ')}
+                  className={`py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                    userRole === 'Vợ'
+                      ? 'bg-[#B45309] text-white shadow-xs'
+                      : 'text-[#78716C] hover:text-[#1C1917]'
+                  }`}
+                >
+                  <span>👗 Vợ</span>
+                  {userRole === 'Vợ' && <Check className="w-3.5 h-3.5 ml-1" />}
+                </button>
+              </div>
             </div>
           </div>
 

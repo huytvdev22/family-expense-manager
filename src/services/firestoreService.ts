@@ -67,6 +67,8 @@ export async function createHousehold(name: string, monthlyBudget: number, user:
     memberEmails: {
       [user.uid]: user.email
     },
+    memberPhotos: user.photoURL ? { [user.uid]: user.photoURL } : {},
+    memberRoles: user.role ? { [user.uid]: user.role } : { [user.uid]: 'Chồng' },
     currency: 'VND',
     monthlyBudget: monthlyBudget || 30000000,
     createdAt: new Date().toISOString(),
@@ -491,12 +493,19 @@ export async function acceptInvitation(
     });
 
     // 2. Thêm người dùng vào danh sách thành viên hộ gia đình
-    transaction.update(householdRef, {
+    const householdUpdates: Record<string, any> = {
       members: arrayUnion(user.uid),
       [`memberNames.${user.uid}`]: user.displayName || 'Vợ/Chồng',
       [`memberEmails.${user.uid}`]: user.email,
       updatedAt: Date.now()
-    });
+    };
+    if (user.photoURL) {
+      householdUpdates[`memberPhotos.${user.uid}`] = user.photoURL;
+    }
+    if (user.role) {
+      householdUpdates[`memberRoles.${user.uid}`] = user.role;
+    }
+    transaction.update(householdRef, householdUpdates);
 
     // 3. Cập nhật hồ sơ người dùng
     transaction.set(userRef, {
@@ -507,4 +516,45 @@ export async function acceptInvitation(
 
     return invite.householdId;
   });
+}
+
+/**
+ * THIẾT LẬP VAI TRÒ THÀNH VIÊN TRONG TỔ ẤM ("Chồng" hoặc "Vợ")
+ */
+export async function setMemberRole(
+  householdId: string,
+  uid: string,
+  role: 'Chồng' | 'Vợ'
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const householdRef = doc(db, 'households', householdId);
+  const userRef = doc(db, 'users', uid);
+
+  await updateDoc(householdRef, {
+    [`memberRoles.${uid}`]: role,
+    updatedAt: Date.now()
+  });
+
+  await updateDoc(userRef, {
+    role,
+    updatedAt: Date.now()
+  }).catch((e) => console.warn('Lỗi lưu role user:', e));
+}
+
+/**
+ * ĐỒNG BỘ AVATAR CỦA THÀNH VIÊN VÀO TỔ ẤM
+ */
+export async function syncMemberPhoto(
+  householdId: string,
+  uid: string,
+  photoURL: string
+): Promise<void> {
+  if (!db || !photoURL) return;
+
+  const householdRef = doc(db, 'households', householdId);
+  await updateDoc(householdRef, {
+    [`memberPhotos.${uid}`]: photoURL,
+    updatedAt: Date.now()
+  }).catch((e) => console.warn('Lỗi đồng bộ avatar tổ ấm:', e));
 }

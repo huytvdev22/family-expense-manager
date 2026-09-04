@@ -14,7 +14,7 @@ interface NumpadProps {
 }
 
 export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
-  const { categories, logTransaction, currentUser } = useApp();
+  const { categories, logTransaction, currentUser, userRole } = useApp();
   const { showToast } = useToast();
 
   // Loại giao dịch: 'EXPENSE' (Khoản chi) hoặc 'INCOME' (Thu nhập)
@@ -23,8 +23,15 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
   // Giá trị số tiền đang nhập dạng chuỗi
   const [amountStr, setAmountStr] = useState<string>('0');
   
-  // Người chi / Người nhận: "Chồng" hoặc "Vợ"
-  const [paidBy, setPaidBy] = useState<'Chồng' | 'Vợ'>('Chồng');
+  // Người chi / Người nhận: Tự động chọn theo vai trò của người dùng ("Chồng" hoặc "Vợ")
+  const [paidBy, setPaidBy] = useState<'Chồng' | 'Vợ'>(userRole || 'Chồng');
+
+  // Tự động cập nhật paidBy khi vai trò người dùng thay đổi
+  useEffect(() => {
+    if (userRole) {
+      setPaidBy(userRole);
+    }
+  }, [userRole]);
 
   // Lọc danh mục theo loại giao dịch
   const currentCategories = useMemo(() => {
@@ -152,6 +159,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
       setAmountStr('0');
       setNote('');
       setSelectedTagId(null);
+      setPaidBy(userRole || 'Chồng');
 
       showToast(`Đã ghi nhận ${txType === 'EXPENSE' ? 'khoản chi' : 'thu nhập'} ${formatVND(amount)}`, 'success');
 
