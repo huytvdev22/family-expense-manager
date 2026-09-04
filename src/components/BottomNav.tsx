@@ -18,7 +18,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onChangeTab })
   };
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#FAF9F6]/95 backdrop-blur-md border-t border-[#E6E2DA] pb-safe sm:hidden isolate">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-[#FAF9F6] border-t border-[#E6E2DA] pb-safe sm:hidden isolate">
       <div className="flex items-center justify-between px-3 h-[52px] max-w-md mx-auto">
         {/* Tab 1: Sổ cái */}
         <button

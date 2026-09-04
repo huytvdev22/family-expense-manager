@@ -62,7 +62,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-[#FAF9F6]/95 backdrop-blur-md border-b border-[#E6E2DA] pt-safe pb-2.5 sm:pb-3 px-3 sm:px-4 isolate">
+    <header className="sticky top-0 z-30 bg-[#FAF9F6] border-b border-[#E6E2DA] pt-safe pb-2.5 sm:pb-3 px-3 sm:px-4 isolate">
       <div className="max-w-5xl mx-auto">
         {/* Hàng 1: [Logo & Tên] (trái) - [Bộ chọn tháng] (giữa trên Desktop) - [Cụm hành động & Google] (phải) */}
         <div className="flex items-center justify-between gap-2">
