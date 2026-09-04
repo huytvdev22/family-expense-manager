@@ -57,6 +57,7 @@ export const App: React.FC = () => {
         onOpenMonthlyLetter={() => setIsLetterOpen(true)}
         desktopView={desktopView}
         onChangeDesktopView={setDesktopView}
+        currentMobileTab={mobileTab}
       />
 
       {/* Main Content Container */}
