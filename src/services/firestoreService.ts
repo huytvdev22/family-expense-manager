@@ -290,10 +290,11 @@ export async function acceptInvitation(
   user: UserProfile
 ): Promise<string> {
   if (!db) throw new Error('Firestore chưa được khởi tạo');
+  const firestore = db;
 
-  const inviteRef = doc(db, 'invitations', inviteCode);
+  const inviteRef = doc(firestore, 'invitations', inviteCode);
 
-  return await runTransaction(db, async (transaction) => {
+  return await runTransaction(firestore, async (transaction) => {
     const inviteSnap = await transaction.get(inviteRef);
     if (!inviteSnap.exists()) throw new Error('Mã mời không tồn tại');
 
@@ -302,8 +303,8 @@ export async function acceptInvitation(
       throw new Error('Mã mời đã hết hạn hoặc đã được sử dụng');
     }
 
-    const householdRef = doc(db, 'households', invite.householdId);
-    const userRef = doc(db, 'users', user.uid);
+    const householdRef = doc(firestore, 'households', invite.householdId);
+    const userRef = doc(firestore, 'users', user.uid);
 
     // 1. Đổi trạng thái mã mời
     transaction.update(inviteRef, {
