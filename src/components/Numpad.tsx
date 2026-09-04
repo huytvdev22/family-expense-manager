@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { Delete, Check, Plus, Tag } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Delete, Check, Tag } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND } from '../utils/currency';
 import { playKeyClick, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { QuickTags } from './QuickTags';
-import type { Category, QuickTagItem, CategoryKey } from '../types';
+import { DEFAULT_INCOME_QUICK_TAGS } from '../services/mockData';
+import type { QuickTagItem, CategoryKey } from '../types';
 
 interface NumpadProps {
   onSuccess?: () => void;
@@ -14,21 +15,40 @@ interface NumpadProps {
 export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
   const { categories, logTransaction, currentUser } = useApp();
 
+  // Loại giao dịch: 'EXPENSE' (Khoản chi) hoặc 'INCOME' (Thu nhập)
+  const [txType, setTxType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
+
   // Giá trị số tiền đang nhập dạng chuỗi
   const [amountStr, setAmountStr] = useState<string>('0');
   
-  // Người chi: mặc định lấy "Chồng" hoặc "Vợ"
+  // Người chi / Người nhận: "Chồng" hoặc "Vợ"
   const [paidBy, setPaidBy] = useState<'Chồng' | 'Vợ'>('Chồng');
 
-  // Nhóm chi được chọn
+  // Lọc danh mục theo loại giao dịch
+  const currentCategories = useMemo(() => {
+    const list = categories.filter((c) => (c.type || 'EXPENSE') === txType);
+    return list.length > 0 ? list : categories;
+  }, [categories, txType]);
+
+  // Nhóm chi/thu được chọn
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
-    categories[0]?.id || 'cat_essential'
+    currentCategories[0]?.id || 'cat_essential'
   );
 
   // Ghi chú / Diễn giải
   const [note, setNote] = useState<string>('');
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
+  // Tự động chuyển danh mục mặc định khi đổi loại giao dịch
+  useEffect(() => {
+    const firstCat = categories.find((c) => (c.type || 'EXPENSE') === txType);
+    if (firstCat) {
+      setSelectedCategoryId(firstCat.id);
+    }
+    setSelectedTagId(null);
+    setNote('');
+  }, [txType, categories]);
 
   // Phím số bấm
   const handleDigit = (digit: string) => {
@@ -37,7 +57,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
 
     setAmountStr((prev) => {
       if (prev === '0') return digit;
-      if (prev.length >= 10) return prev; // Giới hạn độ dài tránh tràn
+      if (prev.length >= 11) return prev; // Giới hạn độ dài tránh tràn
       return prev + digit;
     });
   };
@@ -62,7 +82,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
     setSelectedTagId(null);
   };
 
-  // Phím cộng nhanh (+10k, +50k, +100k, +500k)
+  // Phím cộng nhanh (+10k, +50k... hoặc +1tr, +2tr...)
   const handleAddQuick = (val: number) => {
     playActionClick();
     triggerHaptic(10);
@@ -72,6 +92,24 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
       return String(current + val);
     });
   };
+
+  // Danh sách phím cộng nhanh theo loại giao dịch
+  const quickAmounts = useMemo(() => {
+    if (txType === 'INCOME') {
+      return [
+        { label: '+1tr', val: 1000000 },
+        { label: '+2tr', val: 2000000 },
+        { label: '+5tr', val: 5000000 },
+        { label: '+10tr', val: 10000000 }
+      ];
+    }
+    return [
+      { label: '+10k', val: 10000 },
+      { label: '+50k', val: 50000 },
+      { label: '+100k', val: 100000 },
+      { label: '+500k', val: 500000 }
+    ];
+  }, [txType]);
 
   // Chọn từ dải Quick Tags 1-chạm
   const handleSelectQuickTag = (tag: QuickTagItem) => {
@@ -83,22 +121,22 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
     }
   };
 
-  // Ghi nhận chi tiêu
+  // Ghi nhận giao dịch (Chi tiêu hoặc Thu nhập)
   const handleSubmit = async () => {
     const amount = Number(amountStr);
     if (amount <= 0) {
-      alert('Vui lòng nhập số tiền chi tiêu lớn hơn 0');
+      alert(`Vui lòng nhập số tiền ${txType === 'EXPENSE' ? 'chi tiêu' : 'thu nhập'} lớn hơn 0`);
       return;
     }
 
-    const currentCat = categories.find((c) => c.id === selectedCategoryId) || categories[0];
+    const currentCat = categories.find((c) => c.id === selectedCategoryId) || currentCategories[0] || categories[0];
     const todayStr = new Date().toISOString().split('T')[0];
 
     try {
       setIsSubmitting(true);
       await logTransaction({
         amount,
-        type: 'EXPENSE',
+        type: txType,
         categoryId: currentCat.id,
         categoryName: currentCat.name,
         categoryKey: currentCat.categoryKey as CategoryKey,
@@ -118,7 +156,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
       }
     } catch (error) {
       console.error('Lỗi khi ghi sổ:', error);
-      alert('Có lỗi xảy ra khi ghi nhận khoản chi.');
+      alert(`Có lỗi xảy ra khi ghi nhận ${txType === 'EXPENSE' ? 'khoản chi' : 'thu nhập'}.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -126,13 +164,54 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
 
   return (
     <div className="bg-white border border-[#E6E2DA] rounded-3xl p-4 shadow-sm flex flex-col gap-3">
+      {/* 0. Bộ chuyển đổi loại giao dịch: Khoản chi vs Thu nhập */}
+      <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center">
+        <button
+          type="button"
+          onClick={() => {
+            playActionClick();
+            triggerHaptic(10);
+            setTxType('EXPENSE');
+          }}
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all tactile-btn ${
+            txType === 'EXPENSE'
+              ? 'bg-[#0F3D39] text-white shadow-2xs'
+              : 'text-[#78716C] hover:text-[#1C1917]'
+          }`}
+        >
+          <span>💸 Khoản chi</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            playActionClick();
+            triggerHaptic(10);
+            setTxType('INCOME');
+          }}
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all tactile-btn ${
+            txType === 'INCOME'
+              ? 'bg-[#10B981] text-white shadow-2xs'
+              : 'text-[#78716C] hover:text-[#1C1917]'
+          }`}
+        >
+          <span>💰 Thu nhập</span>
+        </button>
+      </div>
+
       {/* 1. Màn hình hiển thị số tiền (Display) */}
-      <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-3.5 flex flex-col items-center justify-center min-h-[76px] relative">
+      <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-3 flex flex-col items-center justify-center min-h-[76px] relative">
         <span className="text-[10px] uppercase font-mono text-[#78716C] tracking-wider mb-0.5">
-          Số tiền ghi sổ
+          {txType === 'EXPENSE' ? 'Số tiền chi tiêu' : 'Số tiền thu nhập'}
         </span>
         <div className="flex items-baseline gap-1 text-[#1C1917]">
-          <span className="text-3xl sm:text-4xl font-bold font-mono tracking-tight tabular-nums">
+          {txType === 'INCOME' && amountStr !== '0' && (
+            <span className="text-2xl font-bold font-mono text-[#10B981]">+</span>
+          )}
+          <span
+            className={`text-3xl sm:text-4xl font-bold font-mono tracking-tight tabular-nums ${
+              txType === 'INCOME' && amountStr !== '0' ? 'text-[#0F3D39]' : 'text-[#1C1917]'
+            }`}
+          >
             {formatVND(Number(amountStr), false)}
           </span>
           <span className="text-sm font-semibold text-[#78716C]">₫</span>
@@ -150,11 +229,15 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
       </div>
 
       {/* 2. Dải gợi ý Quick Tags 1-chạm */}
-      <QuickTags onSelectTag={handleSelectQuickTag} selectedTagId={selectedTagId} />
+      <QuickTags
+        onSelectTag={handleSelectQuickTag}
+        selectedTagId={selectedTagId}
+        tags={txType === 'INCOME' ? DEFAULT_INCOME_QUICK_TAGS : undefined}
+      />
 
-      {/* 3. Bộ chuyển đổi: Người chi (Vợ/Chồng) & Ghi chú */}
+      {/* 3. Bộ chuyển đổi: Người chi / Người nhận & Ghi chú */}
       <div className="grid grid-cols-2 gap-2">
-        {/* Toggle Người chi */}
+        {/* Toggle Người chi / nhận */}
         <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-xl p-1 flex items-center">
           <button
             type="button"
@@ -169,7 +252,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
                 : 'text-[#78716C] hover:text-[#1C1917]'
             }`}
           >
-            Chồng chi
+            {txType === 'EXPENSE' ? 'Chồng chi' : 'Chồng nhận'}
           </button>
           <button
             type="button"
@@ -184,7 +267,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
                 : 'text-[#78716C] hover:text-[#1C1917]'
             }`}
           >
-            Vợ chi
+            {txType === 'EXPENSE' ? 'Vợ chi' : 'Vợ nhận'}
           </button>
         </div>
 
@@ -194,22 +277,22 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Ghi chú chi tiết..."
+            placeholder={txType === 'EXPENSE' ? 'Ghi chú chi tiết...' : 'Nguồn thu (Lương, thưởng...)'}
             className="w-full h-full bg-[#FAF9F6] border border-[#E6E2DA] rounded-xl px-3 py-1.5 text-xs text-[#1C1917] placeholder:text-[#A8A29E] outline-hidden focus:border-[#0F3D39]"
           />
         </div>
       </div>
 
-      {/* 4. Bộ chọn Nhóm chi tiêu (Categories) */}
+      {/* 4. Bộ chọn Nhóm chi tiêu / Nguồn thu */}
       <div>
         <div className="flex items-center gap-1 mb-1.5 px-0.5">
           <Tag className="w-3 h-3 text-[#78716C]" />
           <span className="text-[11px] uppercase tracking-wider font-semibold text-[#78716C]">
-            Chọn nhóm chi
+            {txType === 'EXPENSE' ? 'Chọn nhóm chi' : 'Chọn nguồn thu'}
           </span>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-          {categories.map((cat) => {
+          {currentCategories.map((cat) => {
             const isSelected = selectedCategoryId === cat.id;
             return (
               <button
@@ -222,13 +305,15 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
                 }}
                 className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl border text-xs text-left transition-all tactile-btn ${
                   isSelected
-                    ? 'border-[#0F3D39] bg-[#E7EFEF] text-[#0F3D39] font-semibold shadow-2xs'
+                    ? txType === 'INCOME'
+                      ? 'border-[#10B981] bg-[#ECFDF5] text-[#047857] font-semibold shadow-2xs'
+                      : 'border-[#0F3D39] bg-[#E7EFEF] text-[#0F3D39] font-semibold shadow-2xs'
                     : 'border-[#E6E2DA] bg-white text-[#1C1917] hover:bg-[#F5F3EF]'
                 }`}
               >
                 <span
                   className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: cat.color || '#0F3D39' }}
+                  style={{ backgroundColor: cat.color || (txType === 'INCOME' ? '#10B981' : '#0F3D39') }}
                 />
                 <span className="truncate">{cat.name}</span>
               </button>
@@ -237,14 +322,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
         </div>
       </div>
 
-      {/* 5. Phím cộng nhanh (+10k, +50k, +100k, +500k) */}
+      {/* 5. Phím cộng nhanh */}
       <div className="grid grid-cols-4 gap-1.5">
-        {[
-          { label: '+10k', val: 10000 },
-          { label: '+50k', val: 50000 },
-          { label: '+100k', val: 100000 },
-          { label: '+500k', val: 500000 }
-        ].map((item) => (
+        {quickAmounts.map((item) => (
           <button
             key={item.label}
             type="button"
@@ -306,11 +386,17 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
         className={`w-full py-3.5 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 transition-all tactile-btn shadow-xs ${
           amountStr === '0' || isSubmitting
             ? 'bg-[#E6E2DA] text-[#A8A29E] cursor-not-allowed'
+            : txType === 'INCOME'
+            ? 'bg-[#10B981] text-white hover:bg-[#059669] active:scale-98'
             : 'bg-[#0F3D39] text-[#FAF9F6] hover:bg-[#174E4A] active:scale-98'
         }`}
       >
         <Check className="w-4 h-4 stroke-[2.5]" />
-        <span>Ghi sổ ngay ({formatVND(Number(amountStr))})</span>
+        <span>
+          {txType === 'INCOME'
+            ? `Ghi nhận thu nhập (+${formatVND(Number(amountStr))})`
+            : `Ghi nhận khoản chi (${formatVND(Number(amountStr))})`}
+        </span>
       </button>
     </div>
   );

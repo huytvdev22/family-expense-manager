@@ -7,9 +7,11 @@ import { triggerHaptic } from '../utils/haptics';
 interface QuickTagsProps {
   onSelectTag: (tag: QuickTagItem) => void;
   selectedTagId?: string | null;
+  tags?: QuickTagItem[];
 }
 
-export const QuickTags: React.FC<QuickTagsProps> = ({ onSelectTag, selectedTagId }) => {
+export const QuickTags: React.FC<QuickTagsProps> = ({ onSelectTag, selectedTagId, tags }) => {
+  const displayTags = tags || DEFAULT_QUICK_TAGS;
   const handleClick = (tag: QuickTagItem) => {
     playActionClick();
     triggerHaptic(10);
@@ -26,7 +28,7 @@ export const QuickTags: React.FC<QuickTagsProps> = ({ onSelectTag, selectedTagId
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 no-scrollbar select-none">
-        {DEFAULT_QUICK_TAGS.map((tag) => {
+        {displayTags.map((tag) => {
           const isSelected = selectedTagId === tag.id;
           return (
             <button

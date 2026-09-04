@@ -27,7 +27,7 @@ export interface Household {
   updatedAt: number;
 }
 
-export type CategoryKey = 'ESSENTIAL' | 'LIVING' | 'UNEXPECTED' | 'SAVING' | 'OTHER';
+export type CategoryKey = 'ESSENTIAL' | 'LIVING' | 'UNEXPECTED' | 'SAVING' | 'INCOME' | 'OTHER';
 
 export interface Category {
   id: string;

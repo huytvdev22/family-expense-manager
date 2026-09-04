@@ -55,6 +55,66 @@ export const DEFAULT_CATEGORIES: Category[] = [
     monthlyLimit: 15000000,
     isArchived: false,
     createdAt: '2026-09-01T00:00:00Z'
+  },
+  {
+    id: 'cat_income_salary',
+    name: 'Tiền lương',
+    type: 'INCOME',
+    categoryKey: 'INCOME',
+    icon: 'briefcase',
+    color: '#0F3D39',
+    order: 5,
+    isDefault: true,
+    isArchived: false,
+    createdAt: '2026-09-01T00:00:00Z'
+  },
+  {
+    id: 'cat_income_bonus',
+    name: 'Tiền thưởng',
+    type: 'INCOME',
+    categoryKey: 'INCOME',
+    icon: 'gift',
+    color: '#B45309',
+    order: 6,
+    isDefault: true,
+    isArchived: false,
+    createdAt: '2026-09-01T00:00:00Z'
+  },
+  {
+    id: 'cat_income_side',
+    name: 'Thu nhập phụ',
+    type: 'INCOME',
+    categoryKey: 'INCOME',
+    icon: 'zap',
+    color: '#D97706',
+    order: 7,
+    isDefault: true,
+    isArchived: false,
+    createdAt: '2026-09-01T00:00:00Z'
+  },
+  {
+    id: 'cat_income_invest',
+    name: 'Lãi & Đầu tư',
+    type: 'INCOME',
+    categoryKey: 'INCOME',
+    icon: 'piggy-bank',
+    color: '#10B981',
+    order: 8,
+    isDefault: true,
+    isArchived: false,
+    createdAt: '2026-09-01T00:00:00Z'
+  },
+  {
+    id: 'cat_income_other',
+    name: 'Thu nhập khác',
+    type: 'INCOME',
+    categoryKey: 'INCOME',
+    icon: 'sparkles',
+    color: '#4A6B68',
+    order: 9,
+    isDefault: true,
+    isArchived: false,
+    createdAt: '2026-09-01T00:00:00Z'
   }
 ];
 
@@ -135,6 +195,54 @@ export const DEFAULT_QUICK_TAGS: QuickTagItem[] = [
     categoryId: 'cat_saving',
     categoryName: 'Tích lũy & Tương lai',
     defaultAmount: 5000000
+  }
+];
+
+export const DEFAULT_INCOME_QUICK_TAGS: QuickTagItem[] = [
+  {
+    id: 'tag_inc_salary',
+    label: 'Lương tháng',
+    emoji: '💼',
+    categoryKey: 'INCOME',
+    categoryId: 'cat_income_salary',
+    categoryName: 'Tiền lương',
+    defaultAmount: 25000000
+  },
+  {
+    id: 'tag_inc_bonus',
+    label: 'Thưởng hiệu quả',
+    emoji: '🎉',
+    categoryKey: 'INCOME',
+    categoryId: 'cat_income_bonus',
+    categoryName: 'Tiền thưởng',
+    defaultAmount: 5000000
+  },
+  {
+    id: 'tag_inc_freelance',
+    label: 'Làm thêm / Dự án',
+    emoji: '💻',
+    categoryKey: 'INCOME',
+    categoryId: 'cat_income_side',
+    categoryName: 'Thu nhập phụ',
+    defaultAmount: 3000000
+  },
+  {
+    id: 'tag_inc_interest',
+    label: 'Lãi tiết kiệm',
+    emoji: '📈',
+    categoryKey: 'INCOME',
+    categoryId: 'cat_income_invest',
+    categoryName: 'Lãi & Đầu tư',
+    defaultAmount: 1200000
+  },
+  {
+    id: 'tag_inc_gift',
+    label: 'Được tặng / Biếu',
+    emoji: '🎁',
+    categoryKey: 'INCOME',
+    categoryId: 'cat_income_other',
+    categoryName: 'Thu nhập khác',
+    defaultAmount: 1000000
   }
 ];
 

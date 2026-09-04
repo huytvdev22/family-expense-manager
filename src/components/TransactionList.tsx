@@ -23,15 +23,22 @@ export const TransactionList: React.FC = () => {
 
     // Sắp xếp các ngày giảm dần
     const sortedDates = Object.keys(groups).sort((a, b) => b.localeCompare(a));
-    return sortedDates.map((date) => ({
-      date,
-      items: groups[date],
-      dayTotal: groups[date].reduce((sum, item) => sum + (item.type === 'EXPENSE' ? item.amount : 0), 0)
-    }));
+    return sortedDates.map((date) => {
+      const items = groups[date];
+      const dayExpense = items.reduce((sum, item) => sum + (item.type === 'EXPENSE' ? item.amount : 0), 0);
+      const dayIncome = items.reduce((sum, item) => sum + (item.type === 'INCOME' ? item.amount : 0), 0);
+      return {
+        date,
+        items,
+        dayExpense,
+        dayIncome
+      };
+    });
   }, [transactions]);
 
   const handleDelete = async (tx: Transaction) => {
-    if (window.confirm(`Xóa khoản chi "${tx.note || tx.categoryName}" (${formatVND(tx.amount)})?`)) {
+    const typeLabel = tx.type === 'INCOME' ? 'khoản thu' : 'khoản chi';
+    if (window.confirm(`Xóa ${typeLabel} "${tx.note || tx.categoryName}" (${formatVND(tx.amount)})?`)) {
       playActionClick();
       triggerHaptic(15);
       await removeTransaction(tx);
@@ -46,7 +53,7 @@ export const TransactionList: React.FC = () => {
         </div>
         <h3 className="text-sm font-semibold text-[#1C1917]">Sổ cái đang trống</h3>
         <p className="text-xs text-[#78716C] mt-1 max-w-sm mx-auto leading-relaxed">
-          Chưa có khoản chi tiêu nào được ghi nhận trong tháng này. Hãy chạm bàn phím bên dưới để ghi lại chi tiêu đầu tiên của tổ ấm nhé!
+          Chưa có khoản chi tiêu hoặc thu nhập nào được ghi nhận trong tháng này. Hãy chạm bàn phím bên dưới để ghi lại giao dịch đầu tiên của tổ ấm nhé!
         </p>
       </section>
     );
@@ -58,7 +65,7 @@ export const TransactionList: React.FC = () => {
         <div className="flex items-center gap-2">
           <Receipt className="w-4 h-4 text-[#0F3D39]" />
           <h2 className="text-xs uppercase tracking-wider font-semibold text-[#78716C]">
-            Sổ cái chi tiêu gần đây
+            Sổ cái thu chi gần đây
           </h2>
         </div>
         <span className="text-xs font-mono text-[#78716C]">
@@ -67,7 +74,7 @@ export const TransactionList: React.FC = () => {
       </div>
 
       <div className="space-y-4">
-        {groupedTransactions.map(({ date, items, dayTotal }) => (
+        {groupedTransactions.map(({ date, items, dayExpense, dayIncome }) => (
           <div key={date} className="space-y-2">
             {/* Header ngày */}
             <div className="flex items-center justify-between text-xs font-medium text-[#78716C] px-1">
@@ -75,58 +82,78 @@ export const TransactionList: React.FC = () => {
                 <Calendar className="w-3.5 h-3.5 text-[#A8A29E]" />
                 {formatDateLabel(date)}
               </span>
-              <span className="font-mono text-[11px] tabular-nums text-[#78716C]">
-                Tổng ngày: {formatVND(dayTotal)}
-              </span>
+              <div className="flex items-center gap-2 font-mono text-[11px] tabular-nums">
+                {dayIncome > 0 && (
+                  <span className="text-[#059669] font-medium">
+                    +{formatVND(dayIncome)}
+                  </span>
+                )}
+                <span>
+                  Chi: {formatVND(dayExpense)}
+                </span>
+              </div>
             </div>
 
             {/* Danh sách các khoản trong ngày */}
             <div className="divide-y divide-[#F5F3EF] border border-[#F5F3EF] rounded-2xl overflow-hidden bg-[#FAF9F6]/50">
-              {items.map((tx) => (
-                <div
-                  key={tx.id}
-                  className="flex items-center justify-between gap-3 p-3 hover:bg-white transition-colors group"
-                >
-                  {/* Cột trái: Tên khoản chi, danh mục, người chi */}
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-2 h-2 rounded-full bg-[#0F3D39] shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium text-[#1C1917] truncate">
-                        {tx.note || tx.categoryName}
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <span className="text-[10px] text-[#78716C] truncate">
-                          {tx.categoryName}
-                        </span>
-                        <span className="text-[#D3CDC2] text-[10px]">•</span>
-                        <span
-                          className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium ${
-                            tx.paidBy === 'Chồng'
-                              ? 'bg-[#E7EFEF] text-[#0F3D39]'
-                              : 'bg-[#FEF3C7] text-[#B45309]'
-                          }`}
-                        >
-                          {tx.paidBy}
-                        </span>
+              {items.map((tx) => {
+                const isIncome = tx.type === 'INCOME';
+                return (
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between gap-3 p-3 hover:bg-white transition-colors group"
+                  >
+                    {/* Cột trái: Tên khoản chi / thu, danh mục, người chi / nhận */}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div
+                        className={`w-2 h-2 rounded-full shrink-0 ${
+                          isIncome ? 'bg-[#10B981]' : 'bg-[#0F3D39]'
+                        }`}
+                      />
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-[#1C1917] truncate">
+                          {tx.note || tx.categoryName}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className="text-[10px] text-[#78716C] truncate">
+                            {tx.categoryName}
+                          </span>
+                          <span className="text-[#D3CDC2] text-[10px]">•</span>
+                          <span
+                            className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium ${
+                              isIncome
+                                ? 'bg-[#ECFDF5] text-[#047857]'
+                                : tx.paidBy === 'Chồng'
+                                ? 'bg-[#E7EFEF] text-[#0F3D39]'
+                                : 'bg-[#FEF3C7] text-[#B45309]'
+                            }`}
+                          >
+                            {isIncome ? `${tx.paidBy} nhận` : tx.paidBy}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Cột phải: Số tiền thẳng hàng & Nút xóa */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs font-semibold font-mono text-[#1C1917] tabular-nums">
-                      {formatVND(tx.amount)}
-                    </span>
-                    <button
-                      onClick={() => handleDelete(tx)}
-                      className="text-[#A8A29E] hover:text-[#E11D48] p-1 rounded-lg hover:bg-[#FFF1F2] opacity-70 group-hover:opacity-100 transition-all"
-                      title="Xóa giao dịch"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {/* Cột phải: Số tiền thẳng hàng & Nút xóa */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className={`text-xs font-semibold font-mono tabular-nums ${
+                          isIncome ? 'text-[#047857] font-bold' : 'text-[#1C1917]'
+                        }`}
+                      >
+                        {isIncome ? `+ ${formatVND(tx.amount)}` : formatVND(tx.amount)}
+                      </span>
+                      <button
+                        onClick={() => handleDelete(tx)}
+                        className="text-[#A8A29E] hover:text-[#E11D48] p-1 rounded-lg hover:bg-[#FFF1F2] opacity-70 group-hover:opacity-100 transition-all"
+                        title={`Xóa ${isIncome ? 'thu nhập' : 'khoản chi'}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         ))}
