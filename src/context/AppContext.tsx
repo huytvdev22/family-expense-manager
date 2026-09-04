@@ -80,6 +80,10 @@ interface AppContextType {
   wifeExpense: number;
   husbandRatio: number;
   wifeRatio: number;
+  husbandIncome: number;
+  wifeIncome: number;
+  husbandIncomeRatio: number;
+  wifeIncomeRatio: number;
   
   // Âm thanh xúc giác
   soundEnabled: boolean;
@@ -364,12 +368,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     husbandExpense,
     wifeExpense,
     husbandRatio,
-    wifeRatio
+    wifeRatio,
+    husbandIncome,
+    wifeIncome,
+    husbandIncomeRatio,
+    wifeIncomeRatio
   } = useMemo(() => {
     let exp = 0;
     let inc = 0;
     let hExp = 0;
     let wExp = 0;
+    let hInc = 0;
+    let wInc = 0;
 
     // Ưu tiên tính trực tiếp từ danh sách transactions thực tế của tháng hiện tại
     transactions.forEach((tx) => {
@@ -382,26 +392,35 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       } else {
         inc += tx.amount;
+        if (tx.paidBy === 'Chồng') {
+          hInc += tx.amount;
+        } else {
+          wInc += tx.amount;
+        }
       }
     });
 
     // Nếu có summary từ Firestore và chưa có transactions nạp xong
-    if (exp === 0 && monthlySummary) {
+    if (exp === 0 && inc === 0 && monthlySummary) {
       exp = monthlySummary.totalExpense;
       inc = monthlySummary.totalIncome;
       hExp = monthlySummary.byMember?.['Chồng'] || 0;
       wExp = monthlySummary.byMember?.['Vợ'] || 0;
     }
 
-    const net = inc > 0 ? inc - exp : 0;
-    const savRatio = inc > 0 ? Math.round((net / inc) * 100) : 0;
+    const net = inc - exp;
+    const savRatio = inc > 0 ? Math.round((Math.max(0, net) / inc) * 100) : 0;
     
     const budget = activeHousehold?.monthlyBudget || 30000000;
     const bProg = Math.min(100, Math.round((exp / budget) * 100));
 
-    const totalCouple = hExp + wExp;
-    const hRatio = totalCouple > 0 ? Math.round((hExp / totalCouple) * 100) : 50;
-    const wRatio = totalCouple > 0 ? 100 - hRatio : 50;
+    const totalCoupleExp = hExp + wExp;
+    const hRatio = totalCoupleExp > 0 ? Math.round((hExp / totalCoupleExp) * 100) : 50;
+    const wRatio = totalCoupleExp > 0 ? 100 - hRatio : 50;
+
+    const totalCoupleInc = hInc + wInc;
+    const hIncRatio = totalCoupleInc > 0 ? Math.round((hInc / totalCoupleInc) * 100) : 50;
+    const wIncRatio = totalCoupleInc > 0 ? 100 - hIncRatio : 50;
 
     return {
       totalExpense: exp,
@@ -412,7 +431,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       husbandExpense: hExp,
       wifeExpense: wExp,
       husbandRatio: hRatio,
-      wifeRatio: wRatio
+      wifeRatio: wRatio,
+      husbandIncome: hInc,
+      wifeIncome: wInc,
+      husbandIncomeRatio: hIncRatio,
+      wifeIncomeRatio: wIncRatio
     };
   }, [transactions, monthlySummary, activeHousehold?.monthlyBudget]);
 
@@ -729,6 +752,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         wifeExpense,
         husbandRatio,
         wifeRatio,
+        husbandIncome,
+        wifeIncome,
+        husbandIncomeRatio,
+        wifeIncomeRatio,
         soundEnabled,
         toggleSound,
         logTransaction,
