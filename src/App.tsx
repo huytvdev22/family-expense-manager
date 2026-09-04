@@ -27,13 +27,22 @@ export const App: React.FC = () => {
   const [isLetterOpen, setIsLetterOpen] = useState(false);
   const [joinCodeParam, setJoinCodeParam] = useState<string>('');
 
-  // Kiểm tra link mời tham gia từ URL (?join=CODE)
+  // Kiểm tra link mời tham gia từ URL (?join=CODE) hoặc từ localStorage
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const joinCode = params.get('join');
     if (joinCode) {
-      setJoinCodeParam(joinCode);
+      const code = joinCode.trim().toUpperCase();
+      localStorage.setItem('pending_invite_code', code);
+      setJoinCodeParam(code);
       setIsInviteOpen(true);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      const savedPending = localStorage.getItem('pending_invite_code');
+      if (savedPending) {
+        setJoinCodeParam(savedPending);
+        setIsInviteOpen(true);
+      }
     }
   }, []);
 
@@ -192,7 +201,11 @@ export const App: React.FC = () => {
       {/* Modal Mời thành viên */}
       <InviteModal
         isOpen={isInviteOpen}
-        onClose={() => setIsInviteOpen(false)}
+        onClose={() => {
+          setIsInviteOpen(false);
+          setJoinCodeParam('');
+          localStorage.removeItem('pending_invite_code');
+        }}
         initialCode={joinCodeParam}
       />
 

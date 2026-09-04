@@ -308,6 +308,21 @@ export async function createInvitation(
 }
 
 /**
+ * ĐỌC THÔNG TIN MÃ MỜI (Dành cho người nhận xem trước thông tin tổ ấm và người mời)
+ */
+export async function getInvitation(inviteCode: string): Promise<Invitation | null> {
+  if (!db) return null;
+  try {
+    const snap = await getDoc(doc(db, 'invitations', inviteCode));
+    if (!snap.exists()) return null;
+    return snap.data() as Invitation;
+  } catch (err) {
+    console.error('Lỗi khi đọc thông tin mã mời:', err);
+    return null;
+  }
+}
+
+/**
  * CHẤP NHẬN MÃ MỜI GIA NHẬP TỔ ẤM (Atomic Transaction)
  */
 export async function acceptInvitation(
@@ -321,11 +336,15 @@ export async function acceptInvitation(
 
   return await runTransaction(firestore, async (transaction) => {
     const inviteSnap = await transaction.get(inviteRef);
-    if (!inviteSnap.exists()) throw new Error('Mã mời không tồn tại');
+    if (!inviteSnap.exists()) throw new Error('Mã mời không tồn tại hoặc đã bị xóa');
 
     const invite = inviteSnap.data() as Invitation;
     if (invite.status !== 'PENDING' || invite.expiresAt < Date.now()) {
       throw new Error('Mã mời đã hết hạn hoặc đã được sử dụng');
+    }
+
+    if (invite.createdBy === user.uid) {
+      throw new Error('Đây là mã mời do chính bạn tạo ra. Hãy gửi liên kết này cho bạn đời của bạn nhé!');
     }
 
     const householdRef = doc(firestore, 'households', invite.householdId);

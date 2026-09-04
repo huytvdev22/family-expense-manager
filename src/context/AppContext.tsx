@@ -157,7 +157,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           });
           setCurrentUser(profile);
 
-          // Tải tổ ấm hiện tại của người dùng hoặc khởi tạo mới nếu chưa có
+          // 1. Kiểm tra xem người dùng có mã mời đang chờ xử lý hay không (click từ link mời gửi qua tin nhắn)
+          const pendingInviteCode = localStorage.getItem('pending_invite_code');
+          let joinedFromInvite = false;
+
+          if (pendingInviteCode) {
+            try {
+              const joinedHouseholdId = await acceptInvitation(pendingInviteCode, profile);
+              localStorage.removeItem('pending_invite_code');
+              profile.activeHouseholdId = joinedHouseholdId;
+              if (!profile.householdIds.includes(joinedHouseholdId)) {
+                profile.householdIds.push(joinedHouseholdId);
+              }
+              joinedFromInvite = true;
+            } catch (invErr: any) {
+              console.error('Lỗi tự động gia nhập từ mã mời pending:', invErr);
+              localStorage.removeItem('pending_invite_code');
+              let errorMsg = invErr?.message || 'Không thể gia nhập tổ ấm từ mã mời.';
+              if (errorMsg.includes('permission-denied') || errorMsg.includes('Missing or insufficient permissions')) {
+                errorMsg = 'Tổ ấm này đã đủ 2 thành viên đồng hành (Vợ & Chồng) hoặc mã mời không còn hiệu lực.';
+              }
+              alert(`⚠️ ${errorMsg}`);
+            }
+          }
+
+          // 2. Tải tổ ấm hiện tại của người dùng hoặc khởi tạo mới nếu chưa có
           const targetHouseholdId = profile.activeHouseholdId || (profile.householdIds.length > 0 ? profile.householdIds[0] : null);
           let loadedHousehold: Household | null = null;
 
@@ -175,6 +199,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           }
 
           setActiveHousehold(loadedHousehold);
+
+          if (joinedFromInvite && loadedHousehold) {
+            alert(`🎉 Chúc mừng! Bạn đã kết nối thành công vào tổ ấm "${loadedHousehold.name}".`);
+          }
         } catch (err) {
           console.error('Lỗi khởi tạo hồ sơ người dùng:', err);
         }
@@ -336,7 +364,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // TẠO MÃ MỜI 48H
   const generateInviteCode = async (): Promise<string> => {
-    if (isFirebaseActive && activeHousehold && currentUser) {
+    if (!firebaseUser || !currentUser) {
+      throw new Error('AUTH_REQUIRED');
+    }
+    if (isFirebaseActive && activeHousehold) {
       return await createInvitation(activeHousehold.id, activeHousehold.name, currentUser);
     }
     return `TOAM-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -344,7 +375,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // CHẤP NHẬN MÃ MỜI
   const joinWithInviteCode = async (code: string) => {
-    if (isFirebaseActive && currentUser) {
+    if (!firebaseUser || !currentUser) {
+      throw new Error('AUTH_REQUIRED');
+    }
+    if (isFirebaseActive) {
       const newHouseholdId = await acceptInvitation(code, currentUser);
       // Nạp và chuyển sang tổ ấm mới ngay lập tức
       const newHousehold = await getHousehold(newHouseholdId);
@@ -356,8 +390,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           householdIds: Array.from(new Set([...(prev.householdIds || []), newHouseholdId]))
         } : null);
       }
-    } else {
-      alert(`Đã tham gia tổ ấm với mã ${code} (Chế độ mô phỏng)`);
     }
   };
 

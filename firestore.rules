@@ -65,8 +65,9 @@ service cloud.firestore {
 
     // 3. Hệ thống mã mời (invitations)
     match /invitations/{inviteCode} {
-      // Người dùng đã đăng nhập được đọc mã để xem thông tin mời trước khi nhận
-      allow read: if isAuthenticated();
+      // Cho phép đọc thông tin chi tiết một mã mời cụ thể (người chưa đăng nhập cũng có thể xem để biết ai mời)
+      allow get: if true;
+      allow list: if false;
       // Người dùng đã đăng nhập được tạo mã mời (người tạo là chính mình)
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.createdBy;
       // Người nhận được cập nhật trạng thái ACCEPTED khi gia nhập
