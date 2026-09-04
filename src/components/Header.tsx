@@ -26,7 +26,6 @@ export type DesktopView = 'ledger' | 'dashboard' | 'categories' | 'family';
 
 interface HeaderProps {
   onOpenInvite: () => void;
-  onOpenCategories: () => void;
   onOpenMonthlyLetter: () => void;
   desktopView?: DesktopView;
   onChangeDesktopView?: (view: DesktopView) => void;
@@ -35,7 +34,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenInvite,
-  onOpenCategories,
   onOpenMonthlyLetter,
   desktopView = 'ledger',
   onChangeDesktopView,
@@ -204,20 +202,6 @@ export const Header: React.FC<HeaderProps> = ({
               aria-label="Bức thư tháng"
             >
               <MailOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-
-            {/* Nút Quản lý danh mục (Desktop) */}
-            <button
-              onClick={() => {
-                playActionClick();
-                triggerHaptic(10);
-                onOpenCategories();
-              }}
-              className="w-9 h-9 flex items-center justify-center rounded-xl border border-[#E6E2DA] bg-white text-[#4A6B68] hover:bg-[#F5F3EF] active:scale-95 transition-all tactile-btn shadow-2xs hidden sm:flex shrink-0"
-              title="Quản lý danh mục"
-              aria-label="Danh mục"
-            >
-              <FolderTree className="w-4 h-4" />
             </button>
 
             {/* Nút Mời thành viên */}

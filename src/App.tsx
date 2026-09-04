@@ -23,7 +23,6 @@ export const App: React.FC = () => {
 
   // Trạng thái mở các Modal
   const [isInviteOpen, setIsInviteOpen] = useState(false);
-  const [isCategoryOpen, setIsCategoryOpen] = useState(false);
   const [isLetterOpen, setIsLetterOpen] = useState(false);
 
   // Kiểm tra link mời tham gia từ URL (?join=CODE)
@@ -53,7 +52,6 @@ export const App: React.FC = () => {
       {/* Header cố định */}
       <Header
         onOpenInvite={() => setIsInviteOpen(true)}
-        onOpenCategories={() => setIsCategoryOpen(true)}
         onOpenMonthlyLetter={() => setIsLetterOpen(true)}
         desktopView={desktopView}
         onChangeDesktopView={setDesktopView}
@@ -92,17 +90,7 @@ export const App: React.FC = () => {
                 categories={categories}
                 totalExpense={totalExpense}
               />
-              <div className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-sm text-center">
-                <p className="text-xs text-[#78716C] mb-3">
-                  Tùy chỉnh thêm nhóm chi, hạn mức hoặc đổi màu sắc danh mục
-                </p>
-                <button
-                  onClick={() => setIsCategoryOpen(true)}
-                  className="w-full py-3 rounded-2xl bg-[#0F3D39] text-white text-xs font-semibold tactile-btn active:scale-98 transition-all"
-                >
-                  + Tùy biến nhóm chi tiêu & nguồn thu
-                </button>
-              </div>
+              <CategoryManager />
             </div>
           )}
 
@@ -111,7 +99,6 @@ export const App: React.FC = () => {
               <FamilyHub
                 onOpenInvite={() => setIsInviteOpen(true)}
                 onOpenMonthlyLetter={() => setIsLetterOpen(true)}
-                onOpenCategories={() => setIsCategoryOpen(true)}
               />
             </div>
           )}
@@ -154,18 +141,7 @@ export const App: React.FC = () => {
                 categories={categories}
                 totalExpense={totalExpense}
               />
-              <div className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-sm flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-[#1C1917]">Quản lý nhóm chi tiêu & nguồn thu</h3>
-                  <p className="text-xs text-[#78716C]">Tùy biến thêm nhóm chi, đổi màu sắc và hạn mức mục tiêu</p>
-                </div>
-                <button
-                  onClick={() => setIsCategoryOpen(true)}
-                  className="px-4 py-2.5 rounded-2xl bg-[#0F3D39] text-white text-xs font-semibold tactile-btn active:scale-98 transition-all shadow-xs"
-                >
-                  + Tùy biến danh mục
-                </button>
-              </div>
+              <CategoryManager />
             </div>
           )}
 
@@ -174,7 +150,6 @@ export const App: React.FC = () => {
               <FamilyHub
                 onOpenInvite={() => setIsInviteOpen(true)}
                 onOpenMonthlyLetter={() => setIsLetterOpen(true)}
-                onOpenCategories={() => setIsCategoryOpen(true)}
               />
             </div>
           )}
@@ -183,12 +158,6 @@ export const App: React.FC = () => {
 
       {/* Thanh điều hướng đáy trên di động */}
       <BottomNav currentTab={mobileTab} onChangeTab={setMobileTab} />
-
-      {/* Modal Quản lý danh mục */}
-      <CategoryManager
-        isOpen={isCategoryOpen}
-        onClose={() => setIsCategoryOpen(false)}
-      />
 
       {/* Modal Mời thành viên */}
       <InviteModal

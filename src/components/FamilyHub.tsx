@@ -9,7 +9,6 @@ import {
   VolumeX,
   LogIn,
   LogOut,
-  FolderTree,
   Edit3,
   Check,
   Sparkles,
@@ -23,13 +22,11 @@ import { triggerHaptic } from '../utils/haptics';
 interface FamilyHubProps {
   onOpenInvite: () => void;
   onOpenMonthlyLetter: () => void;
-  onOpenCategories: () => void;
 }
 
 export const FamilyHub: React.FC<FamilyHubProps> = ({
   onOpenInvite,
-  onOpenMonthlyLetter,
-  onOpenCategories
+  onOpenMonthlyLetter
 }) => {
   const {
     activeHousehold,
@@ -225,28 +222,7 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
 
           {/* 5. Menu cài đặt & Tiện ích */}
           <div className="bg-white border border-[#E6E2DA] rounded-3xl p-4 shadow-sm divide-y divide-[#F5F3EF]">
-        {/* Nút mở quản lý danh mục */}
-        <button
-          onClick={() => {
-            playActionClick();
-            triggerHaptic(10);
-            onOpenCategories();
-          }}
-          className="w-full py-3 flex items-center justify-between text-left hover:bg-[#FAF9F6] px-2 rounded-xl transition-colors"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center">
-              <FolderTree className="w-4 h-4" />
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-[#1C1917]">Quản lý nhóm chi & nguồn thu</p>
-              <p className="text-[10px] text-[#78716C]">{categories.length} nhóm danh mục hiện có</p>
-            </div>
-          </div>
-          <span className="text-xs text-[#A8A29E]">&rarr;</span>
-        </button>
-
-        {/* Cài đặt âm thanh phản hồi */}
+            {/* Cài đặt âm thanh phản hồi */}
         <div className="py-3 flex items-center justify-between px-2">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-[#F5F3EF] text-[#78716C] flex items-center justify-center">
