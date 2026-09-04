@@ -35,9 +35,9 @@ export const BalanceCard: React.FC = () => {
 
   return (
     <section className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-sm transition-all">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6 divide-y sm:divide-y-0 sm:divide-x divide-[#F5F3EF]">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr_auto_1fr] items-stretch gap-y-4 sm:gap-y-0">
         {/* Phân khu 1: Tổng chi tiêu & Ngân sách mục tiêu */}
-        <div className="flex flex-col justify-between">
+        <div className="flex flex-col justify-between sm:pr-6">
           <span className="text-[11px] uppercase tracking-wider font-semibold text-[#78716C] flex items-center gap-1.5">
             <Target className="w-3.5 h-3.5 text-[#B45309]" />
             Tổng chi tiêu tháng này
@@ -49,7 +49,7 @@ export const BalanceCard: React.FC = () => {
           </div>
 
           {/* Ngân sách mục tiêu & Còn lại */}
-          <div className="flex items-center justify-between text-xs text-[#78716C] pt-1">
+          <div className="flex items-center justify-between text-[11px] text-[#78716C] pt-1 gap-2 whitespace-nowrap">
             <div className="flex items-center gap-1">
               <span>Hạn mức:</span>
               {isEditingBudget ? (
@@ -85,20 +85,24 @@ export const BalanceCard: React.FC = () => {
             </div>
             <div>
               {isOverBudget ? (
-                <span className="text-[#E11D48] font-medium font-mono text-[11px]">
+                <span className="text-[#E11D48] font-medium font-mono">
                   Vượt {formatVND(totalExpense - monthlyBudget)}
                 </span>
               ) : (
-                <span className="font-mono text-[11px]">
-                  Còn: {formatVND(monthlyBudget - totalExpense)}
+                <span className="font-mono text-[#78716C]">
+                  Còn: <strong className="text-[#1C1917] font-semibold">{formatVND(monthlyBudget - totalExpense)}</strong>
                 </span>
               )}
             </div>
           </div>
         </div>
 
-        {/* Phân khu 2: Tiến độ ngân sách */}
-        <div className="pt-4 sm:pt-0 sm:pl-6 flex flex-col justify-between">
+        {/* Gạch phân cách dọc 1 (Desktop) / ngang (Mobile) */}
+        <div className="hidden sm:block w-px bg-[#E6E2DA] my-0.5 self-stretch" />
+        <div className="sm:hidden h-px bg-[#F5F3EF] w-full" />
+
+        {/* Phân khu 2: Tiến độ ngân sách (Cân đối chính giữa) */}
+        <div className="flex flex-col justify-between sm:px-6">
           <div className="flex items-center justify-between text-[11px] font-mono mb-1.5">
             <span className="uppercase tracking-wider font-semibold text-[#78716C]">
               Tiến độ chi tiêu
@@ -119,18 +123,22 @@ export const BalanceCard: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-[11px] text-[#78716C] pt-1">
-            <span>
+          <div className="flex items-center justify-between text-[11px] text-[#78716C] pt-1 gap-2 whitespace-nowrap">
+            <span className="truncate">
               {isOverBudget ? '⚠️ Đã vượt hạn mức' : 'Đang trong tầm kiểm soát'}
             </span>
-            <span className="font-mono">
+            <span className="font-mono shrink-0">
               Mục tiêu: {formatVND(monthlyBudget)}
             </span>
           </div>
         </div>
 
+        {/* Gạch phân cách dọc 2 (Desktop) / ngang (Mobile) */}
+        <div className="hidden sm:block w-px bg-[#E6E2DA] my-0.5 self-stretch" />
+        <div className="sm:hidden h-px bg-[#F5F3EF] w-full" />
+
         {/* Phân khu 3: Cán cân chi tiêu Vợ - Chồng */}
-        <div className="pt-4 sm:pt-0 sm:pl-6 flex flex-col justify-between">
+        <div className="flex flex-col justify-between sm:pl-6">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] uppercase tracking-wider font-semibold text-[#78716C] flex items-center gap-1.5">
               <Scale className="w-3.5 h-3.5 text-[#4A6B68]" />
@@ -157,21 +165,21 @@ export const BalanceCard: React.FC = () => {
             </div>
           </div>
 
-          {/* Số tiền chi tiết từng người */}
-          <div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1">
-            <div className="flex items-center gap-1.5">
-              <div className="w-2.5 h-2.5 rounded-full bg-[#0F3D39] shrink-0" />
-              <div className="truncate">
-                <span className="text-[#78716C]">Chồng: </span>
-                <span className="font-semibold text-[#1C1917] tabular-nums">{formatVND(husbandExpense)}</span>
-              </div>
+          {/* Số tiền chi tiết từng người (Hiển thị trọn vẹn không bị cắt cụt) */}
+          <div className="flex items-center justify-between text-[11px] font-mono pt-1 gap-2">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <div className="w-2 h-2 rounded-full bg-[#0F3D39] shrink-0" />
+              <span className="text-[#78716C] shrink-0">Chồng:</span>
+              <span className="font-semibold text-[#1C1917] tabular-nums truncate">
+                {formatVND(husbandExpense)}
+              </span>
             </div>
-            <div className="flex items-center justify-end gap-1.5 text-right">
-              <div className="truncate">
-                <span className="text-[#78716C]">Vợ: </span>
-                <span className="font-semibold text-[#1C1917] tabular-nums">{formatVND(wifeExpense)}</span>
-              </div>
-              <div className="w-2.5 h-2.5 rounded-full bg-[#B45309] shrink-0" />
+            <div className="flex items-center justify-end gap-1.5 text-right min-w-0">
+              <span className="text-[#78716C] shrink-0">Vợ:</span>
+              <span className="font-semibold text-[#1C1917] tabular-nums truncate">
+                {formatVND(wifeExpense)}
+              </span>
+              <div className="w-2 h-2 rounded-full bg-[#B45309] shrink-0" />
             </div>
           </div>
         </div>
