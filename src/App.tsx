@@ -69,13 +69,15 @@ export const App: React.FC = () => {
         <div className="sm:hidden">
           {mobileTab === 'ledger' && (
             <div className="space-y-4 animate-in fade-in duration-150">
+              <MonthPicker className="w-full justify-between" />
               <BalanceCard />
               <TransactionList />
             </div>
           )}
 
           {mobileTab === 'dashboard' && (
-            <div className="animate-in fade-in duration-150">
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <MonthPicker className="w-full justify-between" />
               <Dashboard />
             </div>
           )}

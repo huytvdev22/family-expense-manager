@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { 
-  ChevronLeft, 
-  ChevronRight, 
   Volume2, 
   VolumeX, 
   UserPlus, 
@@ -16,7 +14,6 @@ import {
   Heart
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { formatYearMonthLabel } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 
@@ -36,14 +33,10 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenInvite,
   onOpenMonthlyLetter,
   desktopView = 'ledger',
-  onChangeDesktopView,
-  currentMobileTab = 'ledger'
+  onChangeDesktopView
 }) => {
   const {
     activeHousehold,
-    currentYearMonth,
-    goToPreviousMonth,
-    goToNextMonth,
     soundEnabled,
     toggleSound,
     firebaseUser,
@@ -54,12 +47,6 @@ export const Header: React.FC<HeaderProps> = ({
   } = useApp();
 
   const [showUserMenu, setShowUserMenu] = useState(false);
-
-  const handleMonthNav = (action: () => void) => {
-    playActionClick();
-    triggerHaptic(10);
-    action();
-  };
 
   return (
     <header className="sticky top-0 z-30 bg-[#FAF9F6] border-b border-[#E6E2DA] pt-safe pb-2.5 sm:pb-3 px-3 sm:px-4 isolate">
@@ -262,33 +249,6 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
         </div>
-
-        {/* Hàng 2: Bộ chuyển đổi Tháng trên Mobile - Chỉ hiển thị khi ở tab Sổ cái hoặc Tổng quan */}
-        {(currentMobileTab === 'ledger' || currentMobileTab === 'dashboard') && (
-          <div className="sm:hidden mt-2 flex items-center justify-between bg-[#F5F3EF] border border-[#E6E2DA] rounded-xl px-1 py-0.5 shadow-2xs animate-in fade-in duration-150">
-            <button
-              onClick={() => handleMonthNav(goToPreviousMonth)}
-              className="w-9 h-8 flex items-center justify-center rounded-lg text-[#78716C] hover:text-[#1C1917] active:bg-white/80 active:scale-95 transition-all tactile-btn"
-              title="Tháng trước"
-              aria-label="Tháng trước"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            
-            <span className="text-xs font-semibold px-2 text-[#1C1917] font-mono tracking-tight select-none text-center whitespace-nowrap">
-              {formatYearMonthLabel(currentYearMonth)}
-            </span>
-
-            <button
-              onClick={() => handleMonthNav(goToNextMonth)}
-              className="w-9 h-8 flex items-center justify-center rounded-lg text-[#78716C] hover:text-[#1C1917] active:bg-white/80 active:scale-95 transition-all tactile-btn"
-              title="Tháng sau"
-              aria-label="Tháng sau"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        )}
       </div>
     </header>
   );
