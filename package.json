@@ -1,0 +1,23 @@
+{
+  "name": "family-expense-manager",
+  "version": "1.0.0",
+  "description": "Ứng dụng Quản lý Chi tiêu Gia đình áp dụng chuẩn thiết kế Google Labs DESIGN.md",
+  "main": "index.js",
+  "scripts": {
+    "lint:design": "design.md lint DESIGN.md",
+    "export:css": "design.md export DESIGN.md --format css-vars > src/styles/tokens.css",
+    "export:tailwind": "design.md export DESIGN.md --format css-tailwind > src/styles/theme.css"
+  },
+  "keywords": [
+    "family",
+    "expense-manager",
+    "design-system",
+    "design-md",
+    "google-labs"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@google/design.md": "^0.4.0"
+  }
+}
