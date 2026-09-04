@@ -8,12 +8,14 @@ import { InviteModal } from './components/InviteModal';
 import { MonthlyLetterModal } from './components/MonthlyLetterModal';
 import { BottomNav, type MobileTab } from './components/BottomNav';
 import { Dashboard } from './components/Dashboard';
+import { FamilyHub } from './components/FamilyHub';
+import { CategoryBreakdown } from './components/CategoryBreakdown';
 import { useApp } from './context/AppContext';
 
 export const App: React.FC = () => {
-  const { isLoading } = useApp();
+  const { isLoading, transactions, categories, totalExpense } = useApp();
 
-  // Tab di động hiện tại ('ledger' | 'dashboard' | 'numpad' | 'categories')
+  // Tab di động hiện tại ('ledger' | 'dashboard' | 'numpad' | 'categories' | 'family')
   const [mobileTab, setMobileTab] = useState<MobileTab>('ledger');
 
   // Chế độ xem Desktop ('ledger' | 'dashboard')
@@ -84,18 +86,32 @@ export const App: React.FC = () => {
 
           {mobileTab === 'categories' && (
             <div className="space-y-4 animate-in fade-in duration-150">
-              <BalanceCard />
-              <div className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-sm">
-                <h3 className="text-xs uppercase font-semibold text-[#78716C] tracking-wider mb-3">
-                  Tùy chỉnh nhóm chi
-                </h3>
+              <CategoryBreakdown
+                transactions={transactions}
+                categories={categories}
+                totalExpense={totalExpense}
+              />
+              <div className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-sm text-center">
+                <p className="text-xs text-[#78716C] mb-3">
+                  Tùy chỉnh thêm nhóm chi, hạn mức hoặc đổi màu sắc danh mục
+                </p>
                 <button
                   onClick={() => setIsCategoryOpen(true)}
-                  className="w-full py-3 rounded-2xl bg-[#0F3D39] text-white text-xs font-semibold"
+                  className="w-full py-3 rounded-2xl bg-[#0F3D39] text-white text-xs font-semibold tactile-btn active:scale-98 transition-all"
                 >
-                  Mở trình quản lý danh mục
+                  + Tùy biến nhóm chi tiêu & nguồn thu
                 </button>
               </div>
+            </div>
+          )}
+
+          {mobileTab === 'family' && (
+            <div className="animate-in fade-in duration-150">
+              <FamilyHub
+                onOpenInvite={() => setIsInviteOpen(true)}
+                onOpenMonthlyLetter={() => setIsLetterOpen(true)}
+                onOpenCategories={() => setIsCategoryOpen(true)}
+              />
             </div>
           )}
         </div>
