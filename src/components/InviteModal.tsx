@@ -5,6 +5,7 @@ import { getInvitation } from '../services/firestoreService';
 import type { Invitation } from '../types';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
+import { useToast } from './Toast';
 
 interface InviteModalProps {
   isOpen: boolean;
@@ -15,12 +16,15 @@ interface InviteModalProps {
 export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initialCode }) => {
   const { 
     activeHousehold, 
+    currentUser,
     firebaseUser, 
     loginWithGoogle, 
     generateInviteCode, 
     joinWithInviteCode,
+    switchHousehold,
     isAuthenticating 
   } = useApp();
+  const { showToast } = useToast();
   
   const [activeTab, setActiveTab] = useState<'create' | 'join'>(initialCode ? 'join' : 'create');
   const [inviteCode, setInviteCode] = useState<string>('');
@@ -63,13 +67,13 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
 
   const handleGenerate = async () => {
     if (!firebaseUser) {
-      alert('Vui lòng đăng nhập Google để tạo mã mời cho tổ ấm của bạn.');
+      showToast('Vui lòng đăng nhập Google để tạo mã mời cho tổ ấm của bạn.', 'info');
       await loginWithGoogle();
       return;
     }
 
     if (isHouseholdFull) {
-      alert('Tổ ấm đã có đủ 2 thành viên (Vợ & Chồng), không thể tạo thêm mã mời.');
+      showToast('Tổ ấm đã có đủ 2 thành viên (Vợ & Chồng), không thể tạo thêm mã mời.', 'warning');
       return;
     }
 
@@ -79,13 +83,14 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
       triggerHaptic(10);
       const code = await generateInviteCode();
       setInviteCode(code);
+      showToast('Đã tạo mã mời tổ ấm thành công!', 'success');
     } catch (err: any) {
       console.error(err);
       if (err?.message === 'AUTH_REQUIRED') {
-        alert('Vui lòng đăng nhập Google để tạo mã mời.');
+        showToast('Vui lòng đăng nhập Google để tạo mã mời.', 'info');
         await loginWithGoogle();
       } else {
-        alert(err?.message || 'Không thể tạo mã mời lúc này.');
+        showToast(err?.message || 'Không thể tạo mã mời lúc này.', 'error');
       }
     } finally {
       setIsGenerating(false);
@@ -97,6 +102,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
     const url = `${window.location.origin}/?join=${inviteCode}`;
     navigator.clipboard.writeText(url);
     setCopied(true);
+    showToast('Đã sao chép liên kết mời tham gia tổ ấm!', 'success');
     playActionClick();
     triggerHaptic(10);
     setTimeout(() => setCopied(false), 2000);
@@ -105,7 +111,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
   const handleJoin = async () => {
     const code = inputCode.trim().toUpperCase();
     if (!code) {
-      alert('Vui lòng nhập mã mời');
+      showToast('Vui lòng nhập mã mời', 'warning');
       return;
     }
 
@@ -124,7 +130,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
       triggerHaptic(10);
       await joinWithInviteCode(code);
       localStorage.removeItem('pending_invite_code');
-      alert('Đã kết nối vào tổ ấm thành công!');
+      showToast('Đã kết nối vào tổ ấm thành công!', 'success');
       onClose();
     } catch (err: unknown) {
       let msg = 'Mã mời không hợp lệ hoặc đã hết hạn.';
@@ -140,7 +146,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
           msg = err.message;
         }
       }
-      alert(msg);
+      showToast(msg, 'error');
     } finally {
       setIsJoining(false);
     }
@@ -165,8 +171,11 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
   const isAlreadyMember = Boolean(
     firebaseUser && 
     previewInvite && 
-    activeHousehold?.id === previewInvite.householdId && 
-    activeHousehold.members?.includes(firebaseUser.uid)
+    (
+      activeHousehold?.id === previewInvite.householdId ||
+      currentUser?.householdIds?.includes(previewInvite.householdId) ||
+      previewInvite.usedBy === firebaseUser.uid
+    )
   );
 
   return (
@@ -399,10 +408,31 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
               </div>
             ) : isAlreadyMember ? (
               /* Đã đăng nhập và đã ở trong tổ ấm này */
-              <div className="p-3 rounded-xl bg-[#ECFDF5] border border-[#10B981]/20 text-center">
-                <p className="text-xs text-[#047857] font-medium">
-                  Bạn đã là thành viên của tổ ấm này rồi.
-                </p>
+              <div className="p-4 rounded-2xl bg-[#ECFDF5] border border-[#10B981]/20 text-center space-y-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#10B981]/15 text-[#047857] flex items-center justify-center mx-auto text-sm">
+                  ✓
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-[#0F3D39]">
+                    Bạn đã là thành viên của tổ ấm này rồi!
+                  </h4>
+                  <p className="text-[11px] text-[#047857] mt-0.5">
+                    Tài khoản của bạn đã được kết nối đồng hành cùng người thương.
+                  </p>
+                </div>
+                {previewInvite?.householdId && activeHousehold?.id !== previewInvite.householdId && (
+                  <button
+                    onClick={async () => {
+                      playActionClick();
+                      triggerHaptic(10);
+                      await switchHousehold(previewInvite.householdId);
+                      onClose();
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-[#0F3D39] text-white text-xs font-semibold hover:bg-[#174E4A] active:scale-98 transition-all cursor-pointer shadow-xs"
+                  >
+                    Chuyển sang xem tổ ấm này ngay
+                  </button>
+                )}
               </div>
             ) : (
               /* Đã đăng nhập: Nút Xác nhận gia nhập */

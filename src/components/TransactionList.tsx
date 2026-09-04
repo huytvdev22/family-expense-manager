@@ -5,9 +5,11 @@ import { formatVND, formatDateLabel } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import type { Transaction } from '../types';
+import { useToast } from './Toast';
 
 export const TransactionList: React.FC = () => {
   const { transactions, removeTransaction } = useApp();
+  const { showToast } = useToast();
 
   // Nhóm giao dịch theo ngày (date: "YYYY-MM-DD")
   const groupedTransactions = useMemo(() => {
@@ -27,6 +29,7 @@ export const TransactionList: React.FC = () => {
       const items = groups[date];
       const dayExpense = items.reduce((sum, item) => sum + (item.type === 'EXPENSE' ? item.amount : 0), 0);
       const dayIncome = items.reduce((sum, item) => sum + (item.type === 'INCOME' ? item.amount : 0), 0);
+
       return {
         date,
         items,
@@ -42,6 +45,7 @@ export const TransactionList: React.FC = () => {
       playActionClick();
       triggerHaptic(15);
       await removeTransaction(tx);
+      showToast(`Đã xóa ${typeLabel} "${tx.note || tx.categoryName}"`, 'info');
     }
   };
 

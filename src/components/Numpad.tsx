@@ -7,6 +7,7 @@ import { triggerHaptic } from '../utils/haptics';
 import { QuickTags } from './QuickTags';
 import { DEFAULT_INCOME_QUICK_TAGS } from '../services/mockData';
 import type { QuickTagItem, CategoryKey } from '../types';
+import { useToast } from './Toast';
 
 interface NumpadProps {
   onSuccess?: () => void;
@@ -14,6 +15,7 @@ interface NumpadProps {
 
 export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
   const { categories, logTransaction, currentUser } = useApp();
+  const { showToast } = useToast();
 
   // Loại giao dịch: 'EXPENSE' (Khoản chi) hoặc 'INCOME' (Thu nhập)
   const [txType, setTxType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
@@ -125,7 +127,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
   const handleSubmit = async () => {
     const amount = Number(amountStr);
     if (amount <= 0) {
-      alert(`Vui lòng nhập số tiền ${txType === 'EXPENSE' ? 'chi tiêu' : 'thu nhập'} lớn hơn 0`);
+      showToast(`Vui lòng nhập số tiền ${txType === 'EXPENSE' ? 'chi tiêu' : 'thu nhập'} lớn hơn 0`, 'warning');
       return;
     }
 
@@ -151,12 +153,14 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
       setNote('');
       setSelectedTagId(null);
 
+      showToast(`Đã ghi nhận ${txType === 'EXPENSE' ? 'khoản chi' : 'thu nhập'} ${formatVND(amount)}`, 'success');
+
       if (onSuccess) {
         onSuccess();
       }
     } catch (error) {
       console.error('Lỗi khi ghi sổ:', error);
-      alert(`Có lỗi xảy ra khi ghi nhận ${txType === 'EXPENSE' ? 'khoản chi' : 'thu nhập'}.`);
+      showToast(`Có lỗi xảy ra khi ghi nhận ${txType === 'EXPENSE' ? 'khoản chi' : 'thu nhập'}.`, 'error');
     } finally {
       setIsSubmitting(false);
     }

@@ -5,6 +5,7 @@ import { formatVND } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import type { Category, CategoryKey } from '../types';
+import { useToast } from './Toast';
 
 const COLOR_OPTIONS = [
   { label: 'Pine Emerald', hex: '#0F3D39' },
@@ -21,6 +22,7 @@ interface CategoryManagerProps {
 
 export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = '' }) => {
   const { categories, activeHousehold } = useApp();
+  const { showToast } = useToast();
 
   // Chế độ xem theo loại: 'EXPENSE' (Khoản chi) hoặc 'INCOME' (Thu nhập)
   const [activeType, setActiveType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
@@ -42,7 +44,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
   // Thêm nhóm mới
   const handleAddCategory = () => {
     if (!newCatName.trim()) {
-      alert('Vui lòng nhập tên danh mục');
+      showToast('Vui lòng nhập tên danh mục', 'warning');
       return;
     }
 
@@ -64,6 +66,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
     };
 
     categories.push(newCat);
+    showToast(`Đã thêm danh mục "${newCatName.trim()}"`, 'success');
     setIsAdding(false);
     setNewCatName('');
     setNewCatLimit('');
@@ -77,6 +80,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
       cat.monthlyLimit = !isNaN(val) && val > 0 ? val : undefined;
       playActionClick();
       triggerHaptic(10);
+      showToast(`Đã cập nhật hạn mức cho "${cat.name}"`, 'success');
     }
     setEditingCatId(null);
     setEditingLimit('');

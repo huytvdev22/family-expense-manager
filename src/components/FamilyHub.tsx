@@ -31,6 +31,8 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
   const {
     activeHousehold,
     currentUser,
+    userHouseholds,
+    switchHousehold,
     updateBudget,
     soundEnabled,
     toggleSound,
@@ -84,6 +86,29 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
           "Cùng nhau vun đắp từng bữa cơm, sẻ chia từng gánh nặng tài chính để tổ ấm luôn ngập tràn bình yên."
         </p>
       </div>
+
+      {/* Bộ chuyển đổi tổ ấm (chỉ hiển thị khi người dùng tham gia nhiều hơn 1 tổ ấm) */}
+      {userHouseholds.length > 1 && (
+        <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-3 flex items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[11px] text-[#78716C] font-medium shrink-0">Không gian hiện tại:</span>
+            <span className="text-xs font-bold text-[#0F3D39] truncate">{activeHousehold?.name}</span>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <select
+              value={activeHousehold?.id}
+              onChange={(e) => switchHousehold(e.target.value)}
+              className="text-xs bg-white border border-[#E6E2DA] rounded-xl px-2.5 py-1 font-semibold text-[#1C1917] outline-hidden cursor-pointer shadow-2xs"
+            >
+              {userHouseholds.map((hh) => (
+                <option key={hh.id} value={hh.id}>
+                  {hh.name} ({(hh.members?.length || 1)}/2 người)
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* Lưới 2 cột trên Desktop (md:grid-cols-2) và 1 cột trên Mobile */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">

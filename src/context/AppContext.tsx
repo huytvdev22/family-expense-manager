@@ -7,11 +7,13 @@ import {
   signOut, 
   type User as FirebaseUser 
 } from 'firebase/auth';
-import { auth, googleProvider, isFirebaseConfigured } from '../services/firebase';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { auth, db, googleProvider, isFirebaseConfigured } from '../services/firebase';
 import { 
   getOrCreateUserProfile, 
   createHousehold, 
   getHousehold,
+  getUserHouseholds,
   addTransactionWithSummary, 
   deleteTransactionWithSummary,
   subscribeTransactions, 
@@ -30,6 +32,7 @@ import {
 import type { Household, Category, Transaction, MonthlySummary, UserProfile } from '../types';
 import { getCurrentYearMonth } from '../utils/currency';
 import { isSoundEnabled, setSoundEnabled, playSuccessChime } from '../utils/audio';
+import { useToast } from '../components/Toast';
 
 interface AppContextType {
   // Trạng thái người dùng & hệ thống
@@ -75,6 +78,10 @@ interface AppContextType {
   generateInviteCode: () => Promise<string>;
   joinWithInviteCode: (code: string) => Promise<void>;
   
+  // Quản lý tổ ấm
+  userHouseholds: Household[];
+  switchHousehold: (householdId: string) => Promise<void>;
+  
   // Xác thực Google
   isAuthenticating: boolean;
   loginWithGoogle: () => Promise<void>;
@@ -84,9 +91,11 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const { showToast } = useToast();
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(MOCK_USER);
   const [activeHousehold, setActiveHousehold] = useState<Household | null>(MOCK_HOUSEHOLD);
+  const [userHouseholds, setUserHouseholds] = useState<Household[]>([MOCK_HOUSEHOLD]);
   const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES);
   const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(MOCK_SUMMARY);
@@ -165,6 +174,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             try {
               const joinedHouseholdId = await acceptInvitation(pendingInviteCode, profile);
               localStorage.removeItem('pending_invite_code');
+              localStorage.setItem('active_household_id', joinedHouseholdId);
               profile.activeHouseholdId = joinedHouseholdId;
               if (!profile.householdIds.includes(joinedHouseholdId)) {
                 profile.householdIds.push(joinedHouseholdId);
@@ -177,31 +187,58 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
               if (errorMsg.includes('permission-denied') || errorMsg.includes('Missing or insufficient permissions')) {
                 errorMsg = 'Tổ ấm này đã đủ 2 thành viên đồng hành (Vợ & Chồng) hoặc mã mời không còn hiệu lực.';
               }
-              alert(`⚠️ ${errorMsg}`);
+              showToast(errorMsg, 'error');
             }
           }
 
-          // 2. Tải tổ ấm hiện tại của người dùng hoặc khởi tạo mới nếu chưa có
-          const targetHouseholdId = profile.activeHouseholdId || (profile.householdIds.length > 0 ? profile.householdIds[0] : null);
-          let loadedHousehold: Household | null = null;
+          // 2. Lấy danh sách tất cả các tổ ấm của người dùng
+          let loadedUserHouseholds = await getUserHouseholds(profile.householdIds);
 
-          if (targetHouseholdId) {
-            try {
-              loadedHousehold = await getHousehold(targetHouseholdId);
-            } catch (hhErr) {
-              console.warn('Không thể tải tổ ấm từ Firestore:', hhErr);
-            }
+          // 3. Quyết định tổ ấm hoạt động (ưu tiên thông minh):
+          // Ưu tiên 1: Tổ ấm gia đình (đã gắn kết 2 thành viên Vợ & Chồng)
+          // Ưu tiên 2: Tổ ấm được lưu trong localStorage (nếu có và hợp lệ)
+          // Ưu tiên 3: activeHouseholdId trong hồ sơ Firestore
+          // Ưu tiên 4: Tổ ấm gần nhất trong danh sách
+          const familyHousehold = loadedUserHouseholds.find(h => (h.members?.length || 0) >= 2);
+          const savedHhId = localStorage.getItem('active_household_id');
+          const savedHousehold = savedHhId ? loadedUserHouseholds.find(h => h.id === savedHhId) : null;
+
+          let selectedHousehold: Household | null = null;
+          if (familyHousehold) {
+            // Luôn ưu tiên tổ ấm đã đủ cặp Vợ & Chồng để người dùng không bị kẹt ở tổ ấm rác 1 người
+            selectedHousehold = familyHousehold;
+          } else if (savedHousehold) {
+            selectedHousehold = savedHousehold;
+          } else if (profile.activeHouseholdId) {
+            selectedHousehold = loadedUserHouseholds.find(h => h.id === profile.activeHouseholdId) || null;
           }
 
-          // Nếu người dùng chưa có tổ ấm hoặc tổ ấm cũ không còn tồn tại, khởi tạo mặc định
-          if (!loadedHousehold) {
-            loadedHousehold = await createHousehold('Tổ Ấm Nhỏ', 30000000, profile);
+          if (!selectedHousehold && loadedUserHouseholds.length > 0) {
+            selectedHousehold = loadedUserHouseholds[loadedUserHouseholds.length - 1];
           }
 
-          setActiveHousehold(loadedHousehold);
+          // 4. Nếu người dùng hoàn toàn chưa có tổ ấm nào, khởi tạo tổ ấm mặc định
+          if (!selectedHousehold) {
+            selectedHousehold = await createHousehold('Tổ Ấm Nhỏ', 30000000, profile);
+            loadedUserHouseholds = [selectedHousehold];
+          }
 
-          if (joinedFromInvite && loadedHousehold) {
-            alert(`🎉 Chúc mừng! Bạn đã kết nối thành công vào tổ ấm "${loadedHousehold.name}".`);
+          // 5. Đồng bộ activeHouseholdId vào Firestore và localStorage
+          localStorage.setItem('active_household_id', selectedHousehold.id);
+          if (db && profile.activeHouseholdId !== selectedHousehold.id) {
+            profile.activeHouseholdId = selectedHousehold.id;
+            const userRef = doc(db, 'users', profile.uid);
+            await updateDoc(userRef, {
+              activeHouseholdId: selectedHousehold.id,
+              updatedAt: Date.now()
+            }).catch(e => console.warn('Lỗi cập nhật activeHouseholdId:', e));
+          }
+
+          setUserHouseholds(loadedUserHouseholds);
+          setActiveHousehold(selectedHousehold);
+
+          if (joinedFromInvite && selectedHousehold) {
+            showToast(`Đã kết nối thành công vào tổ ấm "${selectedHousehold.name}"!`, 'success');
           }
         } catch (err) {
           console.error('Lỗi khởi tạo hồ sơ người dùng:', err);
@@ -210,6 +247,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Sử dụng Mock Data khi chưa đăng nhập
         setCurrentUser(MOCK_USER);
         setActiveHousehold(MOCK_HOUSEHOLD);
+        setUserHouseholds([MOCK_HOUSEHOLD]);
         setCategories(MOCK_CATEGORIES);
         setTransactions(MOCK_TRANSACTIONS);
         setMonthlySummary(MOCK_SUMMARY);
@@ -383,12 +421,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // Nạp và chuyển sang tổ ấm mới ngay lập tức
       const newHousehold = await getHousehold(newHouseholdId);
       if (newHousehold) {
+        localStorage.setItem('active_household_id', newHouseholdId);
         setActiveHousehold(newHousehold);
+
+        // Đảm bảo cập nhật chính xác activeHouseholdId vào Firestore user profile
+        if (db) {
+          const userRef = doc(db, 'users', currentUser.uid);
+          await updateDoc(userRef, {
+            activeHouseholdId: newHouseholdId,
+            householdIds: arrayUnion(newHouseholdId),
+            updatedAt: Date.now()
+          }).catch((e) => console.warn('Lỗi đồng bộ userRef sau khi join:', e));
+        }
+
         setCurrentUser((prev) => prev ? {
           ...prev,
           activeHouseholdId: newHouseholdId,
           householdIds: Array.from(new Set([...(prev.householdIds || []), newHouseholdId]))
         } : null);
+
+        setUserHouseholds((prev) => {
+          const exists = prev.some(h => h.id === newHouseholdId);
+          return exists ? prev.map(h => h.id === newHouseholdId ? newHousehold : h) : [...prev, newHousehold];
+        });
       }
     }
   };
@@ -401,22 +456,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     switch (errorCode) {
       case 'auth/configuration-not-found':
       case 'auth/operation-not-allowed':
-        alert(
-          '⚠️ Chưa kích hoạt Google Sign-In trong Firebase Console!\n\n' +
-          'Vui lòng thực hiện:\n' +
-          '1. Vào Firebase Console > Build > Authentication > Sign-in method.\n' +
-          '2. Bật (Enable) "Google" và chọn Project support email.\n' +
-          '3. Lưu lại và thử đăng nhập lại.'
-        );
+        showToast('Chưa kích hoạt Google Sign-In trong Firebase Console', 'error');
         break;
       case 'auth/unauthorized-domain':
-        alert(
-          '⚠️ Tên miền hiện tại chưa được cấp phép (Authorized Domains) trong Firebase!\n\n' +
-          `Vui lòng thêm "${window.location.hostname}" vào: Firebase Console > Authentication > Settings > Authorized domains.`
-        );
+        showToast(`Tên miền "${window.location.hostname}" chưa được cấp phép trong Firebase`, 'error');
         break;
       case 'auth/popup-blocked':
-        alert('Trình duyệt đã chặn cửa sổ Popup. Hệ thống sẽ chuyển hướng trang để đăng nhập Google.');
+        showToast('Trình duyệt đã chặn Popup, chuyển sang chuyển hướng đăng nhập...', 'info');
         if (auth) {
           signInWithRedirect(auth, googleProvider).catch((e) => {
             console.error('Lỗi khi redirect:', e);
@@ -429,10 +475,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         console.warn('Cửa sổ đăng nhập đã được đóng bởi người dùng.');
         break;
       case 'auth/network-request-failed':
-        alert('Lỗi kết nối mạng khi xác thực với Google. Vui lòng kiểm tra lại đường truyền Internet.');
+        showToast('Lỗi kết nối mạng khi xác thực với Google. Vui lòng thử lại.', 'error');
         break;
       default:
-        alert(`Không thể đăng nhập Google: ${error?.message || 'Lỗi không xác định'} (Mã lỗi: ${errorCode || 'UNKNOWN'})`);
+        showToast(`Không thể đăng nhập Google: ${error?.message || 'Lỗi không xác định'}`, 'error');
         break;
     }
   };
@@ -440,7 +486,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // ĐĂNG NHẬP GOOGLE
   const loginWithGoogle = async () => {
     if (!isFirebaseActive || !auth) {
-      alert('Chưa cấu hình Firebase hoặc thiếu biến môi trường. Đang chạy chế độ Demo.');
+      showToast('Đang chạy chế độ Demo (chưa cấu hình Firebase)', 'info');
       return;
     }
 
@@ -456,13 +502,38 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // CHUYỂN ĐỔI GIỮA CÁC TỔ ẤM
+  const switchHousehold = async (householdId: string) => {
+    if (!firebaseUser || !householdId) return;
+    try {
+      const h = await getHousehold(householdId);
+      if (h) {
+        localStorage.setItem('active_household_id', householdId);
+        setActiveHousehold(h);
+        setCurrentUser((prev) => prev ? { ...prev, activeHouseholdId: householdId } : null);
+        if (db && currentUser) {
+          const userRef = doc(db, 'users', currentUser.uid);
+          await updateDoc(userRef, {
+            activeHouseholdId: householdId,
+            updatedAt: Date.now()
+          }).catch(e => console.warn('Lỗi cập nhật activeHouseholdId:', e));
+        }
+      }
+    } catch (err) {
+      console.error('Lỗi chuyển tổ ấm:', err);
+    }
+  };
+
   // ĐĂNG XUẤT
   const logout = async () => {
     if (isFirebaseActive && auth) {
       await signOut(auth);
     }
+    localStorage.removeItem('active_household_id');
+    localStorage.removeItem('pending_invite_code');
     setCurrentUser(MOCK_USER);
     setActiveHousehold(MOCK_HOUSEHOLD);
+    setUserHouseholds([MOCK_HOUSEHOLD]);
     setTransactions(MOCK_TRANSACTIONS);
   };
 
@@ -499,6 +570,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         createNewHousehold,
         generateInviteCode,
         joinWithInviteCode,
+        userHouseholds,
+        switchHousehold,
         loginWithGoogle,
         logout
       }}

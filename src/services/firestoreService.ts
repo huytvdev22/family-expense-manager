@@ -109,6 +109,24 @@ export async function getHousehold(householdId: string): Promise<Household | nul
 }
 
 /**
+ * LẤY TẤT CẢ CÁC TỔ ẤM MÀ NGƯỜI DÙNG THUỘC VỀ
+ */
+export async function getUserHouseholds(householdIds: string[]): Promise<Household[]> {
+  if (!db || !householdIds || householdIds.length === 0) return [];
+  const results: Household[] = [];
+  for (const id of householdIds) {
+    if (!id) continue;
+    try {
+      const h = await getHousehold(id);
+      if (h) results.push(h);
+    } catch (err) {
+      console.warn(`Không thể tải thông tin tổ ấm ${id}:`, err);
+    }
+  }
+  return results;
+}
+
+/**
  * THÊM GIAO DỊCH NGUYÊN TỬ (ATOMIC TRANSACTION)
  * Cập nhật đồng thời bản ghi giao dịch và bảng tổng hợp tháng theo DATABASE_DESIGN.md
  */
