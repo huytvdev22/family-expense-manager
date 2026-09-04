@@ -58,7 +58,7 @@ export const App: React.FC = () => {
       />
 
       {/* Main Content Container */}
-      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-4 sm:py-6">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-4 sm:py-6">
         {/* =========================================================================
             1. GIAO DIỆN DI ĐỘNG (MOBILE - CHUYỂN ĐỔI TAB MƯỢT MÀ)
             ========================================================================= */}
@@ -105,16 +105,21 @@ export const App: React.FC = () => {
             ========================================================================= */}
         <div className="hidden sm:block">
           {desktopView === 'ledger' ? (
-            <div className="grid grid-cols-12 gap-6 items-start">
-              {/* Cột trái (5 cols): Thẻ cân bằng tài chính + Bàn phím số Numpad nhanh */}
-              <div className="col-span-5 space-y-5 sticky top-20">
-                <BalanceCard />
-                <Numpad />
-              </div>
+            <div className="space-y-6">
+              {/* Tầng 1: Banner Tổng quan tài chính tháng (Full-width ngang 3 phân khu) */}
+              <BalanceCard />
 
-              {/* Cột phải (7 cols): Sổ cái chi tiết các giao dịch theo ngày */}
-              <div className="col-span-7 space-y-5">
-                <TransactionList />
+              {/* Tầng 2: Không gian làm việc 2 cột cân đối hoàn hảo */}
+              <div className="grid grid-cols-12 gap-6 items-start">
+                {/* Cột trái (5 cols): Bàn phím số Numpad xúc giác chuyên nghiệp */}
+                <div className="col-span-5 sticky top-20">
+                  <Numpad />
+                </div>
+
+                {/* Cột phải (7 cols): Sổ cái chi tiết các giao dịch theo ngày */}
+                <div className="col-span-7">
+                  <TransactionList />
+                </div>
               </div>
             </div>
           ) : (

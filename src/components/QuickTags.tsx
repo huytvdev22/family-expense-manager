@@ -24,7 +24,8 @@ export const QuickTags: React.FC<QuickTagsProps> = ({ onSelectTag, selectedTagId
         <span className="text-[11px] uppercase tracking-wider font-semibold text-[#78716C]">
           Gợi ý 1-chạm (Quick Tags)
         </span>
-        <span className="text-[10px] text-[#A8A29E]">Vuốt ngang &rarr;</span>
+        <span className="text-[10px] text-[#A8A29E] sm:hidden">Vuốt ngang &rarr;</span>
+        <span className="text-[10px] text-[#A8A29E] hidden sm:inline">Chọn nhanh 1 chạm</span>
       </div>
 
       <div className="flex items-center gap-2 overflow-x-auto pb-1 pt-0.5 no-scrollbar select-none">
