@@ -21,11 +21,10 @@ jobs:
       - name: ⚙️ Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: 'npm'
+          node-version: 24
 
       - name: 📦 Install dependencies
-        run: npm install
+        run: npm install --no-audit --no-fund
 
       - name: 🎨 Lint Design System (Google Labs DESIGN.md)
         run: npx @google/design.md lint DESIGN.md
@@ -56,6 +55,11 @@ jobs:
     steps:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
 
       - name: 📥 Download build artifacts
         uses: actions/download-artifact@v4
