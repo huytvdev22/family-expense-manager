@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Header } from './components/Header';
+import { Header, type DesktopView } from './components/Header';
 import { BalanceCard } from './components/BalanceCard';
 import { Numpad } from './components/Numpad';
 import { TransactionList } from './components/TransactionList';
@@ -18,8 +18,8 @@ export const App: React.FC = () => {
   // Tab di động hiện tại ('ledger' | 'dashboard' | 'numpad' | 'categories' | 'family')
   const [mobileTab, setMobileTab] = useState<MobileTab>('ledger');
 
-  // Chế độ xem Desktop ('ledger' | 'dashboard')
-  const [desktopView, setDesktopView] = useState<'ledger' | 'dashboard'>('ledger');
+  // Chế độ xem Desktop ('ledger' | 'dashboard' | 'categories' | 'family')
+  const [desktopView, setDesktopView] = useState<DesktopView>('ledger');
 
   // Trạng thái mở các Modal
   const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -118,11 +118,11 @@ export const App: React.FC = () => {
         </div>
 
         {/* =========================================================================
-            2. GIAO DIỆN MÁY TÍNH (DESKTOP - CHUYỂN ĐỔI SỔ CÁI / DASHBOARD)
+            2. GIAO DIỆN MÁY TÍNH (DESKTOP - 4 CHẾ ĐỘ XEM ĐỒNG BỘ)
             ========================================================================= */}
         <div className="hidden sm:block">
-          {desktopView === 'ledger' ? (
-            <div className="space-y-6">
+          {desktopView === 'ledger' && (
+            <div className="space-y-6 animate-in fade-in duration-150">
               {/* Tầng 1: Banner Tổng quan tài chính tháng (Full-width ngang 3 phân khu) */}
               <BalanceCard />
 
@@ -139,9 +139,43 @@ export const App: React.FC = () => {
                 </div>
               </div>
             </div>
-          ) : (
+          )}
+
+          {desktopView === 'dashboard' && (
             <div className="animate-in fade-in duration-150">
               <Dashboard />
+            </div>
+          )}
+
+          {desktopView === 'categories' && (
+            <div className="space-y-6 animate-in fade-in duration-150">
+              <CategoryBreakdown
+                transactions={transactions}
+                categories={categories}
+                totalExpense={totalExpense}
+              />
+              <div className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-sm flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-[#1C1917]">Quản lý nhóm chi tiêu & nguồn thu</h3>
+                  <p className="text-xs text-[#78716C]">Tùy biến thêm nhóm chi, đổi màu sắc và hạn mức mục tiêu</p>
+                </div>
+                <button
+                  onClick={() => setIsCategoryOpen(true)}
+                  className="px-4 py-2.5 rounded-2xl bg-[#0F3D39] text-white text-xs font-semibold tactile-btn active:scale-98 transition-all shadow-xs"
+                >
+                  + Tùy biến danh mục
+                </button>
+              </div>
+            </div>
+          )}
+
+          {desktopView === 'family' && (
+            <div className="animate-in fade-in duration-150">
+              <FamilyHub
+                onOpenInvite={() => setIsInviteOpen(true)}
+                onOpenMonthlyLetter={() => setIsLetterOpen(true)}
+                onOpenCategories={() => setIsCategoryOpen(true)}
+              />
             </div>
           )}
         </div>

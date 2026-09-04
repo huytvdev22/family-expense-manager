@@ -88,136 +88,143 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
         </p>
       </div>
 
-      {/* 2. Thành viên tổ ấm (Vợ & Chồng) */}
-      <div className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-3.5">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4 text-[#0F3D39]" />
-            <h3 className="text-xs uppercase font-semibold text-[#78716C] tracking-wider">
-              Thành viên đồng hành
-            </h3>
-          </div>
-          <button
-            onClick={() => {
-              playActionClick();
-              triggerHaptic(10);
-              onOpenInvite();
-            }}
-            className="flex items-center gap-1 text-xs font-semibold text-[#0F3D39] hover:underline"
-          >
-            <UserPlus className="w-3.5 h-3.5" />
-            <span>Mời bạn đời</span>
-          </button>
-        </div>
-
-        <div className="grid grid-cols-2 gap-2.5">
-          {/* Người thứ 1: Chồng */}
-          <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#0F3D39] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
-              👨
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-[#1C1917] truncate">Chồng</p>
-              <p className="text-[10px] text-[#047857] font-mono flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block" />
-                Đang trực tuyến
-              </p>
-            </div>
-          </div>
-
-          {/* Người thứ 2: Vợ */}
-          <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#B45309] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
-              👩
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-[#1C1917] truncate">Vợ</p>
-              <p className="text-[10px] text-[#78716C] font-mono flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block" />
-                Đồng hành
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Góc Bức thư tháng & Kỷ niệm */}
-      <div className="bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] border border-[#FDE68A] rounded-3xl p-5 shadow-xs">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-[#B45309] text-white flex items-center justify-center shadow-xs">
-              <Mail className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <h3 className="text-sm font-bold text-[#92400E]">Bức thư tổ ấm tháng này</h3>
-                <Sparkles className="w-3.5 h-3.5 text-[#B45309]" />
+      {/* Lưới 2 cột trên Desktop (md:grid-cols-2) và 1 cột trên Mobile */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+        {/* Cột trái: Thành viên & Bức thư tháng */}
+        <div className="space-y-4">
+          {/* 2. Thành viên tổ ấm (Vợ & Chồng) */}
+          <div className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-3.5">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-[#0F3D39]" />
+                <h3 className="text-xs uppercase font-semibold text-[#78716C] tracking-wider">
+                  Thành viên đồng hành
+                </h3>
               </div>
-              <p className="text-xs text-[#B45309]/80 mt-0.5">
-                Lời tâm tình và đúc kết chi tiêu của hai vợ chồng
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <button
-          onClick={() => {
-            playActionClick();
-            triggerHaptic(10);
-            onOpenMonthlyLetter();
-          }}
-          className="mt-3.5 w-full py-2.5 rounded-xl bg-[#B45309] hover:bg-[#92400E] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-2xs active:scale-98"
-        >
-          <span>Mở đọc thư tháng</span>
-        </button>
-      </div>
-
-      {/* 4. Quản trị ngân sách mục tiêu */}
-      <div className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-sm">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <Target className="w-4 h-4 text-[#B45309]" />
-            <h3 className="text-xs uppercase font-semibold text-[#78716C] tracking-wider">
-              Hạn mức ngân sách tháng
-            </h3>
-          </div>
-          {isEditingBudget ? (
-            <div className="flex items-center gap-1">
-              <input
-                type="number"
-                value={budgetInput}
-                onChange={(e) => setBudgetInput(e.target.value)}
-                className="w-24 text-xs font-mono font-medium px-1.5 py-0.5 border border-[#0F3D39] rounded-md outline-hidden bg-[#FAF9F6]"
-                autoFocus
-              />
               <button
-                onClick={handleSaveBudget}
-                className="p-1 rounded-md bg-[#0F3D39] text-white"
-                title="Lưu"
+                onClick={() => {
+                  playActionClick();
+                  triggerHaptic(10);
+                  onOpenInvite();
+                }}
+                className="flex items-center gap-1 text-xs font-semibold text-[#0F3D39] hover:underline"
               >
-                <Check className="w-3.5 h-3.5" />
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>Mời bạn đời</span>
               </button>
             </div>
-          ) : (
+
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* Người thứ 1: Chồng */}
+              <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#0F3D39] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                  👨
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-[#1C1917] truncate">Chồng</p>
+                  <p className="text-[10px] text-[#047857] font-mono flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block" />
+                    Đang trực tuyến
+                  </p>
+                </div>
+              </div>
+
+              {/* Người thứ 2: Vợ */}
+              <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#B45309] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-2xs">
+                  👩
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-[#1C1917] truncate">Vợ</p>
+                  <p className="text-[10px] text-[#78716C] font-mono flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block" />
+                    Đồng hành
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Góc Bức thư tháng & Kỷ niệm */}
+          <div className="bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] border border-[#FDE68A] rounded-3xl p-5 shadow-xs">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-[#B45309] text-white flex items-center justify-center shadow-xs">
+                  <Mail className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-sm font-bold text-[#92400E]">Bức thư tổ ấm tháng này</h3>
+                    <Sparkles className="w-3.5 h-3.5 text-[#B45309]" />
+                  </div>
+                  <p className="text-xs text-[#B45309]/80 mt-0.5">
+                    Lời tâm tình và đúc kết chi tiêu của hai vợ chồng
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <button
               onClick={() => {
-                setBudgetInput(String(monthlyBudget));
-                setIsEditingBudget(true);
+                playActionClick();
+                triggerHaptic(10);
+                onOpenMonthlyLetter();
               }}
-              className="flex items-center gap-1 text-xs font-mono font-semibold text-[#0F3D39]"
+              className="mt-3.5 w-full py-2.5 rounded-xl bg-[#B45309] hover:bg-[#92400E] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-2xs active:scale-98"
             >
-              <span>{formatVND(monthlyBudget)}</span>
-              <Edit3 className="w-3 h-3 text-[#78716C]" />
+              <span>Mở đọc thư tháng</span>
             </button>
-          )}
+          </div>
         </div>
-        <p className="text-xs text-[#78716C] leading-relaxed">
-          Ngân sách dự tính cho sinh hoạt chung cả tháng, giúp duy trì kỷ luật tích lũy.
-        </p>
-      </div>
 
-      {/* 5. Menu cài đặt & Tiện ích */}
-      <div className="bg-white border border-[#E6E2DA] rounded-3xl p-4 shadow-sm divide-y divide-[#F5F3EF]">
+        {/* Cột phải: Ngân sách & Cài đặt */}
+        <div className="space-y-4">
+          {/* 4. Quản trị ngân sách mục tiêu */}
+          <div className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-[#B45309]" />
+                <h3 className="text-xs uppercase font-semibold text-[#78716C] tracking-wider">
+                  Hạn mức ngân sách tháng
+                </h3>
+              </div>
+              {isEditingBudget ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={budgetInput}
+                    onChange={(e) => setBudgetInput(e.target.value)}
+                    className="w-24 text-xs font-mono font-medium px-1.5 py-0.5 border border-[#0F3D39] rounded-md outline-hidden bg-[#FAF9F6]"
+                    autoFocus
+                  />
+                  <button
+                    onClick={handleSaveBudget}
+                    className="p-1 rounded-md bg-[#0F3D39] text-white"
+                    title="Lưu"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setBudgetInput(String(monthlyBudget));
+                    setIsEditingBudget(true);
+                  }}
+                  className="flex items-center gap-1 text-xs font-mono font-semibold text-[#0F3D39]"
+                >
+                  <span>{formatVND(monthlyBudget)}</span>
+                  <Edit3 className="w-3 h-3 text-[#78716C]" />
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-[#78716C] leading-relaxed">
+              Ngân sách dự tính cho sinh hoạt chung cả tháng, giúp duy trì kỷ luật tích lũy.
+            </p>
+          </div>
+
+          {/* 5. Menu cài đặt & Tiện ích */}
+          <div className="bg-white border border-[#E6E2DA] rounded-3xl p-4 shadow-sm divide-y divide-[#F5F3EF]">
         {/* Nút mở quản lý danh mục */}
         <button
           onClick={() => {
@@ -313,5 +320,7 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
         </div>
       </div>
     </div>
-  );
+  </div>
+</div>
+);
 };
