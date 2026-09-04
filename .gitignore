@@ -22,8 +22,8 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 # Service Account / Credentials (Private Keys)
-*-*.json
 *service_account*.json
 *.pem
 toamnho-family-*.json
+!package-lock.json
 
