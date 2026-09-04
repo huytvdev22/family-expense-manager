@@ -1,0 +1,80 @@
+@import "tailwindcss";
+@import "./tokens.css";
+@import "./theme.css";
+
+/* Base Typography & Background */
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg);
+  color: var(--color-text-main);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Số liệu tài chính thẳng cột */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+/* Safe Area Padding cho thiết bị iOS */
+.pb-safe {
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+}
+
+.pt-safe {
+  padding-top: max(12px, env(safe-area-inset-top, 12px));
+}
+
+/* Chiều cao thích ứng Viewport động trên Mobile */
+.h-screen-dvh {
+  height: 100dvh;
+}
+
+.min-h-screen-dvh {
+  min-height: 100dvh;
+}
+
+/* Phản hồi cơ học xúc giác khi nhấn phím (Dieter Rams / Braun Tactile feel) */
+.tactile-btn {
+  transition: transform 0.08s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.15s ease, box-shadow 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tactile-btn:active {
+  transform: translateY(2px) scale(0.97);
+  filter: brightness(0.96);
+}
+
+/* Thanh cuộn mảnh mộc mạc */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-dark);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-secondary);
+}
+
+/* Ẩn scrollbar ngang cho các dải lướt nhanh */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

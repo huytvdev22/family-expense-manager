@@ -1,0 +1,53 @@
+/* ==========================================================================
+   DESIGN TOKENS - HARMONY LEDGER SYSTEM
+   Tuân thủ triết lý DESIGN.md và AGENTS.md (Anti-Generic AI & Physical Tactility)
+   ========================================================================== */
+
+:root {
+  /* Bảng màu Tổ Ấm (Warm Materials Palette) */
+  --color-primary: #0F3D39;             /* Pine Emerald - Tăng trưởng, bền vững */
+  --color-primary-hover: #174E4A;
+  --color-primary-light: #E7EFEF;
+  --color-secondary: #4A6B68;           /* Muted Sage - Tĩnh lặng, nhã nhặn */
+  --color-secondary-light: #EDF3F2;
+  --color-accent: #B45309;              /* Terracotta / Warm Amber - Tổ ấm, sinh khí */
+  --color-accent-light: #FEF3C7;
+  
+  /* Bề mặt & Nền giấy ấm (Calm & Editorial Materials) */
+  --color-bg: #FAF9F6;                  /* Warm Alabaster - Giấy ngà ấm thay cho trắng tinh */
+  --color-surface: #FFFFFF;             /* Bề mặt thẻ */
+  --color-surface-soft: #F5F3EF;        /* Container mềm mại */
+  --color-surface-subtle: #EFECE6;
+  
+  /* Đường viền & Phân tách (Hairline Borders) */
+  --color-border: #E6E2DA;              /* Viền hairline tinh tế thay cho đổ bóng nặng */
+  --color-border-dark: #D3CDC2;
+  
+  /* Màu chữ (Editorial Typography) */
+  --color-text-main: #1C1917;           /* Deep Charcoal - Chữ nét rõ, chống mỏi mắt */
+  --color-text-muted: #78716C;          /* Chữ phụ, ghi chú */
+  --color-text-subtle: #A8A29E;
+  
+  /* Chỉ báo trạng thái tài chính (Finance Signals) */
+  --color-income: #10B981;              /* Thu nhập - Xanh lá tươi */
+  --color-income-container: #ECFDF5;
+  --color-expense: #E11D48;             /* Chi tiêu - Đỏ cánh sen mềm */
+  --color-expense-container: #FFF1F2;
+  --color-warning: #D97706;             /* Cảnh báo ngân sách */
+  --color-warning-container: #FFFBEB;
+
+  /* Kiểu chữ */
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  /* Bo góc mộc mạc (Dieter Rams & Braun Inspired) */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+
+  /* Đổ bóng vật lý siêu mỏng */
+  --shadow-subtle: 0 1px 3px rgba(28, 25, 23, 0.04), 0 1px 2px rgba(28, 25, 23, 0.02);
+  --shadow-card: 0 4px 12px -2px rgba(28, 25, 23, 0.05), 0 2px 6px -1px rgba(28, 25, 23, 0.03);
+  --shadow-modal: 0 20px 30px -10px rgba(15, 61, 57, 0.12), 0 10px 15px -5px rgba(28, 25, 23, 0.04);
+}

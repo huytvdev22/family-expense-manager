@@ -1,0 +1,40 @@
+@theme {
+  --color-primary: var(--color-primary);
+  --color-primary-hover: var(--color-primary-hover);
+  --color-primary-light: var(--color-primary-light);
+  --color-secondary: var(--color-secondary);
+  --color-secondary-light: var(--color-secondary-light);
+  --color-accent: var(--color-accent);
+  --color-accent-light: var(--color-accent-light);
+
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-surface-soft: var(--color-surface-soft);
+  --color-surface-subtle: var(--color-surface-subtle);
+
+  --color-border: var(--color-border);
+  --color-border-dark: var(--color-border-dark);
+
+  --color-text-main: var(--color-text-main);
+  --color-text-muted: var(--color-text-muted);
+  --color-text-subtle: var(--color-text-subtle);
+
+  --color-income: var(--color-income);
+  --color-income-container: var(--color-income-container);
+  --color-expense: var(--color-expense);
+  --color-expense-container: var(--color-expense-container);
+  --color-warning: var(--color-warning);
+  --color-warning-container: var(--color-warning-container);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-full: var(--radius-full);
+
+  --shadow-subtle: var(--shadow-subtle);
+  --shadow-card: var(--shadow-card);
+  --shadow-modal: var(--shadow-modal);
+}
