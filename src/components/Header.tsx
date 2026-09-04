@@ -88,35 +88,8 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Cụm trung tâm Desktop: [Bộ chuyển đổi Tháng] + [Bộ chuyển chế độ xem 4 tab: Sổ cái / Tổng quan / Danh mục / Tổ ấm] */}
-          <div className="hidden sm:flex items-center gap-2 shrink-0">
-            {/* Bộ chuyển đổi Tháng - Chỉ hiển thị ở view Sổ cái hoặc Tổng quan */}
-            {(desktopView === 'ledger' || desktopView === 'dashboard') && (
-              <div className="flex items-center bg-[#F5F3EF] border border-[#E6E2DA] rounded-xl p-0.5 shadow-2xs shrink-0 animate-in fade-in duration-150">
-                <button
-                  onClick={() => handleMonthNav(goToPreviousMonth)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-[#78716C] hover:text-[#1C1917] hover:bg-white/80 active:scale-95 transition-all tactile-btn"
-                  title="Tháng trước"
-                  aria-label="Tháng trước"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                
-                <span className="text-xs font-semibold px-2.5 text-[#1C1917] font-mono tracking-tight select-none min-w-[105px] text-center whitespace-nowrap">
-                  {formatYearMonthLabel(currentYearMonth)}
-                </span>
-
-                <button
-                  onClick={() => handleMonthNav(goToNextMonth)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg text-[#78716C] hover:text-[#1C1917] hover:bg-white/80 active:scale-95 transition-all tactile-btn"
-                  title="Tháng sau"
-                  aria-label="Tháng sau"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-
+          {/* Cụm trung tâm Desktop: Bộ chuyển chế độ xem 4 tab [Sổ cái | Tổng quan | Danh mục | Tổ ấm] */}
+          <div className="hidden sm:flex items-center shrink-0">
             {/* Chuyển đổi 4 chế độ xem trên Desktop: Sổ cái / Tổng quan / Danh mục / Tổ ấm */}
             {onChangeDesktopView && (
               <div className="flex items-center bg-[#F5F3EF] border border-[#E6E2DA] rounded-xl p-0.5 shadow-2xs shrink-0">

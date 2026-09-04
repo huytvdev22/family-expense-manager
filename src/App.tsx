@@ -10,6 +10,7 @@ import { BottomNav, type MobileTab } from './components/BottomNav';
 import { Dashboard } from './components/Dashboard';
 import { FamilyHub } from './components/FamilyHub';
 import { CategoryBreakdown } from './components/CategoryBreakdown';
+import { MonthPicker } from './components/MonthPicker';
 import { useApp } from './context/AppContext';
 
 export const App: React.FC = () => {
@@ -111,7 +112,20 @@ export const App: React.FC = () => {
             ========================================================================= */}
         <div className="hidden sm:block">
           {desktopView === 'ledger' && (
-            <div className="space-y-6 animate-in fade-in duration-150">
+            <div className="space-y-4 animate-in fade-in duration-150">
+              {/* Thanh tiêu đề trang & Bộ chọn tháng trên Desktop */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-[#1C1917] tracking-tight">
+                    Sổ cái chi tiêu
+                  </h2>
+                  <p className="text-xs text-[#78716C]">
+                    Theo dõi từng khoản chi và ngân sách thực tế của tổ ấm
+                  </p>
+                </div>
+                <MonthPicker />
+              </div>
+
               {/* Tầng 1: Banner Tổng quan tài chính tháng (Full-width ngang 3 phân khu) */}
               <BalanceCard />
 
@@ -131,7 +145,19 @@ export const App: React.FC = () => {
           )}
 
           {desktopView === 'dashboard' && (
-            <div className="animate-in fade-in duration-150">
+            <div className="space-y-4 animate-in fade-in duration-150">
+              {/* Thanh tiêu đề trang & Bộ chọn tháng trên Desktop */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-[#1C1917] tracking-tight">
+                    Báo cáo & Tổng quan tài chính
+                  </h2>
+                  <p className="text-xs text-[#78716C]">
+                    Phân tích chi tiết dòng tiền, cán cân chi tiêu và dự phóng tháng
+                  </p>
+                </div>
+                <MonthPicker />
+              </div>
               <Dashboard />
             </div>
           )}
