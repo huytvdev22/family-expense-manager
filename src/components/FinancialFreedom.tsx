@@ -227,17 +227,17 @@ export const FinancialFreedom: React.FC = () => {
       {/* =========================================================================
           1. HEADER PHÂN HỆ TỰ DO TÀI CHÍNH & BANNER TỔNG QUAN
           ========================================================================= */}
-      <div className="flex items-center justify-end sm:justify-between gap-3 pb-1">
-        <div className="hidden sm:block">
+      <div className="flex items-center justify-between gap-3 pb-1">
+        <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-lg font-bold text-[#1C1917] tracking-tight">
-              Lộ trình Tự do Tài chính
+            <h2 className="text-base sm:text-lg font-bold text-[#1C1917] tracking-tight">
+              Mục tiêu tài chính
             </h2>
-            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#B45309] border border-[#B45309]/20">
+            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#B45309] border border-[#B45309]/20 shrink-0">
               {financialGoals.length} mục tiêu
             </span>
           </div>
-          <p className="text-xs text-[#78716C] mt-0.5">
+          <p className="text-xs text-[#78716C] mt-0.5 hidden sm:block">
             Kế hoạch xóa nợ bền bỉ & tích lũy tài sản đồng hành cùng {activeHousehold?.name || 'tổ ấm'}
           </p>
         </div>
@@ -245,10 +245,11 @@ export const FinancialFreedom: React.FC = () => {
         <button
           type="button"
           onClick={() => handleOpenCreate('DEBT_PAYOFF')}
-          className="px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl bg-[#0F3D39] hover:bg-[#174E4A] text-white text-xs font-bold flex items-center justify-center gap-1.5 sm:gap-2 shadow-sm active:scale-98 transition-all cursor-pointer shrink-0"
+          className="h-9 sm:h-10 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-[#0F3D39] hover:bg-[#174E4A] text-white text-xs font-bold flex items-center justify-center gap-1.5 sm:gap-2 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>Thêm mục tiêu mới</span>
+          <span className="hidden xs:inline">Thêm mục tiêu</span>
+          <span className="xs:hidden">Thêm</span>
         </button>
       </div>
 
@@ -349,15 +350,16 @@ export const FinancialFreedom: React.FC = () => {
           ========================================================================= */}
       <div className="space-y-3">
         {/* Bộ lọc loại mục tiêu và Sắp xếp */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1">
-          <div className="flex items-center bg-[#F5F3EF] border border-[#E6E2DA] rounded-xl p-1 shadow-2xs overflow-x-auto">
+        <div className="space-y-2 pb-0.5">
+          {/* Hàng 1: Tabs Segmented Control phân bổ đều, cuộn ngang mượt mà */}
+          <div className="flex items-center bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 shadow-2xs overflow-x-auto">
             <button
               type="button"
               onClick={() => {
                 playActionClick();
                 setFilterType('ALL');
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+              className={`flex-1 min-w-[76px] py-1.5 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer text-center whitespace-nowrap ${
                 filterType === 'ALL'
                   ? 'bg-white text-[#1C1917] shadow-2xs font-bold'
                   : 'text-[#78716C] hover:text-[#1C1917]'
@@ -371,7 +373,7 @@ export const FinancialFreedom: React.FC = () => {
                 playActionClick();
                 setFilterType('DEBT_PAYOFF');
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              className={`flex-1 min-w-[96px] py-1.5 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
                 filterType === 'DEBT_PAYOFF'
                   ? 'bg-[#B45309] text-white shadow-2xs font-bold'
                   : 'text-[#78716C] hover:text-[#1C1917]'
@@ -386,7 +388,7 @@ export const FinancialFreedom: React.FC = () => {
                 playActionClick();
                 setFilterType('SAVINGS');
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+              className={`flex-1 min-w-[88px] py-1.5 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
                 filterType === 'SAVINGS'
                   ? 'bg-[#10B981] text-white shadow-2xs font-bold'
                   : 'text-[#78716C] hover:text-[#1C1917]'
@@ -397,22 +399,25 @@ export const FinancialFreedom: React.FC = () => {
             </button>
           </div>
 
-          {/* Bộ chọn sắp xếp (Sort selector) */}
-          <div className="flex items-center gap-1.5 self-end sm:self-auto">
-            <div className="flex items-center gap-1.5 bg-[#FAF9F6] border border-[#E6E2DA] rounded-xl px-2.5 py-1 text-xs text-[#78716C] shadow-2xs">
-              <ArrowUpDown className="w-3.5 h-3.5 text-[#0F3D39]" />
-              <span className="text-[11px] font-medium hidden xs:inline">Xếp theo:</span>
+          {/* Hàng 2: Thanh thông tin & Bộ chọn sắp xếp cân đối 2 bên */}
+          <div className="flex items-center justify-between px-1 text-xs text-[#78716C]">
+            <span className="text-[11px] font-medium">
+              Đang hiển thị <strong className="font-mono text-[#1C1917]">{filteredGoals.length}</strong> mục tiêu
+            </span>
+
+            <div className="flex items-center gap-1 bg-white border border-[#E6E2DA] rounded-xl px-2.5 py-1 shadow-2xs">
+              <ArrowUpDown className="w-3 h-3 text-[#0F3D39] shrink-0" />
               <select
                 value={sortBy}
                 onChange={(e) => {
                   playActionClick();
                   setSortBy(e.target.value as GoalSortOption);
                 }}
-                className="bg-transparent border-0 text-[#1C1917] text-xs font-semibold focus:outline-hidden cursor-pointer"
+                className="bg-transparent border-0 text-[#1C1917] text-[11px] font-medium focus:outline-hidden cursor-pointer"
               >
-                <option value="COMPLETION_AND_AMOUNT">Sắp hoàn thành & Số tiền (Khuyên dùng)</option>
-                <option value="REMAINING_AMOUNT_ASC">Số tiền còn lại ít nhất (Snowball)</option>
-                <option value="REMAINING_AMOUNT_DESC">Số tiền còn lại nhiều nhất (Avalanche)</option>
+                <option value="COMPLETION_AND_AMOUNT">Sắp hoàn thành nhất</option>
+                <option value="REMAINING_AMOUNT_ASC">Số tiền ít nhất (Snowball)</option>
+                <option value="REMAINING_AMOUNT_DESC">Số tiền nhiều nhất (Avalanche)</option>
                 <option value="NEWEST">Mới tạo gần đây</option>
               </select>
             </div>
@@ -493,12 +498,13 @@ export const FinancialFreedom: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleOpenEdit(goal)}
-                        className="p-1.5 rounded-xl hover:bg-[#FAF9F6] text-[#78716C] hover:text-[#0F3D39] transition-all cursor-pointer"
+                        className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-[#FAF9F6] text-[#78716C] hover:text-[#0F3D39] active:scale-90 transition-all cursor-pointer"
                         title="Chỉnh sửa mục tiêu"
+                        aria-label="Chỉnh sửa mục tiêu"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
@@ -509,8 +515,9 @@ export const FinancialFreedom: React.FC = () => {
                             removeGoal(goal.id);
                           }
                         }}
-                        className="p-1.5 rounded-xl hover:bg-[#FEF2F2] text-[#78716C] hover:text-[#DC2626] transition-all cursor-pointer"
+                        className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-[#FEF2F2] text-[#78716C] hover:text-[#DC2626] active:scale-90 transition-all cursor-pointer"
                         title="Xóa mục tiêu"
+                        aria-label="Xóa mục tiêu"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
