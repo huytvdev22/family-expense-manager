@@ -136,7 +136,7 @@ export const FinancialFreedom: React.FC = () => {
     setFormType(defaultType);
     setFormTitle(defaultType === 'DEBT_PAYOFF' ? 'Khoản vay ngân hàng mua nhà' : 'Quỹ dự phòng khẩn cấp');
     setFormInitialAmount(defaultType === 'DEBT_PAYOFF' ? '1500000000' : '0');
-    setFormCurrentAmount(defaultType === 'DEBT_PAYOFF' ? '700000000' : '50000000');
+    setFormCurrentAmount(defaultType === 'DEBT_PAYOFF' ? '700000000' : '0');
     setFormTargetAmount(defaultType === 'DEBT_PAYOFF' ? '0' : '100000000');
     setFormMonthlyTarget('15000000');
     setFormColor(defaultType === 'DEBT_PAYOFF' ? '#B45309' : '#10B981');
@@ -171,6 +171,16 @@ export const FinancialFreedom: React.FC = () => {
     const currAmt = Number(formCurrentAmount) || 0;
     const targAmt = formType === 'DEBT_PAYOFF' ? 0 : (Number(formTargetAmount) || 0);
     const monthTarg = Number(formMonthlyTarget) || undefined;
+
+    if (formType === 'SAVINGS' && targAmt <= 0) {
+      showToast('Vui lòng nhập mục tiêu muốn đạt được lớn hơn 0 đ!', 'warning');
+      return;
+    }
+
+    if (formType === 'DEBT_PAYOFF' && initAmt <= 0) {
+      showToast('Vui lòng nhập tổng nợ gốc ban đầu lớn hơn 0 đ!', 'warning');
+      return;
+    }
 
     playSuccessChime();
     triggerHaptic(15);
@@ -408,15 +418,16 @@ export const FinancialFreedom: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredGoals.map((goal) => {
               const isDebt = goal.type === 'DEBT_PAYOFF';
+              const isSavingsNoTarget = !isDebt && (!goal.targetAmount || goal.targetAmount <= 0);
               const paidAmount = isDebt ? Math.max(0, goal.initialAmount - goal.currentAmount) : goal.currentAmount;
               const percent = isDebt 
                 ? (goal.initialAmount > 0 ? Math.round((paidAmount / goal.initialAmount) * 100) : 0)
-                : (goal.targetAmount > 0 ? Math.round((goal.currentAmount / goal.targetAmount) * 100) : 0);
+                : (!isSavingsNoTarget ? Math.round((goal.currentAmount / goal.targetAmount) * 100) : 0);
 
               // Dự báo số kỳ còn lại
               const remainingMonths = (isDebt && goal.monthlyTarget && goal.monthlyTarget > 0)
                 ? Math.ceil(goal.currentAmount / goal.monthlyTarget)
-                : (goal.monthlyTarget && goal.monthlyTarget > 0)
+                : (!isDebt && goal.targetAmount > 0 && goal.monthlyTarget && goal.monthlyTarget > 0)
                   ? Math.ceil(Math.max(0, goal.targetAmount - goal.currentAmount) / goal.monthlyTarget)
                   : null;
 
@@ -490,20 +501,40 @@ export const FinancialFreedom: React.FC = () => {
                     </div>
 
                     {/* Progress bar */}
-                    <div className="w-full h-2.5 bg-[#E6E2DA] rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all duration-500"
-                        style={{
-                          width: `${Math.min(100, Math.max(0, percent))}%`,
-                          backgroundColor: goal.color || (isDebt ? '#B45309' : '#10B981')
-                        }}
-                      />
-                    </div>
+                    {isSavingsNoTarget ? (
+                      <div className="space-y-1">
+                        <div className="w-full h-2.5 bg-[#FEF3C7] rounded-full overflow-hidden border border-dashed border-[#B45309]/30">
+                          <div className="h-full bg-[#B45309]/15 w-full" />
+                        </div>
+                        <div className="flex items-center justify-between text-[10px] text-[#B45309] font-mono pt-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEdit(goal)}
+                            className="underline font-semibold hover:text-[#92400E] cursor-pointer"
+                          >
+                            ⚠️ Chưa đặt mức mục tiêu (chạm để đặt)
+                          </button>
+                          <span className="font-bold">--%</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-full h-2.5 bg-[#E6E2DA] rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all duration-500"
+                            style={{
+                              width: `${Math.min(100, Math.max(0, percent))}%`,
+                              backgroundColor: goal.color || (isDebt ? '#B45309' : '#10B981')
+                            }}
+                          />
+                        </div>
 
-                    <div className="flex items-center justify-between text-[10px] text-[#78716C] font-mono pt-0.5">
-                      <span>{isDebt ? `Đã trả: ${formatVND(paidAmount)}` : `Mục tiêu: ${formatVND(goal.targetAmount)}`}</span>
-                      <span className="font-bold text-[#1C1917]">{percent}%</span>
-                    </div>
+                        <div className="flex items-center justify-between text-[10px] text-[#78716C] font-mono pt-0.5">
+                          <span>{isDebt ? `Đã trả: ${formatVND(paidAmount)}` : `Mục tiêu: ${formatVND(goal.targetAmount)}`}</span>
+                          <span className="font-bold text-[#1C1917]">{percent}%</span>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Dòng 3: Thông tin bổ sung & Nút cập nhật nhanh */}
@@ -583,9 +614,20 @@ export const FinancialFreedom: React.FC = () => {
                     onClick={() => {
                       playActionClick();
                       setFormType('DEBT_PAYOFF');
-                      if (!editingGoal && formTitle.includes('Quỹ')) {
-                        setFormTitle('Khoản vay ngân hàng mua nhà');
-                        setFormColor('#B45309');
+                      if (!editingGoal) {
+                        if (formTitle.includes('Quỹ')) {
+                          setFormTitle('Khoản vay ngân hàng mua nhà');
+                          setFormColor('#B45309');
+                        }
+                        if (!formInitialAmount || formInitialAmount === '0') {
+                          setFormInitialAmount('1500000000');
+                        }
+                        if (!formCurrentAmount || formCurrentAmount === '0') {
+                          setFormCurrentAmount('700000000');
+                        }
+                        setFormTargetAmount('0');
+                      } else {
+                        setFormTargetAmount('0');
                       }
                     }}
                     className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
@@ -603,9 +645,21 @@ export const FinancialFreedom: React.FC = () => {
                     onClick={() => {
                       playActionClick();
                       setFormType('SAVINGS');
-                      if (!editingGoal && formTitle.includes('Khoản vay')) {
-                        setFormTitle('Quỹ dự phòng khẩn cấp');
-                        setFormColor('#10B981');
+                      if (!editingGoal) {
+                        if (formTitle.includes('Khoản vay')) {
+                          setFormTitle('Quỹ dự phòng khẩn cấp');
+                          setFormColor('#10B981');
+                        }
+                        if (!formTargetAmount || formTargetAmount === '0') {
+                          setFormTargetAmount('100000000');
+                        }
+                        if (formCurrentAmount === '700000000') {
+                          setFormCurrentAmount('0');
+                        }
+                      } else {
+                        if (!formTargetAmount || formTargetAmount === '0') {
+                          setFormTargetAmount('100000000');
+                        }
                       }
                     }}
                     className={`p-3 rounded-2xl border text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-1 ${
@@ -827,19 +881,41 @@ export const FinancialFreedom: React.FC = () => {
             <div className="px-4 sm:px-5 py-3 bg-[#FAF9F6] border-b border-[#F5F3EF] grid grid-cols-2 gap-3 shrink-0">
               <div>
                 <span className="text-[11px] text-[#78716C] block">
-                  {selectedHistoryGoal.type === 'DEBT_PAYOFF' ? 'Tổng tiền đã trả qua sổ cái' : 'Tổng tích lũy qua sổ cái'}
+                  {selectedHistoryGoal.type === 'DEBT_PAYOFF' ? 'Đã trả qua sổ cái' : 'Đã tích lũy qua sổ cái'}
                 </span>
                 <span className="text-sm font-bold font-mono text-[#0F3D39]">
-                  {formatVND(historyTotalRecordedAmount)}
+                  {selectedHistoryGoal.type === 'SAVINGS' ? '+' : ''}{formatVND(historyTotalRecordedAmount)}
+                </span>
+                <span className="text-[10px] text-[#78716C] block mt-0.5 font-mono">
+                  ({historyTransactions.length} giao dịch)
                 </span>
               </div>
               <div className="text-right">
                 <span className="text-[11px] text-[#78716C] block">
                   {selectedHistoryGoal.type === 'DEBT_PAYOFF' ? 'Dư nợ hiện tại' : 'Số tiền hiện có'}
                 </span>
-                <span className="text-sm font-bold font-mono text-[#B45309]">
+                <span className={`text-sm font-bold font-mono ${
+                  selectedHistoryGoal.type === 'DEBT_PAYOFF' ? 'text-[#B45309]' : 'text-[#0F3D39]'
+                }`}>
                   {formatVND(selectedHistoryGoal.currentAmount)}
                 </span>
+                {selectedHistoryGoal.type === 'SAVINGS' && selectedHistoryGoal.currentAmount !== historyTotalRecordedAmount && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (confirm(`Bạn có muốn cân chỉnh "Số tiền hiện có" của quỹ thành ${formatVND(historyTotalRecordedAmount)} (khớp đúng 100% với tổng các giao dịch trong sổ cái)?`)) {
+                        await editGoal(selectedHistoryGoal.id, { currentAmount: historyTotalRecordedAmount });
+                        setSelectedHistoryGoal((prev) => prev ? { ...prev, currentAmount: historyTotalRecordedAmount } : null);
+                        showToast('Đã cân chỉnh số tiền theo sổ cái!', 'success');
+                      }
+                    }}
+                    className="text-[10px] text-[#0F3D39] hover:underline font-semibold cursor-pointer flex items-center justify-end gap-1 mt-0.5 ml-auto"
+                    title="Đồng bộ số dư mục tiêu khớp với tổng các lần tích lũy trên sổ cái"
+                  >
+                    <RotateCcw className="w-2.5 h-2.5" />
+                    <span>Khớp theo sổ cái</span>
+                  </button>
+                )}
               </div>
             </div>
 
