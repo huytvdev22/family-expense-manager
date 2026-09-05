@@ -19,7 +19,8 @@ import {
   ShieldCheck,
   AlertCircle,
   History,
-  Receipt
+  Receipt,
+  ArrowUpDown
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND, formatDateLabel } from '../utils/currency';
@@ -27,6 +28,7 @@ import { playActionClick, playSuccessChime } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { renderGoalIcon } from '../utils/categoryIcons';
 import type { FinancialGoal, GoalType } from '../types';
+import { sortFinancialGoals, type GoalSortOption } from '../utils/goalSorting';
 import { useToast } from './Toast';
 
 const GOAL_COLORS = [
@@ -90,11 +92,16 @@ export const FinancialFreedom: React.FC = () => {
     return historyTransactions.reduce((sum, tx) => sum + tx.amount, 0);
   }, [historyTransactions]);
 
-  // Lọc danh sách mục tiêu
+  // Thứ tự sắp xếp mục tiêu: Mặc định ưu tiên sắp hoàn thành lên trước, theo số tiền
+  const [sortBy, setSortBy] = useState<GoalSortOption>('COMPLETION_AND_AMOUNT');
+
+  // Lọc và sắp xếp danh sách mục tiêu
   const filteredGoals = useMemo(() => {
-    if (filterType === 'ALL') return financialGoals;
-    return financialGoals.filter((g) => g.type === filterType);
-  }, [financialGoals, filterType]);
+    const list = filterType === 'ALL' 
+      ? financialGoals 
+      : financialGoals.filter((g) => g.type === filterType);
+    return sortFinancialGoals(list, sortBy);
+  }, [financialGoals, filterType, sortBy]);
 
   // Thống kê tổng hợp
   const stats = useMemo(() => {
@@ -341,16 +348,16 @@ export const FinancialFreedom: React.FC = () => {
           2. BỘ LỌC VÀ DANH SÁCH THẺ MỤC TIÊU (GOAL CARDS)
           ========================================================================= */}
       <div className="space-y-3">
-        {/* Bộ lọc loại mục tiêu */}
-        <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1">
-          <div className="flex items-center bg-[#F5F3EF] border border-[#E6E2DA] rounded-xl p-1 shadow-2xs">
+        {/* Bộ lọc loại mục tiêu và Sắp xếp */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-1">
+          <div className="flex items-center bg-[#F5F3EF] border border-[#E6E2DA] rounded-xl p-1 shadow-2xs overflow-x-auto">
             <button
               type="button"
               onClick={() => {
                 playActionClick();
                 setFilterType('ALL');
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
                 filterType === 'ALL'
                   ? 'bg-white text-[#1C1917] shadow-2xs font-bold'
                   : 'text-[#78716C] hover:text-[#1C1917]'
@@ -364,7 +371,7 @@ export const FinancialFreedom: React.FC = () => {
                 playActionClick();
                 setFilterType('DEBT_PAYOFF');
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                 filterType === 'DEBT_PAYOFF'
                   ? 'bg-[#B45309] text-white shadow-2xs font-bold'
                   : 'text-[#78716C] hover:text-[#1C1917]'
@@ -379,7 +386,7 @@ export const FinancialFreedom: React.FC = () => {
                 playActionClick();
                 setFilterType('SAVINGS');
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                 filterType === 'SAVINGS'
                   ? 'bg-[#10B981] text-white shadow-2xs font-bold'
                   : 'text-[#78716C] hover:text-[#1C1917]'
@@ -388,6 +395,27 @@ export const FinancialFreedom: React.FC = () => {
               <PiggyBank className="w-3.5 h-3.5" />
               <span>Tích lũy ({financialGoals.filter(g => g.type === 'SAVINGS').length})</span>
             </button>
+          </div>
+
+          {/* Bộ chọn sắp xếp (Sort selector) */}
+          <div className="flex items-center gap-1.5 self-end sm:self-auto">
+            <div className="flex items-center gap-1.5 bg-[#FAF9F6] border border-[#E6E2DA] rounded-xl px-2.5 py-1 text-xs text-[#78716C] shadow-2xs">
+              <ArrowUpDown className="w-3.5 h-3.5 text-[#0F3D39]" />
+              <span className="text-[11px] font-medium hidden xs:inline">Xếp theo:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => {
+                  playActionClick();
+                  setSortBy(e.target.value as GoalSortOption);
+                }}
+                className="bg-transparent border-0 text-[#1C1917] text-xs font-semibold focus:outline-hidden cursor-pointer"
+              >
+                <option value="COMPLETION_AND_AMOUNT">Sắp hoàn thành & Số tiền (Khuyên dùng)</option>
+                <option value="REMAINING_AMOUNT_ASC">Số tiền còn lại ít nhất (Snowball)</option>
+                <option value="REMAINING_AMOUNT_DESC">Số tiền còn lại nhiều nhất (Avalanche)</option>
+                <option value="NEWEST">Mới tạo gần đây</option>
+              </select>
+            </div>
           </div>
         </div>
 

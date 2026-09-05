@@ -51,6 +51,7 @@ import { getCurrentYearMonth } from '../utils/currency';
 import { isSoundEnabled, setSoundEnabled, playSuccessChime, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { useToast } from '../components/Toast';
+import { sortFinancialGoals } from '../utils/goalSorting';
 
 interface AppContextType {
   // Trạng thái người dùng & hệ thống
@@ -137,7 +138,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES);
   const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(MOCK_SUMMARY);
-  const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>(MOCK_GOALS);
+  const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>(() => sortFinancialGoals(MOCK_GOALS));
   const [currentYearMonth, setCurrentYearMonth] = useState<string>(getCurrentYearMonth());
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
@@ -392,7 +393,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setCategories(MOCK_CATEGORIES);
         setTransactions(MOCK_TRANSACTIONS);
         setMonthlySummary(MOCK_SUMMARY);
-        setFinancialGoals(MOCK_GOALS);
+        setFinancialGoals(sortFinancialGoals(MOCK_GOALS));
       }
       setIsLoading(false);
     });
@@ -441,7 +442,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
 
     const unsubGoals = subscribeFinancialGoals(activeHousehold.id, (goals) => {
-      setFinancialGoals(goals);
+      setFinancialGoals(sortFinancialGoals(goals));
     });
 
     return () => {
@@ -880,7 +881,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
     playSuccessChime();
     triggerHaptic(15);
-    setFinancialGoals((prev) => [newGoal, ...prev]);
+    setFinancialGoals((prev) => sortFinancialGoals([newGoal, ...prev]));
 
     if (isFirebaseActive && firebaseUser) {
       try {
@@ -897,7 +898,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     playActionClick();
     triggerHaptic(10);
     setFinancialGoals((prev) =>
-      prev.map((g) => (g.id === goalId ? { ...g, ...updates, updatedAt: Date.now() } : g))
+      sortFinancialGoals(prev.map((g) => (g.id === goalId ? { ...g, ...updates, updatedAt: Date.now() } : g)))
     );
 
     if (isFirebaseActive && activeHousehold && firebaseUser) {
@@ -935,13 +936,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     playSuccessChime();
     triggerHaptic(10);
     setFinancialGoals((prev) =>
-      prev.map((g) => {
-        if (g.id !== goalId) return g;
-        const nextStatus = g.type === 'DEBT_PAYOFF'
-          ? (newAmount === 0 ? 'COMPLETED' : 'ACTIVE')
-          : (g.targetAmount > 0 && newAmount >= g.targetAmount ? 'COMPLETED' : 'ACTIVE');
-        return { ...g, currentAmount: newAmount, status: nextStatus, updatedAt: Date.now() };
-      })
+      sortFinancialGoals(
+        prev.map((g) => {
+          if (g.id !== goalId) return g;
+          const nextStatus = g.type === 'DEBT_PAYOFF'
+            ? (newAmount === 0 ? 'COMPLETED' : 'ACTIVE')
+            : (g.targetAmount > 0 && newAmount >= g.targetAmount ? 'COMPLETED' : 'ACTIVE');
+          return { ...g, currentAmount: newAmount, status: nextStatus, updatedAt: Date.now() };
+        })
+      )
     );
 
     if (isFirebaseActive && activeHousehold && firebaseUser) {
