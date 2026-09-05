@@ -52,8 +52,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
     createCategory, 
     editCategory, 
     removeCategory, 
-    restoreCategory,
-    restoreDefaultCategories 
+    restoreCategory
   } = useApp();
   const { showToast } = useToast();
 
@@ -215,15 +214,6 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
               💰 Thu nhập
             </button>
           </div>
-
-          <button
-            type="button"
-            onClick={() => restoreDefaultCategories(activeType)}
-            className="p-2 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] text-[#78716C] hover:text-[#0F3D39] hover:bg-white hover:border-[#0F3D39] transition-all cursor-pointer shadow-2xs"
-            title={`Khôi phục các danh mục ${activeType === 'INCOME' ? 'Thu Nhập' : 'Chi Tiêu'} mẫu chuẩn`}
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
         </div>
       </div>
 
@@ -239,17 +229,20 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
             </p>
             <p className="text-[11px] text-[#78716C] max-w-sm mx-auto mt-0.5">
               {activeType === 'INCOME'
-                ? 'Tổ ấm của bạn chưa có danh mục thu nhập chuẩn (Tiền lương, Tiền thưởng, Thu nhập phụ...). Bấm nút bên dưới để khôi phục ngay!'
-                : 'Tổ ấm của bạn hiện chưa có danh mục chi tiêu nào.'}
+                ? 'Tổ ấm của bạn hiện chưa có danh mục thu nhập nào. Bấm nút bên dưới để tạo danh mục mới!'
+                : 'Tổ ấm của bạn hiện chưa có danh mục chi tiêu nào. Bấm nút bên dưới để tạo danh mục mới!'}
             </p>
           </div>
           <button
             type="button"
-            onClick={() => restoreDefaultCategories(activeType)}
+            onClick={() => {
+              playActionClick();
+              setIsAdding(true);
+            }}
             className="px-4 py-2.5 bg-[#0F3D39] hover:bg-[#174E4A] text-white text-xs font-bold rounded-2xl transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer active:scale-95"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Khôi phục danh mục {activeType === 'INCOME' ? 'Thu Nhập' : 'Chi Tiêu'} mẫu</span>
+            <Plus className="w-3.5 h-3.5" />
+            <span>Thêm danh mục {activeType === 'INCOME' ? 'Thu Nhập' : 'Chi Tiêu'} mới</span>
           </button>
         </div>
       ) : (
