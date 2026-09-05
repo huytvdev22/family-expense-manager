@@ -1,4 +1,4 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
 import { 
   initializeFirestore, 
   persistentLocalCache, 
@@ -25,7 +25,7 @@ export const isFirebaseConfigured = Boolean(
   firebaseConfig.projectId
 );
 
-let app = null;
+let app: FirebaseApp | null = null;
 let db: Firestore | null = null;
 let auth: Auth | null = null;
 const googleProvider = new GoogleAuthProvider();
@@ -53,4 +53,24 @@ if (isFirebaseConfigured) {
   }
 }
 
-export { db, auth, googleProvider };
+/**
+ * Lấy đối tượng Firebase Messaging khi môi trường trình duyệt hỗ trợ
+ */
+export async function getFirebaseMessaging() {
+  if (!app) return null;
+  try {
+    const { getMessaging, isSupported } = await import('firebase/messaging');
+    const supported = await isSupported();
+    if (!supported) {
+      console.warn('Trình duyệt hiện tại không hỗ trợ Web Push Messaging');
+      return null;
+    }
+    return getMessaging(app);
+  } catch (err) {
+    console.warn('Không thể khởi tạo Firebase Messaging:', err);
+    return null;
+  }
+}
+
+export { app, db, auth, googleProvider, firebaseConfig };
+

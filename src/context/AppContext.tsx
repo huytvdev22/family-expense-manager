@@ -55,11 +55,12 @@ import {
   MOCK_GOALS
 } from '../services/mockData';
 import type { Household, Category, Transaction, MonthlySummary, UserProfile, FinancialGoal, QuickTagItem } from '../types';
-import { getCurrentYearMonth } from '../utils/currency';
+import { getCurrentYearMonth, formatVND } from '../utils/currency';
 import { isSoundEnabled, setSoundEnabled, playSuccessChime, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { useToast } from '../components/Toast';
 import { sortFinancialGoals } from '../utils/goalSorting';
+import { sendLocalNotification, checkAndTriggerDailyReminder } from '../services/notificationService';
 
 interface AppContextType {
   // Trạng thái người dùng & hệ thống
@@ -621,7 +622,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       }
     }
+
+    // Cảnh báo hạn mức danh mục nếu vượt ngân sách tháng
+    if (txData.type === 'EXPENSE') {
+      const cat = categories.find((c) => c.id === txData.categoryId);
+      if (cat && cat.monthlyLimit && cat.monthlyLimit > 0) {
+        const currentMonthStr = new Date().toISOString().slice(0, 7);
+        const currentMonthSpent = transactions
+          .filter((t) => t.type === 'EXPENSE' && t.categoryId === cat.id && t.date.startsWith(currentMonthStr))
+          .reduce((sum, t) => sum + t.amount, 0) + txData.amount;
+
+        if (currentMonthSpent > cat.monthlyLimit) {
+          sendLocalNotification(`⚠️ Cảnh báo ngân sách: ${cat.name}`, {
+            body: `Tổng chi tiêu tháng này (${formatVND(currentMonthSpent)}) đã vượt hạn mức quy định (${formatVND(cat.monthlyLimit)})!`,
+            tag: `limit-exceeded-${cat.id}`
+          });
+        }
+      }
+    }
   };
+
+  // Kiểm tra kích hoạt nhắc nhở ghi chép hàng ngày lúc 20:30 tối
+  useEffect(() => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const hasTransactionsToday = transactions.some((t) => t.date === todayStr);
+    checkAndTriggerDailyReminder(hasTransactionsToday);
+  }, [transactions]);
 
   // HÀM BÙ TRỪ TIẾN ĐỘ MỤC TIÊU TỰ DO TÀI CHÍNH
   const adjustGoalBalance = (goalId: string | undefined, amountDelta: number) => {

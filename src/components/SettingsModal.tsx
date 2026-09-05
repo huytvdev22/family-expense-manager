@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   Settings, 
   X, 
@@ -14,10 +14,15 @@ import {
   Loader2,
   Receipt,
   Coins,
-  Layers
+  Layers,
+  Bell,
+  BellRing,
+  Share2,
+  Smartphone,
+  AlertCircle
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { playActionClick } from '../utils/audio';
+import { playActionClick, playSuccessChime } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { 
   getCurrentVersionInfo, 
@@ -25,6 +30,15 @@ import {
   forceClearCacheAndReload,
   type UpdateCheckResult 
 } from '../services/versionService';
+import {
+  getNotificationPermissionState,
+  requestNotificationPermission,
+  sendTestNotification,
+  isDailyReminderEnabled,
+  setDailyReminderEnabled,
+  isIOSDevice,
+  isStandaloneMode
+} from '../services/notificationService';
 import { useToast } from './Toast';
 
 interface SettingsModalProps {
@@ -51,6 +65,66 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const versionInfo = getCurrentVersionInfo();
   const [isCheckingUpdate, setIsCheckingUpdate] = useState<boolean>(false);
   const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
+
+  // Trạng thái thông báo & nhắc nhở
+  const [permissionState, setPermissionState] = useState(getNotificationPermissionState());
+  const [dailyReminder, setDailyReminder] = useState(isDailyReminderEnabled());
+  const [isRequestingNotif, setIsRequestingNotif] = useState(false);
+  const [isSendingTestNotif, setIsSendingTestNotif] = useState(false);
+  const isIOS = useMemo(() => isIOSDevice(), []);
+  const isStandalone = useMemo(() => isStandaloneMode(), []);
+
+  // Xử lý xin quyền thông báo
+  const handleRequestPermission = async () => {
+    setIsRequestingNotif(true);
+    playActionClick();
+    triggerHaptic(10);
+    try {
+      const res = await requestNotificationPermission();
+      setPermissionState(getNotificationPermissionState());
+      if (res.granted) {
+        playSuccessChime();
+        showToast('Đã bật thông báo thành công!', 'success');
+      } else if (res.error) {
+        showToast(res.error, 'warning');
+      }
+    } catch (e: any) {
+      showToast('Không thể bật thông báo: ' + (e?.message || ''), 'warning');
+    } finally {
+      setIsRequestingNotif(false);
+    }
+  };
+
+  // Xử lý gửi thông báo thử nghiệm
+  const handleSendTestNotification = async () => {
+    setIsSendingTestNotif(true);
+    playActionClick();
+    triggerHaptic(10);
+    try {
+      const ok = await sendTestNotification();
+      if (ok) {
+        showToast('Đã gửi thông báo thử nghiệm! Kiểm tra màn hình khóa/thông báo nhé.', 'success');
+      } else {
+        showToast('Không thể hiển thị thông báo. Hãy kiểm tra quyền trên thiết bị.', 'warning');
+      }
+    } finally {
+      setIsSendingTestNotif(false);
+    }
+  };
+
+  // Bật/tắt nhắc nhở hàng ngày
+  const handleToggleDailyReminder = () => {
+    playActionClick();
+    triggerHaptic(10);
+    const nextVal = !dailyReminder;
+    setDailyReminder(nextVal);
+    setDailyReminderEnabled(nextVal);
+    if (nextVal) {
+      showToast('Đã bật nhắc nhở ghi chép lúc 20:30 tối!', 'success');
+    } else {
+      showToast('Đã tắt nhắc nhở ghi chép hàng ngày', 'info');
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -237,7 +311,130 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           </div>
 
           {/* =========================================================================
-              3. TÀI KHOẢN NGƯỜI DÙNG & FIREBASE CLOUD SYNC
+              3. THÔNG BÁO & NHẮC NHỞ GIA ĐÌNH
+              ========================================================================= */}
+          <div className="bg-white border border-[#E6E2DA] rounded-2xl p-4 shadow-2xs space-y-3.5">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs uppercase font-semibold text-[#78716C] tracking-wider flex items-center gap-1.5">
+                <Bell className="w-3.5 h-3.5 text-[#0F3D39]" />
+                <span>Thông báo & Nhắc nhở</span>
+              </h4>
+
+              {permissionState === 'granted' ? (
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#047857] flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-[#10B981]" />
+                  <span>Đã kích hoạt</span>
+                </span>
+              ) : permissionState === 'denied' ? (
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#FFF1F2] text-[#E11D48] flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  <span>Đã chặn quyền</span>
+                </span>
+              ) : (
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[#FAF9F6] border border-[#E6E2DA] text-[#78716C]">
+                  Chưa bật
+                </span>
+              )}
+            </div>
+
+            {/* Hướng dẫn riêng cho người dùng iPhone nếu chưa cài ra màn hình chính */}
+            {isIOS && !isStandalone && (
+              <div className="p-3 rounded-xl bg-[#FFFBEB] border border-[#FDE68A] text-xs text-[#92400E] space-y-1.5 animate-in fade-in duration-150">
+                <div className="flex items-center gap-1.5 font-bold">
+                  <Smartphone className="w-3.5 h-3.5 shrink-0 text-[#D97706]" />
+                  <span>Lưu ý cho iPhone (iOS):</span>
+                </div>
+                <p className="text-[11px] leading-relaxed text-[#78350F]">
+                  Apple yêu cầu bạn phải cài ứng dụng ra Màn hình chính mới có thể nhận thông báo đẩy:
+                </p>
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#B45309] bg-white/80 p-2 rounded-lg border border-[#FDE68A]/60 flex-wrap">
+                  <span>Chạm vào</span>
+                  <Share2 className="w-3.5 h-3.5 inline text-[#0F3D39]" />
+                  <span>(Chia sẻ ở Safari) $\rightarrow$ Chọn</span>
+                  <span className="underline font-bold text-[#0F3D39]">"Thêm vào MH chính"</span>
+                </div>
+              </div>
+            )}
+
+            {/* Mục 1: Bật / Tắt quyền nhận thông báo & Nút gửi thử */}
+            <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center gap-3 pr-2">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors shrink-0 ${
+                  permissionState === 'granted' ? 'bg-[#E7EFEF] text-[#0F3D39]' : 'bg-[#F5F3EF] text-[#A8A29E]'
+                }`}>
+                  <BellRing className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-[#1C1917]">Thông báo đẩy Web Push</p>
+                  <p className="text-[11px] text-[#78716C] mt-0.5">
+                    {permissionState === 'granted'
+                      ? 'Thiết bị đã sẵn sàng nhận thông báo chi tiêu'
+                      : 'Nhận thông báo khi có khoản chi tiêu mới'}
+                  </p>
+                </div>
+              </div>
+
+              {permissionState === 'granted' ? (
+                <button
+                  type="button"
+                  onClick={handleSendTestNotification}
+                  disabled={isSendingTestNotif}
+                  className="px-3 py-1.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] hover:bg-white text-xs font-semibold text-[#0F3D39] flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer shrink-0 shadow-2xs"
+                  title="Gửi thử một thông báo tới máy"
+                >
+                  <Bell className="w-3 h-3" />
+                  <span>{isSendingTestNotif ? 'Đang gửi...' : 'Gửi thử'}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleRequestPermission}
+                  disabled={isRequestingNotif}
+                  className="px-3.5 py-1.5 rounded-xl bg-[#0F3D39] text-white text-xs font-semibold hover:bg-[#174E4A] flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer shrink-0 shadow-2xs disabled:opacity-60"
+                >
+                  {isRequestingNotif ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bell className="w-3.5 h-3.5" />}
+                  <span>Bật ngay</span>
+                </button>
+              )}
+            </div>
+
+            {/* Mục 2: Nhắc nhở ghi chép lúc 20:30 */}
+            <div className="flex items-center justify-between pt-2 border-t border-[#F5F3EF]">
+              <div className="flex items-center gap-3 pr-2">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors shrink-0 ${
+                  dailyReminder ? 'bg-[#E7EFEF] text-[#0F3D39]' : 'bg-[#F5F3EF] text-[#A8A29E]'
+                }`}>
+                  <Clock className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-[#1C1917]">Nhắc ghi chép lúc 20:30 tối</p>
+                  <p className="text-[11px] text-[#78716C] mt-0.5">
+                    {dailyReminder
+                      ? 'Tự động nhắc nếu hôm nay chưa phát sinh ghi chép'
+                      : 'Đang tắt nhắc nhở ghi chép'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleToggleDailyReminder}
+                className={`w-11 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer shrink-0 ${
+                  dailyReminder ? 'bg-[#0F3D39]' : 'bg-[#E6E2DA]'
+                }`}
+                title={dailyReminder ? 'Đang bật nhắc nhở' : 'Đang tắt nhắc nhở'}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full bg-white transition-transform shadow-xs ${
+                    dailyReminder ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* =========================================================================
+              4. TÀI KHOẢN NGƯỜI DÙNG & FIREBASE CLOUD SYNC
               ========================================================================= */}
           <div className="bg-white border border-[#E6E2DA] rounded-2xl p-4 shadow-2xs space-y-3">
             <div className="flex items-center justify-between gap-3">
