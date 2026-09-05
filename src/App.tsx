@@ -11,6 +11,7 @@ import { FamilyHub } from './components/FamilyHub';
 import { FinancialFreedom } from './components/FinancialFreedom';
 import { MonthPicker } from './components/MonthPicker';
 import { UpdateNotification } from './components/UpdateNotification';
+import { SettingsModal } from './components/SettingsModal';
 import { useApp } from './context/AppContext';
 
 export const App: React.FC = () => {
@@ -25,6 +26,7 @@ export const App: React.FC = () => {
   // Trạng thái mở các Modal
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [isLetterOpen, setIsLetterOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [joinCodeParam, setJoinCodeParam] = useState<string>('');
 
   // Kiểm tra link mời tham gia từ URL (?join=CODE) hoặc từ localStorage
@@ -65,6 +67,7 @@ export const App: React.FC = () => {
       <Header
         onOpenInvite={() => setIsInviteOpen(true)}
         onOpenMonthlyLetter={() => setIsLetterOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
         desktopView={desktopView}
         onChangeDesktopView={setDesktopView}
         currentMobileTab={mobileTab}
@@ -108,6 +111,7 @@ export const App: React.FC = () => {
               <FamilyHub
                 onOpenInvite={() => setIsInviteOpen(true)}
                 onOpenMonthlyLetter={() => setIsLetterOpen(true)}
+                onOpenSettings={() => setIsSettingsOpen(true)}
               />
             </div>
           )}
@@ -179,6 +183,7 @@ export const App: React.FC = () => {
               <FamilyHub
                 onOpenInvite={() => setIsInviteOpen(true)}
                 onOpenMonthlyLetter={() => setIsLetterOpen(true)}
+                onOpenSettings={() => setIsSettingsOpen(true)}
               />
             </div>
           )}
@@ -203,6 +208,12 @@ export const App: React.FC = () => {
       <MonthlyLetterModal
         isOpen={isLetterOpen}
         onClose={() => setIsLetterOpen(false)}
+      />
+
+      {/* Modal Cài đặt hệ thống */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
       />
 
       {/* Thông báo cập nhật phiên bản mới tự động */}

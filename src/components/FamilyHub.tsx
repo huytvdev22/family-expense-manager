@@ -15,10 +15,11 @@ import {
   Sparkles,
   ShieldCheck,
   GitCommit,
-  RefreshCw,
+  Receipt,
   RotateCcw,
   CheckCircle2,
-  Clock
+  Clock,
+  Settings
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from './Toast';
@@ -37,11 +38,13 @@ import {
 interface FamilyHubProps {
   onOpenInvite: () => void;
   onOpenMonthlyLetter: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const FamilyHub: React.FC<FamilyHubProps> = ({
   onOpenInvite,
-  onOpenMonthlyLetter
+  onOpenMonthlyLetter,
+  onOpenSettings
 }) => {
   const {
     activeHousehold,
@@ -492,174 +495,35 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
             </p>
           </div>
 
-          {/* 5. Menu cài đặt & Tiện ích */}
-          <div className="bg-white border border-[#E6E2DA] rounded-3xl p-4 shadow-sm divide-y divide-[#F5F3EF]">
-            {/* Cài đặt âm thanh phản hồi */}
-        <div className="py-3 flex items-center justify-between px-2">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-[#F5F3EF] text-[#78716C] flex items-center justify-center">
-              {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-            </div>
-            <div>
-              <p className="text-xs font-semibold text-[#1C1917]">Âm thanh xúc giác cơ học</p>
-              <p className="text-[10px] text-[#78716C]">Tiếng click bàn phím khi ghi sổ</p>
-            </div>
-          </div>
-          <button
-            onClick={() => {
-              toggleSound();
-              triggerHaptic(10);
-            }}
-            className={`w-11 h-6 rounded-full transition-colors relative p-0.5 ${
-              soundEnabled ? 'bg-[#0F3D39]' : 'bg-[#E6E2DA]'
-            }`}
-          >
-            <div
-              className={`w-5 h-5 rounded-full bg-white transition-transform shadow-xs ${
-                soundEnabled ? 'translate-x-5' : 'translate-x-0'
-              }`}
-            />
-          </button>
-        </div>
-
-        {/* Trạng thái tài khoản */}
-        <div className="pt-3 flex items-center justify-between px-2">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-8 h-8 rounded-xl bg-[#FAF9F6] border border-[#E6E2DA] flex items-center justify-center text-xs font-bold text-[#0F3D39]">
-              {currentUser?.photoURL ? (
-                <img src={currentUser.photoURL} alt="" className="w-full h-full rounded-xl object-cover" />
-              ) : (
-                <ShieldCheck className="w-4 h-4 text-[#0F3D39]" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-[#1C1917] truncate">
-                {currentUser ? currentUser.displayName || currentUser.email : 'Chế độ Demo (Nội bộ)'}
-              </p>
-              <p className="text-[10px] text-[#78716C] font-mono">
-                {isFirebaseActive ? 'Firebase Cloud Sync' : 'Local Storage'}
-              </p>
-            </div>
-          </div>
-
-          {currentUser ? (
-            <button
-              onClick={() => {
-                playActionClick();
-                logout();
-              }}
-              className="px-2.5 py-1.5 rounded-lg border border-[#E6E2DA] text-[11px] font-semibold text-[#78716C] hover:text-[#E11D48] flex items-center gap-1"
-            >
-              <LogOut className="w-3 h-3" />
-              <span>Đăng xuất</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => {
-                playActionClick();
-                loginWithGoogle();
-              }}
-              className="px-2.5 py-1.5 rounded-lg bg-[#0F3D39] text-[11px] font-semibold text-white flex items-center gap-1"
-            >
-              <LogIn className="w-3 h-3" />
-              <span>Google</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 6. Thông tin phiên bản & Kiểm tra cập nhật */}
-      <div className="bg-white border border-[#E6E2DA] rounded-3xl p-4 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-xl bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center">
-              <GitCommit className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-xs uppercase font-semibold text-[#78716C] tracking-wider">
-                Phiên bản hệ thống
-              </h3>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-xs font-bold text-[#1C1917]">
-                  v{versionInfo.version}
-                </span>
-                <span className="font-mono text-[10px] font-semibold bg-[#FAF9F6] border border-[#E6E2DA] text-[#0F3D39] px-1.5 py-0.5 rounded-md shadow-2xs">
-                  #{versionInfo.commitHash}
-                </span>
+          {/* 5. Cài đặt hệ thống & Phiên bản */}
+          <div className="bg-white border border-[#E6E2DA] rounded-3xl p-4 shadow-sm flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-2xl bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center shrink-0">
+                <Settings className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-[#1C1917] truncate">Cài đặt ứng dụng & Hệ thống</p>
+                <p className="text-[10px] text-[#78716C] truncate mt-0.5">
+                  Âm thanh xúc giác, tài khoản đồng bộ, phiên bản v{versionInfo.version} (#{versionInfo.commitHash})
+                </p>
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                playActionClick();
+                triggerHaptic(10);
+                onOpenSettings?.();
+              }}
+              className="px-3.5 py-2 rounded-xl bg-[#FAF9F6] border border-[#E6E2DA] hover:bg-[#F5F3EF] active:scale-95 text-xs font-semibold text-[#0F3D39] flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs shrink-0"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>Mở cài đặt</span>
+            </button>
           </div>
-
-          <div className="text-right">
-            <div className="flex items-center gap-1 text-[10px] text-[#78716C] justify-end">
-              <Clock className="w-3 h-3 text-[#A8A29E]" />
-              <span>Đóng gói:</span>
-            </div>
-            <p className="font-mono text-[10px] text-[#57534E] font-medium mt-0.5">
-              {versionInfo.formattedBuildTime || versionInfo.buildTime}
-            </p>
-          </div>
-        </div>
-
-        {/* Trạng thái cập nhật nếu vừa kiểm tra */}
-        {updateResult && (
-          <div
-            className={`p-2.5 rounded-2xl text-xs flex items-center justify-between gap-2 animate-in fade-in duration-200 ${
-              updateResult.hasUpdate
-                ? 'bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E]'
-                : 'bg-[#F0FDF4] border border-[#DCFCE7] text-[#166534]'
-            }`}
-          >
-            <div className="flex items-center gap-1.5 min-w-0">
-              {updateResult.hasUpdate ? (
-                <Sparkles className="w-3.5 h-3.5 text-[#D97706] shrink-0" />
-              ) : (
-                <CheckCircle2 className="w-3.5 h-3.5 text-[#16A34A] shrink-0" />
-              )}
-              <span className="truncate">
-                {updateResult.hasUpdate
-                  ? `Có bản mới (#${updateResult.remoteHash})!`
-                  : 'Ứng dụng đang ở bản mới nhất.'}
-              </span>
-            </div>
-            {updateResult.hasUpdate && (
-              <button
-                type="button"
-                onClick={handleClearCacheAndReload}
-                className="px-2 py-1 rounded-lg bg-[#0F3D39] text-white text-[11px] font-bold shadow-xs shrink-0 cursor-pointer"
-              >
-                Cập nhật ngay
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Cụm 2 nút hành động: Kiểm tra cập nhật & Xóa cache */}
-        <div className="grid grid-cols-2 gap-2 pt-1">
-          <button
-            type="button"
-            onClick={handleCheckUpdate}
-            disabled={isCheckingUpdate || isClearingCache}
-            className="py-2 px-3 rounded-2xl border border-[#E6E2DA] hover:bg-[#FAF9F6] active:scale-95 text-xs font-semibold text-[#0F3D39] flex items-center justify-center gap-1.5 transition-all tactile-btn disabled:opacity-50 cursor-pointer"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
-            <span>{isCheckingUpdate ? 'Đang kiểm tra...' : 'Kiểm tra cập nhật'}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleClearCacheAndReload}
-            disabled={isCheckingUpdate || isClearingCache}
-            className="py-2 px-3 rounded-2xl border border-[#E6E2DA] hover:bg-[#FFF1F2] active:scale-95 text-xs font-semibold text-[#78716C] hover:text-[#E11D48] flex items-center justify-center gap-1.5 transition-all tactile-btn disabled:opacity-50 cursor-pointer"
-            title="Xóa cache Service Worker, dọn dẹp bộ nhớ đệm và tải lại code mới"
-          >
-            <RotateCcw className={`w-3.5 h-3.5 ${isClearingCache ? 'animate-spin' : ''}`} />
-            <span>{isClearingCache ? 'Đang tải lại...' : 'Xóa cache & Tải lại'}</span>
-          </button>
         </div>
       </div>
-    </div>
-  </div>
         </>
       )}
     </div>

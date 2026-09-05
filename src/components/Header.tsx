@@ -11,7 +11,8 @@ import {
   Loader2,
   Receipt,
   BarChart3,
-  Heart
+  Heart,
+  Settings
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { playActionClick } from '../utils/audio';
@@ -24,6 +25,7 @@ export type DesktopView = 'ledger' | 'dashboard' | 'goals' | 'family';
 interface HeaderProps {
   onOpenInvite: () => void;
   onOpenMonthlyLetter: () => void;
+  onOpenSettings?: () => void;
   desktopView?: DesktopView;
   onChangeDesktopView?: (view: DesktopView) => void;
   currentMobileTab?: MobileTab;
@@ -32,6 +34,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({
   onOpenInvite,
   onOpenMonthlyLetter,
+  onOpenSettings,
   desktopView = 'ledger',
   onChangeDesktopView
 }) => {
@@ -235,14 +238,30 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                   <div className="px-3 py-2 border-b border-[#F5F3EF]">
                     <p className="text-xs font-semibold text-[#1C1917] truncate">{firebaseUser.displayName}</p>
-                    <p className="text-[11px] text-[#78716C] truncate">{firebaseUser.email}</p>
+                    <p className="text-[11px] text-[#78716C] truncate font-mono">{firebaseUser.email}</p>
                   </div>
+
+                  {/* Nút mở Cài đặt ứng dụng */}
                   <button
+                    type="button"
+                    onClick={() => {
+                      playActionClick();
+                      triggerHaptic(10);
+                      onOpenSettings?.();
+                    }}
+                    className="w-full mt-1 px-3 py-2 text-left text-xs text-[#1C1917] hover:bg-[#F5F3EF] rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <Settings className="w-3.5 h-3.5 text-[#0F3D39]" />
+                    <span className="font-medium">Cài đặt ứng dụng</span>
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={logout}
-                    className="w-full mt-1 px-3 py-2 text-left text-xs text-[#E11D48] hover:bg-[#FFF1F2] rounded-xl flex items-center gap-2 transition-colors"
+                    className="w-full mt-0.5 px-3 py-2 text-left text-xs text-[#E11D48] hover:bg-[#FFF1F2] rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
                   >
                     <LogOut className="w-3.5 h-3.5" />
-                    Đăng xuất
+                    <span>Đăng xuất</span>
                   </button>
                 </div>
               )}
