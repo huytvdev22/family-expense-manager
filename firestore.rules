@@ -66,6 +66,11 @@ service cloud.firestore {
       match /financial_goals/{goalId} {
         allow read, write: if isHouseholdMember(householdId);
       }
+
+      // 2.5. Sub-collection: Gợi ý 1-chạm / Phím tắt (quick_tags)
+      match /quick_tags/{tagId} {
+        allow read, write: if isHouseholdMember(householdId);
+      }
     }
 
     // 3. Hệ thống mã mời (invitations)

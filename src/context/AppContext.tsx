@@ -189,8 +189,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setUserRole(resolvedRole);
       localStorage.setItem('user_role', resolvedRole);
 
-      // Đồng bộ avatar Google nếu có
-      if (currentUser.photoURL && activeHousehold.id) {
+      // Đồng bộ avatar Google nếu có (chỉ khi người dùng thực sự là thành viên của tổ ấm)
+      const isMember = activeHousehold.members?.includes(currentUser.uid);
+      if (currentUser.photoURL && activeHousehold.id && isMember) {
         const currentPhoto = activeHousehold.memberPhotos?.[currentUser.uid];
         if (!currentPhoto || currentPhoto !== currentUser.photoURL) {
           syncMemberPhoto(activeHousehold.id, currentUser.uid, currentUser.photoURL);
@@ -198,7 +199,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
 
       // Tự động đồng bộ email người dùng vào tổ ấm nếu chưa có hoặc thay đổi
-      if (currentUser.email && activeHousehold.id) {
+      if (currentUser.email && activeHousehold.id && isMember) {
         const currentEmail = activeHousehold.memberEmails?.[currentUser.uid];
         if (!currentEmail || currentEmail !== currentUser.email) {
           firestoreUpdateMemberEmail(activeHousehold.id, currentUser.uid, currentUser.email);
@@ -212,7 +213,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         }
       }
     }
-  }, [activeHousehold?.id, currentUser?.uid, currentUser?.photoURL, currentUser?.email]);
+  }, [activeHousehold?.id, activeHousehold?.members, currentUser?.uid, currentUser?.photoURL, currentUser?.email]);
 
   // CẬP NHẬT EMAIL CỦA THÀNH VIÊN TRONG TỔ ẤM (CHO PHÉP VỢ/CHỒNG CẬP NHẬT HỘ NHAU)
   const updateMemberEmail = async (uid: string, email: string) => {
@@ -377,17 +378,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }
           }
 
-          // 2. Lấy danh sách tất cả các tổ ấm của người dùng
+          // 2. Lấy danh sách tất cả các tổ ấm của người dùng và lọc các tổ ấm mà người dùng thực sự là thành viên
           let loadedUserHouseholds = await getUserHouseholds(profile.householdIds);
+          let validHouseholds = loadedUserHouseholds.filter(h => h.members?.includes(profile.uid));
 
           // 3. Quyết định tổ ấm hoạt động (ưu tiên thông minh):
           // Ưu tiên 1: Tổ ấm gia đình (đã gắn kết 2 thành viên Vợ & Chồng)
           // Ưu tiên 2: Tổ ấm được lưu trong localStorage (nếu có và hợp lệ)
           // Ưu tiên 3: activeHouseholdId trong hồ sơ Firestore
-          // Ưu tiên 4: Tổ ấm gần nhất trong danh sách
-          const familyHousehold = loadedUserHouseholds.find(h => (h.members?.length || 0) >= 2);
+          // Ưu tiên 4: Tổ ấm gần nhất trong danh sách hợp lệ
+          const familyHousehold = validHouseholds.find(h => (h.members?.length || 0) >= 2);
           const savedHhId = localStorage.getItem('active_household_id');
-          const savedHousehold = savedHhId ? loadedUserHouseholds.find(h => h.id === savedHhId) : null;
+          const savedHousehold = savedHhId ? validHouseholds.find(h => h.id === savedHhId) : null;
 
           let selectedHousehold: Household | null = null;
           if (familyHousehold) {
@@ -396,17 +398,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           } else if (savedHousehold) {
             selectedHousehold = savedHousehold;
           } else if (profile.activeHouseholdId) {
-            selectedHousehold = loadedUserHouseholds.find(h => h.id === profile.activeHouseholdId) || null;
+            selectedHousehold = validHouseholds.find(h => h.id === profile.activeHouseholdId) || null;
           }
 
-          if (!selectedHousehold && loadedUserHouseholds.length > 0) {
-            selectedHousehold = loadedUserHouseholds[loadedUserHouseholds.length - 1];
+          if (!selectedHousehold && validHouseholds.length > 0) {
+            selectedHousehold = validHouseholds[validHouseholds.length - 1];
           }
 
-          // 4. Nếu người dùng hoàn toàn chưa có tổ ấm nào, khởi tạo tổ ấm mặc định
+          // 4. Nếu người dùng hoàn toàn chưa có tổ ấm hợp lệ nào, khởi tạo tổ ấm mặc định
           if (!selectedHousehold) {
             selectedHousehold = await createHousehold('Tổ Ấm Nhỏ', 30000000, profile);
-            loadedUserHouseholds = [selectedHousehold];
+            validHouseholds = [selectedHousehold];
           }
 
           // 5. Đồng bộ activeHouseholdId vào Firestore và localStorage
@@ -420,7 +422,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             }).catch(e => console.warn('Lỗi cập nhật activeHouseholdId:', e));
           }
 
-          setUserHouseholds(loadedUserHouseholds);
+          setUserHouseholds(validHouseholds);
           setActiveHousehold(selectedHousehold);
 
           if (joinedFromInvite && selectedHousehold) {
@@ -448,6 +450,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // Lắng nghe realtime từ Firestore khi đã chọn activeHousehold
   useEffect(() => {
     if (!isFirebaseActive || !activeHousehold || !firebaseUser) {
+      return;
+    }
+
+    // Bảo đảm người dùng hiện tại thực sự là thành viên của tổ ấm trên Firestore trước khi subscribe
+    if (!activeHousehold.members || !activeHousehold.members.includes(firebaseUser.uid)) {
+      console.warn('Tài khoản hiện tại chưa nằm trong danh sách thành viên của tổ ấm, tạm hoãn subscription.');
       return;
     }
 
