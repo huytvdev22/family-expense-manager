@@ -15,7 +15,7 @@ import {
   type Unsubscribe
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Household, Category, Transaction, MonthlySummary, Invitation, UserProfile } from '../types';
+import type { Household, Category, Transaction, MonthlySummary, Invitation, UserProfile, FinancialGoal } from '../types';
 import { DEFAULT_CATEGORIES } from './mockData';
 
 /**
@@ -693,4 +693,104 @@ export async function restoreDefaultCategories(
   const promises = targets.map(cat => setDoc(doc(catCol, cat.id), { ...cat, isArchived: false }));
   await Promise.allSettled(promises);
 }
+
+/**
+ * LẮNG NGHE REALTIME DANH SÁCH MỤC TIÊU TỰ DO TÀI CHÍNH CỦA TỔ ẤM
+ */
+export function subscribeFinancialGoals(
+  householdId: string,
+  onData: (goals: FinancialGoal[]) => void
+): Unsubscribe {
+  if (!db) return () => {};
+
+  const q = query(
+    collection(db, `households/${householdId}/financial_goals`),
+    orderBy('createdAt', 'desc')
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const list: FinancialGoal[] = [];
+    snapshot.forEach((docSnap) => {
+      list.push({ id: docSnap.id, ...docSnap.data() } as FinancialGoal);
+    });
+    onData(list);
+  }, (err) => {
+    console.warn('Lỗi subscribeFinancialGoals:', err);
+  });
+}
+
+/**
+ * LƯU HOẶC CẬP NHẬT MỤC TIÊU TỰ DO TÀI CHÍNH
+ */
+export async function saveFinancialGoal(
+  householdId: string,
+  goal: FinancialGoal
+): Promise<void> {
+  if (!db || !householdId) return;
+
+  const goalRef = doc(db, `households/${householdId}/financial_goals`, goal.id);
+  await setDoc(goalRef, {
+    ...goal,
+    updatedAt: Date.now()
+  }, { merge: true });
+}
+
+/**
+ * XÓA MỤC TIÊU TỰ DO TÀI CHÍNH
+ */
+export async function deleteFinancialGoal(
+  householdId: string,
+  goalId: string
+): Promise<void> {
+  if (!db || !householdId || !goalId) return;
+
+  const goalRef = doc(db, `households/${householdId}/financial_goals`, goalId);
+  await deleteDoc(goalRef);
+}
+
+/**
+ * CẬP NHẬT TIẾN ĐỘ MỤC TIÊU KHI CÓ GIAO DỊCH (ATOMIC TRANSACTION)
+ * - Đối với nợ (DEBT_PAYOFF): Dư nợ giảm dần về 0
+ * - Đối với tích lũy (SAVINGS): Tiền tích lũy tăng dần tới đích
+ */
+export async function updateGoalProgress(
+  householdId: string,
+  goalId: string,
+  amountDelta: number,
+  type: 'DEBT_PAYOFF' | 'SAVINGS'
+): Promise<void> {
+  if (!db || !householdId || !goalId || amountDelta <= 0) return;
+
+  const goalRef = doc(db, `households/${householdId}/financial_goals`, goalId);
+
+  await runTransaction(db, async (transaction) => {
+    const snap = await transaction.get(goalRef);
+    if (!snap.exists()) return;
+
+    const data = snap.data() as FinancialGoal;
+    let newAmount = data.currentAmount;
+    let newStatus = data.status;
+
+    if (type === 'DEBT_PAYOFF') {
+      newAmount = Math.max(0, data.currentAmount - amountDelta);
+      if (newAmount === 0) {
+        newStatus = 'COMPLETED';
+      }
+    } else {
+      newAmount = data.currentAmount + amountDelta;
+      if (data.targetAmount > 0 && newAmount >= data.targetAmount) {
+        newStatus = 'COMPLETED';
+      }
+    }
+
+    transaction.update(goalRef, {
+      currentAmount: newAmount,
+      status: newStatus,
+      updatedAt: Date.now()
+    });
+  }).catch((err) => {
+    console.warn('Lỗi cập nhật tiến độ mục tiêu tài chính:', err);
+  });
+}
+
 

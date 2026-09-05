@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Delete, Check, Tag } from 'lucide-react';
+import { Delete, Check, Tag, Target } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND } from '../utils/currency';
 import { playKeyClick, playActionClick } from '../utils/audio';
@@ -14,7 +14,7 @@ interface NumpadProps {
 }
 
 export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
-  const { categories, logTransaction, currentUser, userRole } = useApp();
+  const { categories, logTransaction, currentUser, userRole, financialGoals } = useApp();
   const { showToast } = useToast();
 
   // Loại giao dịch: 'EXPENSE' (Khoản chi) hoặc 'INCOME' (Thu nhập)
@@ -46,6 +46,43 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
     currentCategories[0]?.id || (txType === 'INCOME' ? 'cat_income_salary' : 'cat_essential')
   );
+
+  // Mục tiêu Tự do Tài chính liên kết (nếu danh mục là Trả nợ hoặc Tích lũy)
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+
+  // Xác định mục tiêu liên quan dựa trên danh mục được chọn (Trả nợ hoặc Tích lũy)
+  const matchingGoals = useMemo(() => {
+    const currentCat = categories.find((c) => c.id === selectedCategoryId);
+    if (!currentCat) return [];
+
+    const isDebtCat = currentCat.id === 'cat_debt' 
+      || currentCat.name.toLowerCase().includes('nợ') 
+      || currentCat.name.toLowerCase().includes('ngân hàng');
+
+    const isSavingCat = currentCat.categoryKey === 'SAVING' 
+      || currentCat.name.toLowerCase().includes('tích lũy') 
+      || currentCat.name.toLowerCase().includes('tiết kiệm');
+
+    if (isDebtCat) {
+      return financialGoals.filter((g) => g.status === 'ACTIVE' && g.type === 'DEBT_PAYOFF');
+    }
+    if (isSavingCat) {
+      return financialGoals.filter((g) => g.status === 'ACTIVE' && g.type === 'SAVINGS');
+    }
+    return [];
+  }, [categories, selectedCategoryId, financialGoals]);
+
+  // Tự động gắn mục tiêu đầu tiên nếu danh mục khớp và người dùng chưa chọn
+  useEffect(() => {
+    if (matchingGoals.length > 0) {
+      setSelectedGoalId((prev) => {
+        if (prev && matchingGoals.some((g) => g.id === prev)) return prev;
+        return matchingGoals[0].id;
+      });
+    } else {
+      setSelectedGoalId(null);
+    }
+  }, [matchingGoals]);
 
   // Ghi chú / Diễn giải
   const [note, setNote] = useState<string>('');
@@ -93,6 +130,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
     setAmountStr('0');
     setNote('');
     setSelectedTagId(null);
+    setSelectedGoalId(null);
   };
 
   // Phím cộng nhanh (+10k, +50k... hoặc +1tr, +2tr...)
@@ -144,6 +182,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
 
     const currentCat = categories.find((c) => c.id === selectedCategoryId) || currentCategories[0] || categories[0];
     const todayStr = new Date().toISOString().split('T')[0];
+    const selectedGoal = financialGoals.find((g) => g.id === selectedGoalId);
 
     try {
       setIsSubmitting(true);
@@ -156,7 +195,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
         paidBy,
         paidByUid: currentUser?.uid || 'anonymous',
         note: note.trim() || currentCat.name,
-        date: todayStr
+        date: todayStr,
+        goalId: selectedGoalId || undefined,
+        goalName: selectedGoal?.title
       });
 
       // Reset màn hình
@@ -164,6 +205,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
       setNote('');
       setSelectedTagId(null);
       setPaidBy(userRole || 'Chồng');
+      setSelectedGoalId(null);
 
       showToast(`Đã ghi nhận ${txType === 'EXPENSE' ? 'khoản chi' : 'thu nhập'} ${formatVND(amount)}`, 'success');
 
@@ -366,6 +408,55 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
           })}
         </div>
       </div>
+
+      {/* 4.5. Dải gợi ý gắn vào Mục tiêu Tự do Tài chính (Tự động xuất hiện khi chọn Trả nợ / Tích lũy) */}
+      {matchingGoals.length > 0 && (
+        <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-2 sm:p-2.5 flex flex-col gap-1.5 shadow-2xs animate-in fade-in slide-in-from-top-1 duration-200">
+          <div className="flex items-center justify-between px-0.5">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-[#0F3D39]">
+              <Target className="w-3.5 h-3.5 text-[#B45309]" />
+              <span>Gắn vào mục tiêu Tự do TC:</span>
+            </div>
+            {selectedGoalId && (
+              <button
+                type="button"
+                onClick={() => setSelectedGoalId(null)}
+                className="text-[10px] text-[#78716C] hover:text-[#E11D48] underline transition-colors"
+              >
+                Không gắn
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+            {matchingGoals.map((g) => {
+              const isChosen = selectedGoalId === g.id;
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(10);
+                    setSelectedGoalId(isChosen ? null : g.id);
+                  }}
+                  className={`shrink-0 px-2.5 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-1.5 transition-all tactile-btn ${
+                    isChosen
+                      ? 'bg-[#0F3D39] text-white border-[#0F3D39] shadow-2xs font-semibold'
+                      : 'bg-white text-[#1C1917] border-[#E6E2DA] hover:bg-[#F5F3EF]'
+                  }`}
+                >
+                  <span>{g.icon || '🎯'}</span>
+                  <span className="truncate max-w-[130px]">{g.title}</span>
+                  <span className={`text-[10px] font-mono ${isChosen ? 'text-white/80' : 'text-[#78716C]'}`}>
+                    ({formatVND(g.currentAmount, false)}₫)
+                  </span>
+                  {isChosen && <Check className="w-3 h-3 stroke-[2.5]" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 5. Phím cộng nhanh */}
       <div className="grid grid-cols-4 gap-1.5">

@@ -31,7 +31,11 @@ import {
   unarchiveCategory,
   deleteCategoryPermanently,
   seedMissingCategories,
-  restoreDefaultCategories as firestoreRestoreDefaultCategories
+  restoreDefaultCategories as firestoreRestoreDefaultCategories,
+  subscribeFinancialGoals,
+  saveFinancialGoal,
+  deleteFinancialGoal,
+  updateGoalProgress
 } from '../services/firestoreService';
 import { 
   DEFAULT_CATEGORIES,
@@ -39,9 +43,10 @@ import {
   MOCK_HOUSEHOLD, 
   MOCK_CATEGORIES, 
   MOCK_TRANSACTIONS, 
-  MOCK_SUMMARY 
+  MOCK_SUMMARY,
+  MOCK_GOALS
 } from '../services/mockData';
-import type { Household, Category, Transaction, MonthlySummary, UserProfile } from '../types';
+import type { Household, Category, Transaction, MonthlySummary, UserProfile, FinancialGoal } from '../types';
 import { getCurrentYearMonth } from '../utils/currency';
 import { isSoundEnabled, setSoundEnabled, playSuccessChime, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
@@ -107,6 +112,13 @@ interface AppContextType {
   // Quản lý tổ ấm
   userHouseholds: Household[];
   switchHousehold: (householdId: string) => Promise<void>;
+
+  // Mục tiêu Tự do Tài chính (Khoản nợ & Tích lũy)
+  financialGoals: FinancialGoal[];
+  createGoal: (goalData: Omit<FinancialGoal, 'id' | 'createdAt' | 'updatedAt' | 'householdId'>) => Promise<void>;
+  editGoal: (goalId: string, updates: Partial<FinancialGoal>) => Promise<void>;
+  removeGoal: (goalId: string) => Promise<void>;
+  updateGoalAmount: (goalId: string, newAmount: number) => Promise<void>;
   
   // Xác thực Google
   isAuthenticating: boolean;
@@ -125,6 +137,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES);
   const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(MOCK_SUMMARY);
+  const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>(MOCK_GOALS);
   const [currentYearMonth, setCurrentYearMonth] = useState<string>(getCurrentYearMonth());
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
@@ -379,6 +392,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setCategories(MOCK_CATEGORIES);
         setTransactions(MOCK_TRANSACTIONS);
         setMonthlySummary(MOCK_SUMMARY);
+        setFinancialGoals(MOCK_GOALS);
       }
       setIsLoading(false);
     });
@@ -426,10 +440,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setMonthlySummary(sum);
     });
 
+    const unsubGoals = subscribeFinancialGoals(activeHousehold.id, (goals) => {
+      setFinancialGoals(goals);
+    });
+
     return () => {
       unsubCat();
       unsubTx();
       unsubSum();
+      unsubGoals();
     };
   }, [isFirebaseActive, activeHousehold?.id, currentYearMonth, firebaseUser]);
 
@@ -529,6 +548,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         createdAt: new Date().toISOString()
       };
       setTransactions((prev) => [newTx, ...prev]);
+    }
+
+    // Nếu giao dịch gắn liền với một Mục tiêu Tự do Tài chính (Khoản nợ hoặc Tích lũy)
+    if (txData.goalId) {
+      const targetGoal = financialGoals.find((g) => g.id === txData.goalId);
+      if (targetGoal) {
+        let nextAmount = targetGoal.currentAmount;
+        let nextStatus = targetGoal.status;
+
+        if (targetGoal.type === 'DEBT_PAYOFF') {
+          // Trả nợ: Giảm dần dư nợ về 0
+          nextAmount = Math.max(0, targetGoal.currentAmount - txData.amount);
+          if (nextAmount === 0) nextStatus = 'COMPLETED';
+        } else {
+          // Tích lũy: Tăng dần số tiền tiết kiệm
+          nextAmount = targetGoal.currentAmount + txData.amount;
+          if (targetGoal.targetAmount > 0 && nextAmount >= targetGoal.targetAmount) {
+            nextStatus = 'COMPLETED';
+          }
+        }
+
+        setFinancialGoals((prev) =>
+          prev.map((g) =>
+            g.id === targetGoal.id
+              ? { ...g, currentAmount: nextAmount, status: nextStatus, updatedAt: Date.now() }
+              : g
+          )
+        );
+
+        if (isFirebaseActive && activeHousehold && firebaseUser) {
+          updateGoalProgress(activeHousehold.id, targetGoal.id, txData.amount, targetGoal.type);
+        }
+
+        if (targetGoal.type === 'DEBT_PAYOFF') {
+          showToast(`Đã giảm dư nợ mục tiêu "${targetGoal.title}"!`, 'success');
+        } else {
+          showToast(`Đã cộng vào quỹ tích lũy "${targetGoal.title}"!`, 'success');
+        }
+      }
     }
   };
 
@@ -770,6 +828,107 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // =========================================================================
+  // CÁC HÀNH ĐỘNG QUẢN LÝ MỤC TIÊU TỰ DO TÀI CHÍNH (GOALS)
+  // =========================================================================
+
+  // TẠO MỤC TIÊU MỚI (TRẢ NỢ HOẶC TÍCH LŨY)
+  const createGoal = async (goalData: Omit<FinancialGoal, 'id' | 'createdAt' | 'updatedAt' | 'householdId'>) => {
+    if (!activeHousehold) return;
+    const newGoal: FinancialGoal = {
+      ...goalData,
+      id: `goal_${Date.now()}`,
+      householdId: activeHousehold.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: Date.now()
+    };
+    playSuccessChime();
+    triggerHaptic(15);
+    setFinancialGoals((prev) => [newGoal, ...prev]);
+
+    if (isFirebaseActive && firebaseUser) {
+      try {
+        await saveFinancialGoal(activeHousehold.id, newGoal);
+      } catch (err) {
+        console.error('Lỗi lưu mục tiêu lên Firestore:', err);
+      }
+    }
+    showToast(`Đã tạo mục tiêu "${newGoal.title}"`, 'success');
+  };
+
+  // CHỈNH SỬA THÔNG TIN MỤC TIÊU
+  const editGoal = async (goalId: string, updates: Partial<FinancialGoal>) => {
+    playActionClick();
+    triggerHaptic(10);
+    setFinancialGoals((prev) =>
+      prev.map((g) => (g.id === goalId ? { ...g, ...updates, updatedAt: Date.now() } : g))
+    );
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      const existing = financialGoals.find((g) => g.id === goalId);
+      if (existing) {
+        try {
+          await saveFinancialGoal(activeHousehold.id, { ...existing, ...updates, updatedAt: Date.now() });
+        } catch (err) {
+          console.error('Lỗi cập nhật mục tiêu lên Firestore:', err);
+        }
+      }
+    }
+    showToast('Đã lưu thay đổi mục tiêu', 'success');
+  };
+
+  // XÓA MỤC TIÊU
+  const removeGoal = async (goalId: string) => {
+    playActionClick();
+    triggerHaptic(15);
+    const target = financialGoals.find((g) => g.id === goalId);
+    setFinancialGoals((prev) => prev.filter((g) => g.id !== goalId));
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      try {
+        await deleteFinancialGoal(activeHousehold.id, goalId);
+      } catch (err) {
+        console.error('Lỗi xóa mục tiêu trên Firestore:', err);
+      }
+    }
+    showToast(`Đã xóa mục tiêu "${target?.title || ''}"`, 'info');
+  };
+
+  // CẬP NHẬT TRỰC TIẾP DƯ NỢ / SỐ TIỀN CỦA MỤC TIÊU
+  const updateGoalAmount = async (goalId: string, newAmount: number) => {
+    playSuccessChime();
+    triggerHaptic(10);
+    setFinancialGoals((prev) =>
+      prev.map((g) => {
+        if (g.id !== goalId) return g;
+        const nextStatus = g.type === 'DEBT_PAYOFF'
+          ? (newAmount === 0 ? 'COMPLETED' : 'ACTIVE')
+          : (g.targetAmount > 0 && newAmount >= g.targetAmount ? 'COMPLETED' : 'ACTIVE');
+        return { ...g, currentAmount: newAmount, status: nextStatus, updatedAt: Date.now() };
+      })
+    );
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      const existing = financialGoals.find((g) => g.id === goalId);
+      if (existing) {
+        const nextStatus = existing.type === 'DEBT_PAYOFF'
+          ? (newAmount === 0 ? 'COMPLETED' : 'ACTIVE')
+          : (existing.targetAmount > 0 && newAmount >= existing.targetAmount ? 'COMPLETED' : 'ACTIVE');
+        try {
+          await saveFinancialGoal(activeHousehold.id, {
+            ...existing,
+            currentAmount: newAmount,
+            status: nextStatus,
+            updatedAt: Date.now()
+          });
+        } catch (err) {
+          console.error('Lỗi cập nhật số tiền mục tiêu:', err);
+        }
+      }
+    }
+    showToast('Đã cập nhật số tiền mục tiêu thành công!', 'success');
+  };
+
   // ĐĂNG NHẬP GOOGLE
   const loginWithGoogle = async () => {
     if (!isFirebaseActive || !auth) {
@@ -872,6 +1031,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         joinWithInviteCode,
         userHouseholds,
         switchHousehold,
+        financialGoals,
+        createGoal,
+        editGoal,
+        removeGoal,
+        updateGoalAmount,
         loginWithGoogle,
         logout
       }}

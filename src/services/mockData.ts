@@ -1,7 +1,7 @@
-import type { Household, Category, Transaction, MonthlySummary, QuickTagItem, UserProfile } from '../types';
+import type { Household, Category, Transaction, MonthlySummary, QuickTagItem, UserProfile, FinancialGoal } from '../types';
 
 /**
- * 4 Danh mục chuẩn của hệ thống Tổ Ấm Nhỏ theo DESIGN.md & DATABASE_DESIGN.md
+ * Các Danh mục chuẩn của hệ thống Tổ Ấm Nhỏ theo DESIGN.md & DATABASE_DESIGN.md
  */
 export const DEFAULT_CATEGORIES: Category[] = [
   {
@@ -57,13 +57,26 @@ export const DEFAULT_CATEGORIES: Category[] = [
     createdAt: '2026-09-01T00:00:00Z'
   },
   {
+    id: 'cat_debt',
+    name: 'Trả nợ ngân hàng',
+    type: 'EXPENSE',
+    categoryKey: 'ESSENTIAL',
+    icon: 'landmark',
+    color: '#B45309', // Terracotta
+    order: 5,
+    isDefault: true,
+    monthlyLimit: 20000000,
+    isArchived: false,
+    createdAt: '2026-09-01T00:00:00Z'
+  },
+  {
     id: 'cat_income_salary',
     name: 'Tiền lương',
     type: 'INCOME',
     categoryKey: 'INCOME',
     icon: 'briefcase',
     color: '#0F3D39',
-    order: 5,
+    order: 6,
     isDefault: true,
     isArchived: false,
     createdAt: '2026-09-01T00:00:00Z'
@@ -75,7 +88,7 @@ export const DEFAULT_CATEGORIES: Category[] = [
     categoryKey: 'INCOME',
     icon: 'gift',
     color: '#B45309',
-    order: 6,
+    order: 7,
     isDefault: true,
     isArchived: false,
     createdAt: '2026-09-01T00:00:00Z'
@@ -87,7 +100,7 @@ export const DEFAULT_CATEGORIES: Category[] = [
     categoryKey: 'INCOME',
     icon: 'zap',
     color: '#D97706',
-    order: 7,
+    order: 8,
     isDefault: true,
     isArchived: false,
     createdAt: '2026-09-01T00:00:00Z'
@@ -99,7 +112,7 @@ export const DEFAULT_CATEGORIES: Category[] = [
     categoryKey: 'INCOME',
     icon: 'piggy-bank',
     color: '#10B981',
-    order: 8,
+    order: 9,
     isDefault: true,
     isArchived: false,
     createdAt: '2026-09-01T00:00:00Z'
@@ -111,7 +124,7 @@ export const DEFAULT_CATEGORIES: Category[] = [
     categoryKey: 'INCOME',
     icon: 'sparkles',
     color: '#4A6B68',
-    order: 9,
+    order: 10,
     isDefault: true,
     isArchived: false,
     createdAt: '2026-09-01T00:00:00Z'
@@ -124,6 +137,15 @@ export const MOCK_CATEGORIES = DEFAULT_CATEGORIES;
  * Danh sách Quick Tags 1-chạm (Dải vuốt ngang)
  */
 export const DEFAULT_QUICK_TAGS: QuickTagItem[] = [
+  {
+    id: 'tag_debt',
+    label: 'Trả nợ ngân hàng',
+    emoji: '🏦',
+    categoryKey: 'ESSENTIAL',
+    categoryId: 'cat_debt',
+    categoryName: 'Trả nợ ngân hàng',
+    defaultAmount: 15000000
+  },
   {
     id: 'tag_market',
     label: 'Chợ & Siêu thị',
@@ -367,3 +389,46 @@ export const MOCK_SUMMARY: MonthlySummary = {
   transactionCount: 5,
   updatedAt: Date.now()
 };
+
+/**
+ * Mục tiêu Tự do Tài chính Mẫu (Khoản vay & Tích lũy)
+ */
+export const MOCK_GOALS: FinancialGoal[] = [
+  {
+    id: 'goal_bank_loan_01',
+    householdId: 'mock_household_01',
+    title: 'Khoản vay ngân hàng mua nhà',
+    type: 'DEBT_PAYOFF',
+    initialAmount: 1500000000,
+    currentAmount: 700000000,
+    targetAmount: 0,
+    monthlyTarget: 15000000,
+    categoryKey: 'ESSENTIAL',
+    categoryId: 'cat_debt',
+    color: '#B45309',
+    icon: 'landmark',
+    note: 'Kế hoạch trả dứt điểm khoản vay ngân hàng để sớm tự do tài chính',
+    status: 'ACTIVE',
+    createdAt: '2025-01-01T00:00:00Z',
+    updatedAt: Date.now()
+  },
+  {
+    id: 'goal_emergency_fund_02',
+    householdId: 'mock_household_01',
+    title: 'Quỹ dự phòng khẩn cấp (6 tháng)',
+    type: 'SAVINGS',
+    initialAmount: 0,
+    currentAmount: 60000000,
+    targetAmount: 120000000,
+    monthlyTarget: 10000000,
+    categoryKey: 'SAVING',
+    categoryId: 'cat_saving',
+    color: '#10B981',
+    icon: 'shield-check',
+    note: 'Đảm bảo cuộc sống gia đình an tâm trước mọi biến cố',
+    status: 'ACTIVE',
+    createdAt: '2025-03-01T00:00:00Z',
+    updatedAt: Date.now()
+  }
+];
+

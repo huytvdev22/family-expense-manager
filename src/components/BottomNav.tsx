@@ -1,9 +1,9 @@
 import React from 'react';
-import { Receipt, BarChart3, Plus, FolderTree, Heart } from 'lucide-react';
+import { Receipt, BarChart3, Plus, Target, Heart } from 'lucide-react';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 
-export type MobileTab = 'ledger' | 'dashboard' | 'numpad' | 'categories' | 'family';
+export type MobileTab = 'ledger' | 'dashboard' | 'numpad' | 'goals' | 'family';
 
 interface BottomNavProps {
   currentTab: MobileTab;
@@ -55,16 +55,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onChangeTab })
           </button>
         </div>
 
-        {/* Tab 4: Danh mục */}
+        {/* Tab 4: Tự do Tài chính */}
         <button
-          onClick={() => handleTabClick('categories')}
+          onClick={() => handleTabClick('goals')}
           className={`flex-1 flex flex-col items-center justify-center h-full transition-colors tactile-btn ${
-            currentTab === 'categories' ? 'text-[#0F3D39]' : 'text-[#78716C] hover:text-[#1C1917]'
+            currentTab === 'goals' ? 'text-[#0F3D39]' : 'text-[#78716C] hover:text-[#1C1917]'
           }`}
-          aria-label="Quản lý danh mục"
+          aria-label="Tự do tài chính và mục tiêu"
         >
-          <FolderTree className="w-5 h-5 stroke-[2]" />
-          <span className={`text-[10px] mt-0.5 ${currentTab === 'categories' ? 'font-bold' : 'font-medium'}`}>Danh mục</span>
+          <Target className="w-5 h-5 stroke-[2]" />
+          <span className={`text-[10px] mt-0.5 ${currentTab === 'goals' ? 'font-bold' : 'font-medium'}`}>Tự do TC</span>
         </button>
 
         {/* Tab 5: Tổ ấm (Family Hub) */}

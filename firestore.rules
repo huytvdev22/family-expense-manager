@@ -61,6 +61,11 @@ service cloud.firestore {
       match /monthly_summaries/{yearMonth} {
         allow read, write: if isHouseholdMember(householdId);
       }
+
+      // 2.4. Sub-collection: Mục tiêu tự do tài chính (financial_goals)
+      match /financial_goals/{goalId} {
+        allow read, write: if isHouseholdMember(householdId);
+      }
     }
 
     // 3. Hệ thống mã mời (invitations)

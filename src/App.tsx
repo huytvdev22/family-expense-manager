@@ -3,20 +3,19 @@ import { Header, type DesktopView } from './components/Header';
 import { BalanceCard } from './components/BalanceCard';
 import { Numpad } from './components/Numpad';
 import { TransactionList } from './components/TransactionList';
-import { CategoryManager } from './components/CategoryManager';
 import { InviteModal } from './components/InviteModal';
 import { MonthlyLetterModal } from './components/MonthlyLetterModal';
 import { BottomNav, type MobileTab } from './components/BottomNav';
 import { Dashboard } from './components/Dashboard';
 import { FamilyHub } from './components/FamilyHub';
-import { CategoryBreakdown } from './components/CategoryBreakdown';
+import { FinancialFreedom } from './components/FinancialFreedom';
 import { MonthPicker } from './components/MonthPicker';
 import { useApp } from './context/AppContext';
 
 export const App: React.FC = () => {
-  const { isLoading, transactions, categories, totalExpense } = useApp();
+  const { isLoading } = useApp();
 
-  // Tab di động hiện tại ('ledger' | 'dashboard' | 'numpad' | 'categories' | 'family')
+  // Tab di động hiện tại ('ledger' | 'dashboard' | 'numpad' | 'goals' | 'family')
   const [mobileTab, setMobileTab] = useState<MobileTab>('ledger');
 
   // Chế độ xem Desktop ('ledger' | 'dashboard' | 'categories' | 'family')
@@ -97,14 +96,9 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          {mobileTab === 'categories' && (
-            <div className="space-y-4 animate-in fade-in duration-150">
-              <CategoryBreakdown
-                transactions={transactions}
-                categories={categories}
-                totalExpense={totalExpense}
-              />
-              <CategoryManager />
+          {mobileTab === 'goals' && (
+            <div className="animate-in fade-in duration-150">
+              <FinancialFreedom />
             </div>
           )}
 
@@ -173,14 +167,9 @@ export const App: React.FC = () => {
             </div>
           )}
 
-          {desktopView === 'categories' && (
-            <div className="space-y-6 animate-in fade-in duration-150">
-              <CategoryBreakdown
-                transactions={transactions}
-                categories={categories}
-                totalExpense={totalExpense}
-              />
-              <CategoryManager />
+          {desktopView === 'goals' && (
+            <div className="animate-in fade-in duration-150">
+              <FinancialFreedom />
             </div>
           )}
 

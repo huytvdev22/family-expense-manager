@@ -5,6 +5,7 @@ import {
   UserPlus,
   Mail,
   Target,
+  FolderTree,
   Volume2,
   VolumeX,
   LogIn,
@@ -18,6 +19,8 @@ import { useApp } from '../context/AppContext';
 import { formatVND } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
+import { CategoryManager } from './CategoryManager';
+import { CategoryBreakdown } from './CategoryBreakdown';
 
 interface FamilyHubProps {
   onOpenInvite: () => void;
@@ -41,9 +44,12 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
     isFirebaseActive,
     categories,
     userRole,
-    updateUserRole
+    updateUserRole,
+    transactions,
+    totalExpense
   } = useApp();
 
+  const [activeSubTab, setActiveSubTab] = useState<'general' | 'categories'>('general');
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState(String(activeHousehold?.monthlyBudget || 30000000));
 
@@ -61,8 +67,55 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
 
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
-      {/* 1. Header Tổ Ấm: Thẻ danh thiếp gia đình */}
-      <div className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-sm relative overflow-hidden">
+      {/* Thanh chuyển đổi phân khu: [🏡 Tổ ấm & Kết nối] | [🗂️ Quản lý danh mục] */}
+      <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs">
+        <button
+          type="button"
+          onClick={() => {
+            playActionClick();
+            triggerHaptic(10);
+            setActiveSubTab('general');
+          }}
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all tactile-btn ${
+            activeSubTab === 'general'
+              ? 'bg-white text-[#0F3D39] shadow-2xs font-bold'
+              : 'text-[#78716C] hover:text-[#1C1917]'
+          }`}
+        >
+          <Heart className="w-3.5 h-3.5" />
+          <span>Tổ ấm & Kết nối</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            playActionClick();
+            triggerHaptic(10);
+            setActiveSubTab('categories');
+          }}
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all tactile-btn ${
+            activeSubTab === 'categories'
+              ? 'bg-white text-[#0F3D39] shadow-2xs font-bold'
+              : 'text-[#78716C] hover:text-[#1C1917]'
+          }`}
+        >
+          <FolderTree className="w-3.5 h-3.5" />
+          <span>Quản lý danh mục</span>
+        </button>
+      </div>
+
+      {activeSubTab === 'categories' ? (
+        <div className="space-y-4 animate-in fade-in duration-150">
+          <CategoryBreakdown
+            transactions={transactions}
+            categories={categories}
+            totalExpense={totalExpense}
+          />
+          <CategoryManager />
+        </div>
+      ) : (
+        <>
+          {/* 1. Header Tổ Ấm: Thẻ danh thiếp gia đình */}
+          <div className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-sm relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-[#0F3D39]/5 rounded-full -mr-10 -mt-10 pointer-events-none" />
         
         <div className="flex items-center gap-3 mb-3">
@@ -469,6 +522,8 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
       </div>
     </div>
   </div>
-</div>
-);
+        </>
+      )}
+    </div>
+  );
 };

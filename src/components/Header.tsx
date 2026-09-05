@@ -6,7 +6,7 @@ import {
   LogIn, 
   LogOut, 
   Home, 
-  FolderTree,
+  Target,
   MailOpen,
   Loader2,
   Receipt,
@@ -19,7 +19,7 @@ import { triggerHaptic } from '../utils/haptics';
 
 import type { MobileTab } from './BottomNav';
 
-export type DesktopView = 'ledger' | 'dashboard' | 'categories' | 'family';
+export type DesktopView = 'ledger' | 'dashboard' | 'goals' | 'family';
 
 interface HeaderProps {
   onOpenInvite: () => void;
@@ -116,17 +116,17 @@ export const Header: React.FC<HeaderProps> = ({
                   onClick={() => {
                     playActionClick();
                     triggerHaptic(10);
-                    onChangeDesktopView('categories');
+                    onChangeDesktopView('goals');
                   }}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all tactile-btn ${
-                    desktopView === 'categories'
+                    desktopView === 'goals'
                       ? 'bg-white text-[#0F3D39] shadow-2xs font-bold'
                       : 'text-[#78716C] hover:text-[#1C1917]'
                   }`}
-                  title="Xem cơ cấu & quản lý danh mục"
+                  title="Tự do tài chính & mục tiêu"
                 >
-                  <FolderTree className="w-3.5 h-3.5" />
-                  <span>Danh mục</span>
+                  <Target className="w-3.5 h-3.5" />
+                  <span>Tự do TC</span>
                 </button>
                 <button
                   onClick={() => {
