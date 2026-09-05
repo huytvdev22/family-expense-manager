@@ -23,6 +23,7 @@ import { useApp } from '../context/AppContext';
 import { formatVND } from '../utils/currency';
 import { playActionClick, playSuccessChime } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
+import { renderGoalIcon } from '../utils/categoryIcons';
 import type { FinancialGoal, GoalType } from '../types';
 import { useToast } from './Toast';
 
@@ -414,7 +415,7 @@ export const FinancialFreedom: React.FC = () => {
                         className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-2xs"
                         style={{ backgroundColor: goal.color || (isDebt ? '#B45309' : '#10B981') }}
                       >
-                        {isDebt ? <Landmark className="w-5 h-5" /> : <PiggyBank className="w-5 h-5" />}
+                        {renderGoalIcon(goal.icon, goal.type, "w-5 h-5 text-white")}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">

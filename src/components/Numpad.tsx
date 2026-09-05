@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { Delete, Check, Tag, Target } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Delete, Check, Tag, Target, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND } from '../utils/currency';
 import { playKeyClick, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
+import { renderGoalIcon } from '../utils/categoryIcons';
 import { QuickTags } from './QuickTags';
 import { DEFAULT_INCOME_QUICK_TAGS, DEFAULT_CATEGORIES } from '../services/mockData';
 import type { QuickTagItem, CategoryKey } from '../types';
@@ -88,6 +89,8 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
   const [note, setNote] = useState<string>('');
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isCategoryOpen, setIsCategoryOpen] = useState<boolean>(false);
+  const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
   // Tự động chuyển danh mục mặc định khi đổi loại giao dịch
   useEffect(() => {
@@ -98,7 +101,31 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
     }
     setSelectedTagId(null);
     setNote('');
+    setIsCategoryOpen(false);
   }, [txType, categories]);
+
+  // Đóng dropdown khi bấm ra ngoài
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(event.target as Node)) {
+        setIsCategoryOpen(false);
+      }
+    };
+
+    if (isCategoryOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isCategoryOpen]);
+
+  // Danh mục đang được chọn
+  const selectedCategory = useMemo(() => {
+    return currentCategories.find((c) => c.id === selectedCategoryId) || currentCategories[0];
+  }, [currentCategories, selectedCategoryId]);
 
   // Phím số bấm
   const handleDigit = (digit: string) => {
@@ -370,43 +397,79 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
         </div>
       </div>
 
-      {/* 4. Bộ chọn Nhóm chi tiêu / Nguồn thu (2 cột rộng rãi hiển thị trọn vẹn chữ) */}
-      <div>
+      {/* 4. Bộ chọn Nhóm chi tiêu / Nguồn thu dạng droplist */}
+      <div className="relative" ref={categoryDropdownRef}>
         <div className="flex items-center gap-1 mb-1.5 px-0.5">
           <Tag className="w-3 h-3 text-[#78716C]" />
           <span className="text-[11px] uppercase tracking-wider font-semibold text-[#78716C]">
             {txType === 'EXPENSE' ? 'Chọn nhóm chi' : 'Chọn nguồn thu'}
           </span>
         </div>
-        <div className="grid grid-cols-2 gap-1.5">
-          {currentCategories.map((cat) => {
-            const isSelected = selectedCategoryId === cat.id;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => {
-                  playActionClick();
-                  triggerHaptic(10);
-                  setSelectedCategoryId(cat.id);
-                }}
-                className={`flex items-center gap-1.5 px-2.5 py-1.5 sm:py-2 rounded-xl border text-xs text-left transition-all tactile-btn ${
-                  isSelected
-                    ? txType === 'INCOME'
-                      ? 'border-[#10B981] bg-[#ECFDF5] text-[#047857] font-semibold shadow-2xs'
-                      : 'border-[#0F3D39] bg-[#E7EFEF] text-[#0F3D39] font-semibold shadow-2xs'
-                    : 'border-[#E6E2DA] bg-white text-[#1C1917] hover:bg-[#F5F3EF]'
-                }`}
-              >
-                <span
-                  className="w-2 h-2 rounded-full shrink-0"
-                  style={{ backgroundColor: cat.color || (txType === 'INCOME' ? '#10B981' : '#0F3D39') }}
-                />
-                <span className="truncate">{cat.name}</span>
-              </button>
-            );
-          })}
-        </div>
+        <button
+          type="button"
+          onClick={() => {
+            playActionClick();
+            triggerHaptic(5);
+            setIsCategoryOpen((prev) => !prev);
+          }}
+          className={`w-full px-3.5 py-2 sm:py-2.5 rounded-xl border bg-[#FAF9F6] text-xs flex items-center justify-between transition-all cursor-pointer ${
+            isCategoryOpen
+              ? 'border-[#0F3D39] ring-2 ring-[#0F3D39]/20 bg-white'
+              : 'border-[#E6E2DA] hover:border-[#0F3D39]/50'
+          }`}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div
+              className="w-3 h-3 rounded-full shrink-0 shadow-2xs"
+              style={{ backgroundColor: selectedCategory?.color || (txType === 'INCOME' ? '#10B981' : '#0F3D39') }}
+            />
+            <span className="font-semibold text-[#1C1917] truncate">
+              {selectedCategory?.name || (txType === 'EXPENSE' ? 'Chọn nhóm chi' : 'Chọn nguồn thu')}
+            </span>
+          </div>
+          <ChevronDown
+            className={`w-4 h-4 text-[#78716C] transition-transform duration-200 shrink-0 ${
+              isCategoryOpen ? 'rotate-180 text-[#0F3D39]' : ''
+            }`}
+          />
+        </button>
+
+        {/* Menu thả xuống */}
+        {isCategoryOpen && (
+          <div className="absolute top-full left-0 right-0 mt-1.5 max-h-52 overflow-y-auto bg-white border border-[#E6E2DA] rounded-2xl shadow-xl p-1.5 z-40 space-y-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+            {currentCategories.map((cat) => {
+              const isSelected = selectedCategoryId === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(10);
+                    setSelectedCategoryId(cat.id);
+                    setIsCategoryOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3 py-2 sm:py-2.5 rounded-xl text-left text-xs transition-colors cursor-pointer ${
+                    isSelected
+                      ? txType === 'INCOME'
+                        ? 'bg-[#ECFDF5] text-[#047857] font-semibold'
+                        : 'bg-[#E7EFEF] text-[#0F3D39] font-semibold'
+                      : 'text-[#1C1917] hover:bg-[#FAF9F6]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs"
+                      style={{ backgroundColor: cat.color || (txType === 'INCOME' ? '#10B981' : '#0F3D39') }}
+                    />
+                    <span className="truncate">{cat.name}</span>
+                  </div>
+                  {isSelected && <Check className="w-3.5 h-3.5 text-[#0F3D39] shrink-0" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* 4.5. Dải gợi ý gắn vào Mục tiêu Tự do Tài chính (Tự động xuất hiện khi chọn Trả nợ / Tích lũy) */}
@@ -415,7 +478,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
           <div className="flex items-center justify-between px-0.5">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-[#0F3D39]">
               <Target className="w-3.5 h-3.5 text-[#B45309]" />
-              <span>Gắn vào mục tiêu Tự do TC:</span>
+              <span>Gắn vào mục tiêu Tự do Tài chính:</span>
             </div>
             {selectedGoalId && (
               <button
@@ -445,7 +508,14 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
                       : 'bg-white text-[#1C1917] border-[#E6E2DA] hover:bg-[#F5F3EF]'
                   }`}
                 >
-                  <span>{g.icon || '🎯'}</span>
+                  <span className="shrink-0 flex items-center justify-center">
+                    {renderGoalIcon(
+                      g.icon,
+                      g.type,
+                      "w-3.5 h-3.5",
+                      isChosen ? 'currentColor' : (g.color || (g.type === 'DEBT_PAYOFF' ? '#B45309' : '#10B981'))
+                    )}
+                  </span>
                   <span className="truncate max-w-[130px]">{g.title}</span>
                   <span className={`text-[10px] font-mono ${isChosen ? 'text-white/80' : 'text-[#78716C]'}`}>
                     ({formatVND(g.currentAmount, false)}₫)
