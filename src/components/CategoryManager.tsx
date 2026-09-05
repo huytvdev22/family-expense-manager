@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Plus, FolderTree, Check, Edit3, Trash2, RotateCcw, Archive, Shield, X } from 'lucide-react';
+import { Plus, FolderTree, Check, Edit3, Trash2, RotateCcw, Archive, Shield, X, Zap } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND } from '../utils/currency';
 import { playActionClick, playSuccessChime } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
-import type { Category, CategoryKey } from '../types';
+import type { Category, CategoryKey, QuickTagItem } from '../types';
 import { renderCategoryIcon } from '../utils/categoryIcons';
 import { useToast } from './Toast';
 
@@ -41,6 +41,9 @@ const COLOR_OPTIONS = [
   { label: 'Deep Charcoal', hex: '#1C1917' }
 ];
 
+const QUICK_TAG_EMOJIS_EXPENSE = ['🛒', '☕', '🍜', '⛽', '🍼', '💡', '💊', '🛋️', '🐷', '🎬', '👗', '✈️', '🎁', '📱', '🏋️', '📚', '⚡', '🔧'];
+const QUICK_TAG_EMOJIS_INCOME = ['💼', '🎉', '💻', '📈', '🎁', '💵', '🪙', '💰', '🏆', '🧧', '🏢', '🤝'];
+
 interface CategoryManagerProps {
   className?: string;
 }
@@ -52,12 +55,24 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
     createCategory, 
     editCategory, 
     removeCategory, 
-    restoreCategory
+    restoreCategory,
+    quickTags,
+    createQuickTag,
+    editQuickTag,
+    removeQuickTag
   } = useApp();
   const { showToast } = useToast();
 
   // Chế độ xem theo loại: 'EXPENSE' (Khoản chi) hoặc 'INCOME' (Thu nhập)
   const [activeType, setActiveType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
+
+  // Trạng thái Quản lý Quick Tag
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const [editingTag, setEditingTag] = useState<QuickTagItem | null>(null);
+  const [tagLabel, setTagLabel] = useState('');
+  const [tagEmoji, setTagEmoji] = useState('🛒');
+  const [tagCategoryId, setTagCategoryId] = useState('');
+  const [tagDefaultAmount, setTagDefaultAmount] = useState('');
 
   // Trạng thái thêm mới
   const [isAdding, setIsAdding] = useState(false);
@@ -85,6 +100,87 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
   const archivedCategories = useMemo(() => {
     return categories.filter((c) => c.isArchived && (c.type || 'EXPENSE') === activeType);
   }, [categories, activeType]);
+
+  // Lọc Quick Tags theo loại hiện tại (Khoản chi hoặc Thu nhập)
+  const currentTypeQuickTags = useMemo(() => {
+    return quickTags
+      .filter((t) => (t.type || (t.categoryKey === 'INCOME' ? 'INCOME' : 'EXPENSE')) === activeType)
+      .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+  }, [quickTags, activeType]);
+
+  const resetTagForm = () => {
+    setIsAddingTag(false);
+    setEditingTag(null);
+    setTagLabel('');
+    setTagEmoji(activeType === 'INCOME' ? '💼' : '🛒');
+    setTagCategoryId('');
+    setTagDefaultAmount('');
+  };
+
+  const handleStartAddTag = () => {
+    playActionClick();
+    triggerHaptic(10);
+    setEditingTag(null);
+    setIsAddingTag(true);
+    setTagLabel('');
+    setTagEmoji(activeType === 'INCOME' ? '💼' : '🛒');
+    setTagCategoryId(activeCategories[0]?.id || '');
+    setTagDefaultAmount('');
+  };
+
+  const handleStartEditTag = (tag: QuickTagItem) => {
+    playActionClick();
+    triggerHaptic(10);
+    setEditingTag(tag);
+    setIsAddingTag(false);
+    setTagLabel(tag.label);
+    setTagEmoji(tag.emoji);
+    setTagCategoryId(tag.categoryId);
+    setTagDefaultAmount(tag.defaultAmount ? String(tag.defaultAmount) : '');
+  };
+
+  const handleSaveQuickTag = async () => {
+    if (!tagLabel.trim()) {
+      showToast('Vui lòng nhập tên phím tắt', 'warning');
+      return;
+    }
+    const matchedCat = categories.find((c) => c.id === tagCategoryId) || activeCategories[0];
+    if (!matchedCat) {
+      showToast('Vui lòng chọn danh mục cho phím tắt', 'warning');
+      return;
+    }
+    const amountVal = Number(tagDefaultAmount.replace(/\D/g, ''));
+
+    if (editingTag) {
+      await editQuickTag(editingTag.id, {
+        label: tagLabel.trim(),
+        emoji: tagEmoji.trim() || (activeType === 'INCOME' ? '💰' : '🛒'),
+        categoryId: matchedCat.id,
+        categoryName: matchedCat.name,
+        categoryKey: matchedCat.categoryKey,
+        type: activeType,
+        defaultAmount: amountVal > 0 ? amountVal : undefined
+      });
+    } else {
+      await createQuickTag({
+        label: tagLabel.trim(),
+        emoji: tagEmoji.trim() || (activeType === 'INCOME' ? '💰' : '🛒'),
+        categoryId: matchedCat.id,
+        categoryName: matchedCat.name,
+        categoryKey: matchedCat.categoryKey,
+        type: activeType,
+        defaultAmount: amountVal > 0 ? amountVal : undefined,
+        order: currentTypeQuickTags.length + 1
+      });
+    }
+    resetTagForm();
+  };
+
+  const handleDeleteQuickTag = async (tag: QuickTagItem) => {
+    if (window.confirm(`Bạn có chắc muốn xóa phím tắt "${tag.emoji} ${tag.label}"?`)) {
+      await removeQuickTag(tag.id);
+    }
+  };
 
   // Bắt đầu chỉnh sửa một danh mục
   const handleStartEdit = (cat: Category) => {
@@ -187,6 +283,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
                 setActiveType('EXPENSE');
                 setEditingCat(null);
                 setIsAdding(false);
+                resetTagForm();
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all tactile-btn cursor-pointer ${
                 activeType === 'EXPENSE'
@@ -204,6 +301,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
                 setActiveType('INCOME');
                 setEditingCat(null);
                 setIsAdding(false);
+                resetTagForm();
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all tactile-btn cursor-pointer ${
                 activeType === 'INCOME'
@@ -568,6 +666,239 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
           )}
         </div>
       )}
+
+      {/* KHU VỰC: QUẢN LÝ QUICK TAGS (GỢI Ý 1-CHẠM) */}
+      <div className="pt-6 border-t-2 border-[#F5F3EF] space-y-3.5">
+        {/* Header của Section */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-6 h-6 rounded-lg bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center shadow-2xs">
+                <Zap className="w-3.5 h-3.5 fill-[#0F3D39]" />
+              </span>
+              <h3 className="text-sm font-bold text-[#1C1917]">
+                Gợi ý 1-chạm (Quick Tags)
+              </h3>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#FAF9F6] border border-[#E6E2DA] text-[#78716C] font-semibold">
+                {currentTypeQuickTags.length} phím tắt
+              </span>
+            </div>
+            <p className="text-[11px] text-[#78716C] mt-0.5">
+              Phím tắt xuất hiện trên bàn phím ghi sổ để chọn nhanh nhóm {activeType === 'INCOME' ? 'thu nhập' : 'chi tiêu'} và số tiền quen thuộc
+            </p>
+          </div>
+
+          {!isAddingTag && !editingTag && (
+            <button
+              type="button"
+              onClick={handleStartAddTag}
+              className="px-3.5 py-2 bg-[#FAF9F6] hover:bg-white border border-[#E6E2DA] hover:border-[#0F3D39] text-[#0F3D39] text-xs font-semibold rounded-xl transition-all shadow-2xs inline-flex items-center gap-1.5 cursor-pointer self-start sm:self-auto active:scale-95"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Thêm phím tắt</span>
+            </button>
+          )}
+        </div>
+
+        {/* Form Thêm / Sửa Quick Tag */}
+        {(isAddingTag || editingTag) && (
+          <div className="p-4 rounded-2xl border border-[#0F3D39]/20 bg-[#FAF9F6] shadow-xs space-y-3.5 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[#1C1917] flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-[#0F3D39]" />
+                {editingTag ? 'Chỉnh sửa phím tắt' : `Thêm phím tắt ${activeType === 'INCOME' ? 'thu nhập' : 'chi tiêu'} mới`}
+              </span>
+              <button
+                type="button"
+                onClick={resetTagForm}
+                className="p-1 rounded-lg hover:bg-white text-[#78716C] hover:text-[#1C1917] transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Tên nhãn */}
+              <div>
+                <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
+                  Tên phím tắt <span className="text-[#E11D48]">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={tagLabel}
+                  onChange={(e) => setTagLabel(e.target.value)}
+                  placeholder={activeType === 'INCOME' ? 'vd: Lương chính, Thưởng dự án, Cổ tức...' : 'vd: Cà phê sáng, Cơm trưa, Xăng xe, Bỉm sữa...'}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-[#E6E2DA] bg-white focus:outline-none focus:border-[#0F3D39] focus:ring-1 focus:ring-[#0F3D39] transition-all"
+                  autoFocus
+                />
+              </div>
+
+              {/* Danh mục liên kết */}
+              <div>
+                <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
+                  Gắn vào Danh mục <span className="text-[#E11D48]">*</span>
+                </label>
+                <select
+                  value={tagCategoryId}
+                  onChange={(e) => setTagCategoryId(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-[#E6E2DA] bg-white focus:outline-none focus:border-[#0F3D39] focus:ring-1 focus:ring-[#0F3D39] transition-all"
+                >
+                  {activeCategories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Biểu tượng Emoji & Số tiền mặc định */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Chọn Emoji */}
+              <div>
+                <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
+                  Biểu tượng Emoji
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={tagEmoji}
+                    onChange={(e) => setTagEmoji(e.target.value)}
+                    maxLength={4}
+                    className="w-12 px-2 py-1.5 text-center text-base rounded-xl border border-[#E6E2DA] bg-white focus:outline-none focus:border-[#0F3D39]"
+                  />
+                  <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar flex-1">
+                    {(activeType === 'INCOME' ? QUICK_TAG_EMOJIS_INCOME : QUICK_TAG_EMOJIS_EXPENSE).map((em) => (
+                      <button
+                        key={em}
+                        type="button"
+                        onClick={() => {
+                          setTagEmoji(em);
+                          playActionClick();
+                        }}
+                        className={`w-7 h-7 shrink-0 rounded-lg text-sm flex items-center justify-center transition-all cursor-pointer ${
+                          tagEmoji === em
+                            ? 'bg-[#0F3D39] text-white shadow-2xs scale-105'
+                            : 'bg-white border border-[#E6E2DA] hover:bg-[#F5F3EF]'
+                        }`}
+                      >
+                        {em}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Số tiền mặc định (tùy chọn) */}
+              <div>
+                <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
+                  Số tiền gợi ý sẵn (Tùy chọn)
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={tagDefaultAmount ? Number(tagDefaultAmount.replace(/\D/g, '')).toLocaleString('vi-VN') : ''}
+                    onChange={(e) => {
+                      const raw = e.target.value.replace(/\D/g, '');
+                      setTagDefaultAmount(raw);
+                    }}
+                    placeholder="Không bắt buộc (vd: 35.000)"
+                    className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-[#E6E2DA] bg-white focus:outline-none focus:border-[#0F3D39] focus:ring-1 focus:ring-[#0F3D39] transition-all pr-10"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#A8A29E] font-medium pointer-events-none">
+                    VND
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Nút hành động */}
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button
+                type="button"
+                onClick={resetTagForm}
+                className="px-3.5 py-1.5 rounded-xl border border-[#E6E2DA] bg-white text-xs font-semibold text-[#78716C] hover:text-[#1C1917] transition-all cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveQuickTag}
+                className="px-4 py-1.5 rounded-xl bg-[#0F3D39] text-white text-xs font-semibold hover:bg-[#174E4A] transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{editingTag ? 'Lưu cập nhật' : 'Tạo phím tắt'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Danh sách các thẻ Quick Tag */}
+        {currentTypeQuickTags.length === 0 ? (
+          <div className="p-6 rounded-2xl border border-dashed border-[#E6E2DA] bg-[#FAF9F6] text-center space-y-2">
+            <p className="text-xs font-medium text-[#78716C]">
+              Chưa có phím tắt nào cho {activeType === 'INCOME' ? 'thu nhập' : 'khoản chi'}.
+            </p>
+            <button
+              type="button"
+              onClick={handleStartAddTag}
+              className="text-xs font-semibold text-[#0F3D39] hover:underline cursor-pointer inline-flex items-center gap-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Tạo phím tắt đầu tiên</span>
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            {currentTypeQuickTags.map((tag) => (
+              <div
+                key={tag.id}
+                className="p-3 rounded-2xl border border-[#E6E2DA] bg-[#FAF9F6] hover:bg-white hover:border-[#D6D2CA] transition-all flex items-center justify-between gap-2.5 shadow-2xs group"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-8 h-8 rounded-xl bg-white border border-[#E6E2DA] flex items-center justify-center text-base shrink-0 shadow-2xs">
+                    {tag.emoji}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-[#1C1917] truncate">
+                      {tag.label}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[10px] text-[#78716C] bg-white border border-[#E6E2DA]/80 px-1.5 py-0.2 rounded-md truncate max-w-[110px]">
+                        {tag.categoryName}
+                      </span>
+                      {tag.defaultAmount && (
+                        <span className="text-[10px] font-mono font-semibold text-[#0F3D39]">
+                          {formatVND(tag.defaultAmount)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleStartEditTag(tag)}
+                    className="p-1.5 rounded-lg text-[#78716C] hover:text-[#0F3D39] hover:bg-[#E7EFEF] transition-all cursor-pointer"
+                    title="Chỉnh sửa phím tắt"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteQuickTag(tag)}
+                    className="p-1.5 rounded-lg text-[#78716C] hover:text-[#E11D48] hover:bg-[#FEE2E2] transition-all cursor-pointer"
+                    title="Xóa phím tắt"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

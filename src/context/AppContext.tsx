@@ -36,10 +36,17 @@ import {
   subscribeFinancialGoals,
   saveFinancialGoal,
   deleteFinancialGoal,
-  updateGoalProgress
+  updateGoalProgress,
+  subscribeQuickTags,
+  createQuickTag as firestoreCreateQuickTag,
+  updateQuickTag as firestoreUpdateQuickTag,
+  deleteQuickTag as firestoreDeleteQuickTag,
+  seedMissingQuickTags
 } from '../services/firestoreService';
 import { 
   DEFAULT_CATEGORIES,
+  DEFAULT_QUICK_TAGS,
+  DEFAULT_INCOME_QUICK_TAGS,
   MOCK_USER, 
   MOCK_HOUSEHOLD, 
   MOCK_CATEGORIES, 
@@ -47,7 +54,7 @@ import {
   MOCK_SUMMARY,
   MOCK_GOALS
 } from '../services/mockData';
-import type { Household, Category, Transaction, MonthlySummary, UserProfile, FinancialGoal } from '../types';
+import type { Household, Category, Transaction, MonthlySummary, UserProfile, FinancialGoal, QuickTagItem } from '../types';
 import { getCurrentYearMonth } from '../utils/currency';
 import { isSoundEnabled, setSoundEnabled, playSuccessChime, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
@@ -72,6 +79,12 @@ interface AppContextType {
   removeCategory: (category: Category) => Promise<void>;
   restoreCategory: (categoryId: string) => Promise<void>;
   restoreDefaultCategories: (type?: 'EXPENSE' | 'INCOME') => Promise<void>;
+  
+  // Gợi ý 1-chạm (Quick Tags)
+  quickTags: QuickTagItem[];
+  createQuickTag: (tagData: Omit<QuickTagItem, 'id' | 'createdAt'>) => Promise<void>;
+  editQuickTag: (tagId: string, updates: Partial<QuickTagItem>) => Promise<void>;
+  removeQuickTag: (tagId: string) => Promise<void>;
   
   // Thời gian xem sổ cái
   currentYearMonth: string;
@@ -141,6 +154,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(MOCK_SUMMARY);
   const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>(() => sortFinancialGoals(MOCK_GOALS));
+  const [quickTags, setQuickTags] = useState<QuickTagItem[]>(() => [
+    ...DEFAULT_QUICK_TAGS,
+    ...DEFAULT_INCOME_QUICK_TAGS
+  ]);
   const [currentYearMonth, setCurrentYearMonth] = useState<string>(getCurrentYearMonth());
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
@@ -447,11 +464,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setFinancialGoals(sortFinancialGoals(goals));
     });
 
+    const unsubQuickTags = subscribeQuickTags(activeHousehold.id, (tags) => {
+      if (tags.length > 0) {
+        setQuickTags(tags);
+      } else {
+        seedMissingQuickTags(activeHousehold.id, []).catch((err) => {
+          console.warn('Lỗi tự động seed quick tags:', err);
+        });
+        setQuickTags([
+          ...DEFAULT_QUICK_TAGS,
+          ...DEFAULT_INCOME_QUICK_TAGS
+        ]);
+      }
+    });
+
     return () => {
       unsubCat();
       unsubTx();
       unsubSum();
       unsubGoals();
+      unsubQuickTags();
     };
   }, [isFirebaseActive, activeHousehold?.id, currentYearMonth, firebaseUser]);
 
@@ -786,6 +818,64 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     );
   };
 
+  // TẠO QUICK TAG (GỢI Ý 1-CHẠM) MỚI
+  const createQuickTag = async (tagData: Omit<QuickTagItem, 'id' | 'createdAt'>) => {
+    playSuccessChime();
+    triggerHaptic(10);
+    const tempId = 'tag_' + Date.now();
+    const newTag: QuickTagItem = {
+      ...tagData,
+      id: tempId,
+      createdAt: new Date().toISOString()
+    };
+    setQuickTags((prev) => [...prev, newTag]);
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      try {
+        const created = await firestoreCreateQuickTag(activeHousehold.id, tagData);
+        setQuickTags((prev) => prev.map((t) => (t.id === tempId ? created : t)));
+      } catch (err) {
+        console.error('Lỗi tạo Quick Tag trên Firestore:', err);
+        showToast('Lỗi lưu Quick Tag lên đám mây', 'warning');
+      }
+    }
+    showToast('Đã thêm phím tắt gợi ý 1-chạm!', 'success');
+  };
+
+  // CHỈNH SỬA QUICK TAG
+  const editQuickTag = async (tagId: string, updates: Partial<QuickTagItem>) => {
+    playActionClick();
+    triggerHaptic(10);
+    setQuickTags((prev) => prev.map((t) => (t.id === tagId ? { ...t, ...updates } : t)));
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      try {
+        await firestoreUpdateQuickTag(activeHousehold.id, tagId, updates);
+      } catch (err) {
+        console.error('Lỗi cập nhật Quick Tag trên Firestore:', err);
+        showToast('Lỗi cập nhật Quick Tag', 'warning');
+      }
+    }
+    showToast('Đã cập nhật phím tắt!', 'success');
+  };
+
+  // XÓA QUICK TAG
+  const removeQuickTag = async (tagId: string) => {
+    playActionClick();
+    triggerHaptic(10);
+    setQuickTags((prev) => prev.filter((t) => t.id !== tagId));
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      try {
+        await firestoreDeleteQuickTag(activeHousehold.id, tagId);
+      } catch (err) {
+        console.error('Lỗi xóa Quick Tag trên Firestore:', err);
+        showToast('Lỗi xóa Quick Tag trên đám mây', 'warning');
+      }
+    }
+    showToast('Đã xóa phím tắt!', 'info');
+  };
+
   // TẠO TỔ ẤM MỚI
   const createNewHousehold = async (name: string, budget: number) => {
     if (isFirebaseActive && currentUser) {
@@ -1066,6 +1156,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         removeCategory,
         restoreCategory,
         restoreDefaultCategories,
+        quickTags,
+        createQuickTag,
+        editQuickTag,
+        removeQuickTag,
         currentYearMonth,
         setCurrentYearMonth,
         goToPreviousMonth,

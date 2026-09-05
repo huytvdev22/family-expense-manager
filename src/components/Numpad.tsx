@@ -6,7 +6,7 @@ import { playKeyClick, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { renderGoalIcon, renderCategoryIcon } from '../utils/categoryIcons';
 import { QuickTags } from './QuickTags';
-import { DEFAULT_INCOME_QUICK_TAGS, DEFAULT_CATEGORIES } from '../services/mockData';
+import { DEFAULT_CATEGORIES } from '../services/mockData';
 import type { QuickTagItem, CategoryKey, Transaction } from '../types';
 import { useToast } from './Toast';
 
@@ -15,7 +15,7 @@ interface NumpadProps {
 }
 
 export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
-  const { categories, logTransaction, currentUser, userRole, financialGoals } = useApp();
+  const { categories, logTransaction, currentUser, userRole, financialGoals, quickTags } = useApp();
   const { showToast } = useToast();
 
   // Loại giao dịch: 'EXPENSE' (Khoản chi) hoặc 'INCOME' (Thu nhập)
@@ -42,6 +42,13 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
     // Fallback an toàn: nếu danh mục của loại này chưa kịp tải, hiển thị danh mục mặc định chuẩn của đúng loại đó
     return DEFAULT_CATEGORIES.filter((c) => (c.type || 'EXPENSE') === txType);
   }, [categories, txType]);
+
+  // Lọc danh sách Quick Tags theo loại giao dịch (Khoản chi vs Thu nhập)
+  const currentQuickTags = useMemo(() => {
+    return quickTags
+      .filter((t) => (t.type || (t.categoryKey === 'INCOME' ? 'INCOME' : 'EXPENSE')) === txType)
+      .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+  }, [quickTags, txType]);
 
   // Nhóm chi/thu được chọn
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
@@ -351,7 +358,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
       <QuickTags
         onSelectTag={handleSelectQuickTag}
         selectedTagId={selectedTagId}
-        tags={txType === 'INCOME' ? DEFAULT_INCOME_QUICK_TAGS : undefined}
+        tags={currentQuickTags}
       />
 
       {/* 3. Bộ chuyển đổi: Người chi / Người nhận & Ghi chú */}

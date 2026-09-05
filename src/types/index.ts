@@ -115,8 +115,11 @@ export interface QuickTagItem {
   id: string;
   label: string;
   emoji: string;
-  categoryKey: CategoryKey;
+  categoryKey?: CategoryKey;
   categoryId: string;
   categoryName: string;
+  type?: 'EXPENSE' | 'INCOME';
   defaultAmount?: number;
+  order?: number;
+  createdAt?: string;
 }

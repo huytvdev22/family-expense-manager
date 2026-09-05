@@ -141,82 +141,100 @@ export const DEFAULT_QUICK_TAGS: QuickTagItem[] = [
     id: 'tag_debt',
     label: 'Trả nợ ngân hàng',
     emoji: '🏦',
+    type: 'EXPENSE',
     categoryKey: 'ESSENTIAL',
     categoryId: 'cat_debt',
     categoryName: 'Trả nợ ngân hàng',
-    defaultAmount: 15000000
+    defaultAmount: 15000000,
+    order: 1
   },
   {
     id: 'tag_market',
     label: 'Chợ & Siêu thị',
     emoji: '🛒',
+    type: 'EXPENSE',
     categoryKey: 'ESSENTIAL',
     categoryId: 'cat_essential',
     categoryName: 'Tổ ấm & Con cái',
-    defaultAmount: 350000
+    defaultAmount: 350000,
+    order: 2
   },
   {
     id: 'tag_milk',
     label: 'Bỉm & Sữa con',
     emoji: '🍼',
+    type: 'EXPENSE',
     categoryKey: 'ESSENTIAL',
     categoryId: 'cat_essential',
     categoryName: 'Tổ ấm & Con cái',
-    defaultAmount: 480000
+    defaultAmount: 480000,
+    order: 3
   },
   {
     id: 'tag_utilities',
     label: 'Điện nước Wifi',
     emoji: '💡',
+    type: 'EXPENSE',
     categoryKey: 'ESSENTIAL',
     categoryId: 'cat_essential',
     categoryName: 'Tổ ấm & Con cái',
-    defaultAmount: 1250000
+    defaultAmount: 1250000,
+    order: 4
   },
   {
     id: 'tag_coffee',
     label: 'Cà phê & Ăn ngoài',
     emoji: '☕',
+    type: 'EXPENSE',
     categoryKey: 'LIVING',
     categoryId: 'cat_living',
     categoryName: 'Sinh hoạt & Hẹn hò',
-    defaultAmount: 120000
+    defaultAmount: 120000,
+    order: 5
   },
   {
     id: 'tag_gas',
     label: 'Xăng xe & Đi lại',
     emoji: '⛽',
+    type: 'EXPENSE',
     categoryKey: 'LIVING',
     categoryId: 'cat_living',
     categoryName: 'Sinh hoạt & Hẹn hò',
-    defaultAmount: 90000
+    defaultAmount: 90000,
+    order: 6
   },
   {
     id: 'tag_med',
     label: 'Khám & Thuốc men',
     emoji: '💊',
+    type: 'EXPENSE',
     categoryKey: 'UNEXPECTED',
     categoryId: 'cat_unexpected',
     categoryName: 'Sức khỏe & Đột xuất',
-    defaultAmount: 250000
+    defaultAmount: 250000,
+    order: 7
   },
   {
     id: 'tag_furniture',
     label: 'Đồ gia dụng',
     emoji: '🛋️',
+    type: 'EXPENSE',
     categoryKey: 'UNEXPECTED',
     categoryId: 'cat_unexpected',
     categoryName: 'Sức khỏe & Đột xuất',
-    defaultAmount: 650000
+    defaultAmount: 650000,
+    order: 8
   },
   {
     id: 'tag_saving',
     label: 'Gửi heo đất chung',
     emoji: '🐷',
+    type: 'EXPENSE',
     categoryKey: 'SAVING',
     categoryId: 'cat_saving',
     categoryName: 'Tích lũy & Tương lai',
-    defaultAmount: 5000000
+    defaultAmount: 5000000,
+    order: 9
   }
 ];
 
@@ -225,46 +243,56 @@ export const DEFAULT_INCOME_QUICK_TAGS: QuickTagItem[] = [
     id: 'tag_inc_salary',
     label: 'Lương tháng',
     emoji: '💼',
+    type: 'INCOME',
     categoryKey: 'INCOME',
     categoryId: 'cat_income_salary',
     categoryName: 'Tiền lương',
-    defaultAmount: 25000000
+    defaultAmount: 25000000,
+    order: 1
   },
   {
     id: 'tag_inc_bonus',
     label: 'Thưởng hiệu quả',
     emoji: '🎉',
+    type: 'INCOME',
     categoryKey: 'INCOME',
     categoryId: 'cat_income_bonus',
     categoryName: 'Tiền thưởng',
-    defaultAmount: 5000000
+    defaultAmount: 5000000,
+    order: 2
   },
   {
     id: 'tag_inc_freelance',
     label: 'Làm thêm / Dự án',
     emoji: '💻',
+    type: 'INCOME',
     categoryKey: 'INCOME',
     categoryId: 'cat_income_side',
     categoryName: 'Thu nhập phụ',
-    defaultAmount: 3000000
+    defaultAmount: 3000000,
+    order: 3
   },
   {
     id: 'tag_inc_interest',
     label: 'Lãi tiết kiệm',
     emoji: '📈',
+    type: 'INCOME',
     categoryKey: 'INCOME',
     categoryId: 'cat_income_invest',
     categoryName: 'Lãi & Đầu tư',
-    defaultAmount: 1200000
+    defaultAmount: 1200000,
+    order: 4
   },
   {
     id: 'tag_inc_gift',
     label: 'Được tặng / Biếu',
     emoji: '🎁',
+    type: 'INCOME',
     categoryKey: 'INCOME',
     categoryId: 'cat_income_other',
     categoryName: 'Thu nhập khác',
-    defaultAmount: 1000000
+    defaultAmount: 1000000,
+    order: 5
   }
 ];
 

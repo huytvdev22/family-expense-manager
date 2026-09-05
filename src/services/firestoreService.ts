@@ -16,8 +16,8 @@ import {
   type Unsubscribe
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Household, Category, Transaction, MonthlySummary, Invitation, UserProfile, FinancialGoal } from '../types';
-import { DEFAULT_CATEGORIES } from './mockData';
+import type { Household, Category, Transaction, MonthlySummary, Invitation, UserProfile, FinancialGoal, QuickTagItem } from '../types';
+import { DEFAULT_CATEGORIES, DEFAULT_QUICK_TAGS, DEFAULT_INCOME_QUICK_TAGS } from './mockData';
 
 /**
  * Loại bỏ tất cả các field có giá trị undefined trước khi ghi vào Firestore
@@ -837,6 +837,106 @@ export async function updateGoalProgress(
   }).catch((err) => {
     console.warn('Lỗi cập nhật tiến độ mục tiêu tài chính:', err);
   });
+}
+
+/**
+ * LẮNG NGHE REALTIME DANH SÁCH QUICK TAGS (GỢI Ý 1-CHẠM) CỦA TỔ ẤM
+ */
+export function subscribeQuickTags(
+  householdId: string,
+  onData: (tags: QuickTagItem[]) => void
+): Unsubscribe {
+  if (!db) return () => {};
+
+  const q = query(
+    collection(db, `households/${householdId}/quick_tags`),
+    orderBy('order', 'asc')
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const list: QuickTagItem[] = [];
+    snapshot.forEach((docSnap) => {
+      list.push({ id: docSnap.id, ...docSnap.data() } as QuickTagItem);
+    });
+    onData(list);
+  }, (err) => {
+    console.warn('Lỗi subscribeQuickTags:', err);
+  });
+}
+
+/**
+ * TẠO QUICK TAG MỚI
+ */
+export async function createQuickTag(
+  householdId: string,
+  tag: Omit<QuickTagItem, 'id' | 'createdAt'>
+): Promise<QuickTagItem> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const tagCol = collection(db, `households/${householdId}/quick_tags`);
+  const tagRef = doc(tagCol);
+  const now = new Date().toISOString();
+
+  const newTag: QuickTagItem = {
+    ...tag,
+    id: tagRef.id,
+    createdAt: now
+  };
+
+  const payload = cleanFirestorePayload(newTag);
+  await setDoc(tagRef, payload);
+  return newTag;
+}
+
+/**
+ * CẬP NHẬT QUICK TAG
+ */
+export async function updateQuickTag(
+  householdId: string,
+  tagId: string,
+  updates: Partial<QuickTagItem>
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const tagRef = doc(db, `households/${householdId}/quick_tags`, tagId);
+  const payload = cleanFirestorePayload(updates);
+  await updateDoc(tagRef, payload);
+}
+
+/**
+ * XÓA QUICK TAG
+ */
+export async function deleteQuickTag(
+  householdId: string,
+  tagId: string
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const tagRef = doc(db, `households/${householdId}/quick_tags`, tagId);
+  await deleteDoc(tagRef);
+}
+
+/**
+ * TỰ ĐỘNG BÙ DANH SÁCH QUICK TAGS MẪU BAN ĐẦU NẾU TỔ ẤM CHƯA CÓ
+ */
+export async function seedMissingQuickTags(
+  householdId: string,
+  existingTags: QuickTagItem[]
+): Promise<QuickTagItem[]> {
+  if (!db || !householdId) return [];
+
+  // Nếu tổ ấm đã có ít nhất 1 quick tag thì không tự động ghi đè để tôn trọng người dùng
+  if (existingTags.length > 0) return existingTags;
+
+  const tagCol = collection(db, `households/${householdId}/quick_tags`);
+  const initialTags = [
+    ...DEFAULT_QUICK_TAGS.map((t, idx) => ({ ...t, type: 'EXPENSE' as const, order: idx + 1 })),
+    ...DEFAULT_INCOME_QUICK_TAGS.map((t, idx) => ({ ...t, type: 'INCOME' as const, order: idx + 1 }))
+  ];
+
+  const writePromises = initialTags.map((tag) => setDoc(doc(tagCol, tag.id), cleanFirestorePayload(tag)));
+  await Promise.allSettled(writePromises);
+  return initialTags;
 }
 
 
