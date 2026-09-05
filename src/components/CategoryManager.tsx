@@ -5,7 +5,32 @@ import { formatVND } from '../utils/currency';
 import { playActionClick, playSuccessChime } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import type { Category, CategoryKey } from '../types';
+import { renderCategoryIcon } from '../utils/categoryIcons';
 import { useToast } from './Toast';
+
+const CATEGORY_ICON_OPTIONS = [
+  { key: 'home', label: 'Tổ ấm' },
+  { key: 'coffee', label: 'Cà phê & Hẹn hò' },
+  { key: 'shopping-cart', label: 'Mua sắm' },
+  { key: 'utensils', label: 'Ăn uống' },
+  { key: 'heart-pulse', label: 'Sức khỏe' },
+  { key: 'baby', label: 'Con cái' },
+  { key: 'car', label: 'Đi lại' },
+  { key: 'piggy-bank', label: 'Tích lũy' },
+  { key: 'landmark', label: 'Ngân hàng & Nợ' },
+  { key: 'briefcase', label: 'Công việc' },
+  { key: 'wallet', label: 'Ví tiền' },
+  { key: 'coins', label: 'Tiền mặt' },
+  { key: 'banknote', label: 'Lương & Thưởng' },
+  { key: 'sparkles', label: 'Làm đẹp' },
+  { key: 'book-open', label: 'Học tập' },
+  { key: 'plane', label: 'Du lịch' },
+  { key: 'dumbbell', label: 'Thể thao' },
+  { key: 'gift', label: 'Hiếu hỉ & Quà' },
+  { key: 'phone', label: 'Hóa đơn & Mạng' },
+  { key: 'zap', label: 'Điện nước' },
+  { key: 'folder', label: 'Khác' },
+];
 
 const COLOR_OPTIONS = [
   { label: 'Pine Emerald', hex: '#0F3D39' },
@@ -39,12 +64,14 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
   const [isAdding, setIsAdding] = useState(false);
   const [newCatName, setNewCatName] = useState('');
   const [newCatColor, setNewCatColor] = useState(COLOR_OPTIONS[0].hex);
+  const [newCatIcon, setNewCatIcon] = useState('folder');
   const [newCatLimit, setNewCatLimit] = useState('');
 
   // Trạng thái chỉnh sửa danh mục
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [editName, setEditName] = useState('');
   const [editColor, setEditColor] = useState('');
+  const [editIcon, setEditIcon] = useState('folder');
   const [editLimit, setEditLimit] = useState('');
 
   // Trạng thái hiển thị danh mục đã ẩn
@@ -67,6 +94,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
     setEditingCat(cat);
     setEditName(cat.name);
     setEditColor(cat.color || COLOR_OPTIONS[0].hex);
+    setEditIcon(cat.icon || 'folder');
     setEditLimit(cat.monthlyLimit ? String(cat.monthlyLimit) : '');
   };
 
@@ -83,6 +111,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
     const updates: Partial<Category> = {
       name: editName.trim(),
       color: editColor,
+      icon: editIcon,
       monthlyLimit: !isNaN(limitVal) && limitVal > 0 ? limitVal : undefined
     };
 
@@ -102,7 +131,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
       name: newCatName.trim(),
       type: activeType,
       categoryKey: (activeType === 'INCOME' ? 'INCOME' : 'OTHER') as CategoryKey,
-      icon: activeType === 'INCOME' ? 'briefcase' : 'folder',
+      icon: newCatIcon || (activeType === 'INCOME' ? 'briefcase' : 'folder'),
       color: newCatColor,
       isDefault: false,
       monthlyLimit: !isNaN(limitVal) && limitVal > 0 ? limitVal : undefined
@@ -111,6 +140,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
     setIsAdding(false);
     setNewCatName('');
     setNewCatLimit('');
+    setNewCatIcon(activeType === 'INCOME' ? 'briefcase' : 'folder');
   };
 
   // Xóa hoặc Ẩn danh mục
@@ -230,13 +260,12 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
                 key={cat.id}
                 className="p-3.5 rounded-2xl border border-[#F5F3EF] bg-[#FAF9F6] hover:bg-white hover:border-[#E6E2DA] transition-all flex flex-col justify-between gap-2.5 shadow-2xs group"
               >
-                {/* Dòng 1: Tên nhóm, màu và các nút thao tác */}
+                {/* Dòng 1: Tên nhóm, icon và các nút thao tác */}
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span
-                      className="w-3.5 h-3.5 rounded-full shrink-0 shadow-2xs"
-                      style={{ backgroundColor: cat.color }}
-                    />
+                    <span className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border border-[#E6E2DA]/80 bg-white shadow-2xs">
+                      {renderCategoryIcon(cat.icon, "w-4 h-4", cat.color)}
+                    </span>
                     <p className="text-xs font-bold text-[#1C1917] truncate">{cat.name}</p>
                   </div>
 
@@ -347,6 +376,28 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
             </div>
           </div>
 
+          {/* Chọn Icon */}
+          <div className="space-y-1.5 pt-1">
+            <span className="text-xs text-[#78716C]">Biểu tượng (Icon):</span>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              {CATEGORY_ICON_OPTIONS.map((ic) => (
+                <button
+                  key={ic.key}
+                  type="button"
+                  onClick={() => setEditIcon(ic.key)}
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border transition-all cursor-pointer ${
+                    editIcon === ic.key
+                      ? 'border-[#0F3D39] bg-[#E7EFEF] ring-2 ring-[#0F3D39]/20 shadow-xs'
+                      : 'border-[#E6E2DA] bg-[#FAF9F6] hover:bg-white'
+                  }`}
+                  title={ic.label}
+                >
+                  {renderCategoryIcon(ic.key, "w-4 h-4", editIcon === ic.key ? editColor : '#78716C')}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Nút hành động sửa */}
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E6E2DA]">
             <button
@@ -422,6 +473,28 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
             </div>
           </div>
 
+          {/* Chọn Icon */}
+          <div className="space-y-1.5 pt-1">
+            <span className="text-xs text-[#78716C]">Biểu tượng (Icon):</span>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              {CATEGORY_ICON_OPTIONS.map((ic) => (
+                <button
+                  key={ic.key}
+                  type="button"
+                  onClick={() => setNewCatIcon(ic.key)}
+                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border transition-all cursor-pointer ${
+                    newCatIcon === ic.key
+                      ? 'border-[#0F3D39] bg-[#E7EFEF] ring-2 ring-[#0F3D39]/20 shadow-xs'
+                      : 'border-[#E6E2DA] bg-white hover:bg-[#FAF9F6]'
+                  }`}
+                  title={ic.label}
+                >
+                  {renderCategoryIcon(ic.key, "w-4 h-4", newCatIcon === ic.key ? newCatColor : '#78716C')}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Nút hành động thêm */}
           <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E6E2DA]">
             <button
@@ -479,10 +552,9 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
                   className="p-3 rounded-2xl border border-dashed border-[#D6D2CA] bg-[#FAF9F6]/80 flex items-center justify-between gap-2"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <span
-                      className="w-3 h-3 rounded-full opacity-50 shrink-0"
-                      style={{ backgroundColor: cat.color }}
-                    />
+                    <span className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 border border-[#E6E2DA]/60 bg-white/60 shadow-2xs opacity-60">
+                      {renderCategoryIcon(cat.icon, "w-3.5 h-3.5", cat.color)}
+                    </span>
                     <span className="text-xs text-[#78716C] line-through truncate">
                       {cat.name}
                     </span>

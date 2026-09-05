@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { formatVND } from '../utils/currency';
 import { playKeyClick, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
-import { renderGoalIcon } from '../utils/categoryIcons';
+import { renderGoalIcon, renderCategoryIcon } from '../utils/categoryIcons';
 import { QuickTags } from './QuickTags';
 import { DEFAULT_INCOME_QUICK_TAGS, DEFAULT_CATEGORIES } from '../services/mockData';
 import type { QuickTagItem, CategoryKey, Transaction } from '../types';
@@ -424,10 +424,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
           }`}
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <div
-              className="w-3 h-3 rounded-full shrink-0 shadow-2xs"
-              style={{ backgroundColor: selectedCategory?.color || (txType === 'INCOME' ? '#10B981' : '#0F3D39') }}
-            />
+            <span className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 border border-[#E6E2DA]/80 bg-white shadow-2xs">
+              {renderCategoryIcon(selectedCategory?.icon, "w-3.5 h-3.5", selectedCategory?.color || (txType === 'INCOME' ? '#10B981' : '#0F3D39'))}
+            </span>
             <span className="font-semibold text-[#1C1917] truncate">
               {selectedCategory?.name || (txType === 'EXPENSE' ? 'Chọn nhóm chi' : 'Chọn nguồn thu')}
             </span>
@@ -463,10 +462,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
                   }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div
-                      className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs"
-                      style={{ backgroundColor: cat.color || (txType === 'INCOME' ? '#10B981' : '#0F3D39') }}
-                    />
+                    <span className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 border border-[#E6E2DA]/80 bg-[#FAF9F6] shadow-2xs">
+                      {renderCategoryIcon(cat.icon, "w-3.5 h-3.5", cat.color || (txType === 'INCOME' ? '#10B981' : '#0F3D39'))}
+                    </span>
                     <span className="truncate">{cat.name}</span>
                   </div>
                   {isSelected && <Check className="w-3.5 h-3.5 text-[#0F3D39] shrink-0" />}
