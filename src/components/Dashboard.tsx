@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Scale, 
-  Flame, 
-  ShieldCheck, 
-  AlertCircle, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Scale,
+  Flame,
+  ShieldCheck,
+  AlertCircle,
   Sparkles,
   ReceiptText,
   PiggyBank,
@@ -86,9 +86,9 @@ export const Dashboard: React.FC = () => {
   const handleExcludeDebtAndSavings = () => {
     const debtOrSavingCatIds = categories
       .filter((c) => c.type === 'EXPENSE' && (
-        c.categoryKey === 'SAVING' || 
-        c.id === 'cat_debt' || 
-        c.name.toLowerCase().includes('nợ') || 
+        c.categoryKey === 'SAVING' ||
+        c.id === 'cat_debt' ||
+        c.name.toLowerCase().includes('nợ') ||
         c.name.toLowerCase().includes('ngân hàng') ||
         c.name.toLowerCase().includes('vay')
       ))
@@ -254,7 +254,7 @@ export const Dashboard: React.FC = () => {
               )}
             </div>
             <p className="text-[11px] text-[#78716C] mt-0.5">
-              {hasExcludedCategories 
+              {hasExcludedCategories
                 ? `Đã trừ ${formatVND(excludedTotalExpense)} để nhịp chi và dự phòng phản ánh đúng sinh hoạt`
                 : 'Bấm cài đặt để loại trừ các khoản trả nợ ngân hàng hoặc chi đột biến lớn'}
             </p>
@@ -318,7 +318,7 @@ export const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-[#78716C] flex items-center gap-1.5">
               <Wallet className="w-3.5 h-3.5 text-[#0F3D39]" />
-              Chi tiêu tính báo cáo
+              Chi tiêu
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#FAF9F6] text-[#78716C] border border-[#E6E2DA]">
               {includedExpenseTransactions.length} giao dịch
@@ -383,7 +383,7 @@ export const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-[#78716C] flex items-center gap-1.5">
               <TrendingUp className="w-3.5 h-3.5 text-[#4A6B68]" />
-              Dự phóng cuối tháng
+              Dự phóng
             </span>
             {isProjectedOver ? (
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#FFF1F2] text-[#E11D48] font-medium flex items-center gap-1">
