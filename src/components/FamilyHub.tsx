@@ -13,14 +13,26 @@ import {
   Edit3,
   Check,
   Sparkles,
-  ShieldCheck
+  ShieldCheck,
+  GitCommit,
+  RefreshCw,
+  RotateCcw,
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
+import { useToast } from './Toast';
 import { formatVND } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { CategoryManager } from './CategoryManager';
 import { CategoryBreakdown } from './CategoryBreakdown';
+import {
+  getCurrentVersionInfo,
+  checkForUpdates,
+  forceClearCacheAndReload,
+  type UpdateCheckResult
+} from '../services/versionService';
 
 interface FamilyHubProps {
   onOpenInvite: () => void;
@@ -52,6 +64,41 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'general' | 'categories'>('general');
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState(String(activeHousehold?.monthlyBudget || 30000000));
+
+  // Trạng thái quản lý phiên bản & cập nhật
+  const { showToast } = useToast();
+  const versionInfo = getCurrentVersionInfo();
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [isClearingCache, setIsClearingCache] = useState(false);
+  const [updateResult, setUpdateResult] = useState<UpdateCheckResult | null>(null);
+
+  const handleCheckUpdate = async () => {
+    playActionClick();
+    triggerHaptic(10);
+    setIsCheckingUpdate(true);
+    setUpdateResult(null);
+    try {
+      const result = await checkForUpdates();
+      setUpdateResult(result);
+      if (result.hasUpdate) {
+        showToast(`Phát hiện bản mới (#${result.remoteHash})!`, 'info');
+      } else {
+        showToast(`Bạn đang dùng phiên bản mới nhất (#${result.currentHash})!`, 'success');
+      }
+    } catch (err: any) {
+      showToast(err.message || 'Lỗi khi kiểm tra bản cập nhật', 'error');
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  };
+
+  const handleClearCacheAndReload = async () => {
+    playActionClick();
+    triggerHaptic(20);
+    setIsClearingCache(true);
+    showToast('Đang xóa bộ nhớ đệm và làm mới...', 'info');
+    await forceClearCacheAndReload();
+  };
 
   const monthlyBudget = activeHousehold?.monthlyBudget || 30000000;
 
@@ -518,6 +565,97 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
               <span>Google</span>
             </button>
           )}
+        </div>
+      </div>
+
+      {/* 6. Thông tin phiên bản & Kiểm tra cập nhật */}
+      <div className="bg-white border border-[#E6E2DA] rounded-3xl p-4 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-xl bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center">
+              <GitCommit className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-xs uppercase font-semibold text-[#78716C] tracking-wider">
+                Phiên bản hệ thống
+              </h3>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-xs font-bold text-[#1C1917]">
+                  v{versionInfo.version}
+                </span>
+                <span className="font-mono text-[10px] font-semibold bg-[#FAF9F6] border border-[#E6E2DA] text-[#0F3D39] px-1.5 py-0.5 rounded-md shadow-2xs">
+                  #{versionInfo.commitHash}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-right">
+            <div className="flex items-center gap-1 text-[10px] text-[#78716C] justify-end">
+              <Clock className="w-3 h-3 text-[#A8A29E]" />
+              <span>Đóng gói:</span>
+            </div>
+            <p className="font-mono text-[10px] text-[#57534E] font-medium mt-0.5">
+              {versionInfo.formattedBuildTime || versionInfo.buildTime}
+            </p>
+          </div>
+        </div>
+
+        {/* Trạng thái cập nhật nếu vừa kiểm tra */}
+        {updateResult && (
+          <div
+            className={`p-2.5 rounded-2xl text-xs flex items-center justify-between gap-2 animate-in fade-in duration-200 ${
+              updateResult.hasUpdate
+                ? 'bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E]'
+                : 'bg-[#F0FDF4] border border-[#DCFCE7] text-[#166534]'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 min-w-0">
+              {updateResult.hasUpdate ? (
+                <Sparkles className="w-3.5 h-3.5 text-[#D97706] shrink-0" />
+              ) : (
+                <CheckCircle2 className="w-3.5 h-3.5 text-[#16A34A] shrink-0" />
+              )}
+              <span className="truncate">
+                {updateResult.hasUpdate
+                  ? `Có bản mới (#${updateResult.remoteHash})!`
+                  : 'Ứng dụng đang ở bản mới nhất.'}
+              </span>
+            </div>
+            {updateResult.hasUpdate && (
+              <button
+                type="button"
+                onClick={handleClearCacheAndReload}
+                className="px-2 py-1 rounded-lg bg-[#0F3D39] text-white text-[11px] font-bold shadow-xs shrink-0 cursor-pointer"
+              >
+                Cập nhật ngay
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Cụm 2 nút hành động: Kiểm tra cập nhật & Xóa cache */}
+        <div className="grid grid-cols-2 gap-2 pt-1">
+          <button
+            type="button"
+            onClick={handleCheckUpdate}
+            disabled={isCheckingUpdate || isClearingCache}
+            className="py-2 px-3 rounded-2xl border border-[#E6E2DA] hover:bg-[#FAF9F6] active:scale-95 text-xs font-semibold text-[#0F3D39] flex items-center justify-center gap-1.5 transition-all tactile-btn disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+            <span>{isCheckingUpdate ? 'Đang kiểm tra...' : 'Kiểm tra cập nhật'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleClearCacheAndReload}
+            disabled={isCheckingUpdate || isClearingCache}
+            className="py-2 px-3 rounded-2xl border border-[#E6E2DA] hover:bg-[#FFF1F2] active:scale-95 text-xs font-semibold text-[#78716C] hover:text-[#E11D48] flex items-center justify-center gap-1.5 transition-all tactile-btn disabled:opacity-50 cursor-pointer"
+            title="Xóa cache Service Worker, dọn dẹp bộ nhớ đệm và tải lại code mới"
+          >
+            <RotateCcw className={`w-3.5 h-3.5 ${isClearingCache ? 'animate-spin' : ''}`} />
+            <span>{isClearingCache ? 'Đang tải lại...' : 'Xóa cache & Tải lại'}</span>
+          </button>
         </div>
       </div>
     </div>

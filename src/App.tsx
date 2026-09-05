@@ -10,6 +10,7 @@ import { Dashboard } from './components/Dashboard';
 import { FamilyHub } from './components/FamilyHub';
 import { FinancialFreedom } from './components/FinancialFreedom';
 import { MonthPicker } from './components/MonthPicker';
+import { UpdateNotification } from './components/UpdateNotification';
 import { useApp } from './context/AppContext';
 
 export const App: React.FC = () => {
@@ -203,6 +204,9 @@ export const App: React.FC = () => {
         isOpen={isLetterOpen}
         onClose={() => setIsLetterOpen(false)}
       />
+
+      {/* Thông báo cập nhật phiên bản mới tự động */}
+      <UpdateNotification />
     </div>
   );
 };

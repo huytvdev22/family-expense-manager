@@ -6,6 +6,7 @@ node_modules/
 # Production / Build
 dist/
 build/
+public/version.json
 
 # Logs
 npm-debug.log*
