@@ -193,25 +193,26 @@ export const FinancialFreedom: React.FC = () => {
       {/* =========================================================================
           1. HEADER PHÂN HỆ TỰ DO TÀI CHÍNH & BANNER TỔNG QUAN
           ========================================================================= */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-1">
         <div>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-[#0F3D39] text-[#FAF9F6] flex items-center justify-center shadow-xs">
-              <Target className="w-4 h-4" />
-            </div>
-            <h2 className="text-lg font-bold text-[#1C1917] tracking-tight">
+            <Target className="w-5 h-5 text-[#B45309] shrink-0" />
+            <h2 className="text-xl sm:text-2xl font-bold text-[#1C1917] tracking-tight">
               Lộ trình Tự do Tài chính
             </h2>
+            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#B45309] border border-[#B45309]/20">
+              {financialGoals.length} mục tiêu
+            </span>
           </div>
-          <p className="text-xs text-[#78716C] mt-1">
-            Không gian đồng hành của {activeHousehold?.name || 'tổ ấm'} — Xóa nợ bền bỉ & Tích lũy tương lai
+          <p className="text-xs text-[#78716C] mt-1 sm:ml-7">
+            Kế hoạch xóa nợ bền bỉ & tích lũy tài sản đồng hành cùng {activeHousehold?.name || 'tổ ấm'}
           </p>
         </div>
 
         <button
           type="button"
           onClick={() => handleOpenCreate('DEBT_PAYOFF')}
-          className="px-4 py-2.5 rounded-2xl bg-[#0F3D39] hover:bg-[#174E4A] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm active:scale-98 transition-all cursor-pointer"
+          className="self-start sm:self-auto px-4 py-2.5 rounded-2xl bg-[#0F3D39] hover:bg-[#174E4A] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-sm active:scale-98 transition-all cursor-pointer shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span>Thêm mục tiêu mới</span>
