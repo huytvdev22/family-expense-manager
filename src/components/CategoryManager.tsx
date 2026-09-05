@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Plus, FolderTree, Check, Edit3, Trash2, RotateCcw, Archive, Shield, X, Zap } from 'lucide-react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Plus, FolderTree, Check, Edit3, Trash2, RotateCcw, Archive, Shield, X, Zap, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND } from '../utils/currency';
 import { playActionClick, playSuccessChime } from '../utils/audio';
@@ -66,6 +66,9 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
   // Chế độ xem theo loại: 'EXPENSE' (Khoản chi) hoặc 'INCOME' (Thu nhập)
   const [activeType, setActiveType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
 
+  // Tab chính: 'CATEGORIES' (Quản lý Danh mục) hoặc 'QUICK_TAGS' (Gợi ý 1-chạm)
+  const [mainTab, setMainTab] = useState<'CATEGORIES' | 'QUICK_TAGS'>('CATEGORIES');
+
   // Trạng thái Quản lý Quick Tag
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [editingTag, setEditingTag] = useState<QuickTagItem | null>(null);
@@ -73,6 +76,8 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
   const [tagEmoji, setTagEmoji] = useState('🛒');
   const [tagCategoryId, setTagCategoryId] = useState('');
   const [tagDefaultAmount, setTagDefaultAmount] = useState('');
+  const [isTagCatDropdownOpen, setIsTagCatDropdownOpen] = useState(false);
+  const tagCatDropdownRef = useRef<HTMLDivElement>(null);
 
   // Trạng thái thêm mới
   const [isAdding, setIsAdding] = useState(false);
@@ -108,6 +113,26 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
       .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
   }, [quickTags, activeType]);
 
+  // Danh mục đang chọn cho Quick Tag
+  const selectedTagCategory = useMemo(() => {
+    return activeCategories.find((c) => c.id === tagCategoryId) || activeCategories[0];
+  }, [activeCategories, tagCategoryId]);
+
+  // Đóng dropdown chọn danh mục khi click ra ngoài
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tagCatDropdownRef.current && !tagCatDropdownRef.current.contains(event.target as Node)) {
+        setIsTagCatDropdownOpen(false);
+      }
+    };
+    if (isTagCatDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isTagCatDropdownOpen]);
+
   const resetTagForm = () => {
     setIsAddingTag(false);
     setEditingTag(null);
@@ -115,6 +140,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
     setTagEmoji(activeType === 'INCOME' ? '💼' : '🛒');
     setTagCategoryId('');
     setTagDefaultAmount('');
+    setIsTagCatDropdownOpen(false);
   };
 
   const handleStartAddTag = () => {
@@ -126,6 +152,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
     setTagEmoji(activeType === 'INCOME' ? '💼' : '🛒');
     setTagCategoryId(activeCategories[0]?.id || '');
     setTagDefaultAmount('');
+    setIsTagCatDropdownOpen(false);
   };
 
   const handleStartEditTag = (tag: QuickTagItem) => {
@@ -137,6 +164,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
     setTagEmoji(tag.emoji);
     setTagCategoryId(tag.categoryId);
     setTagDefaultAmount(tag.defaultAmount ? String(tag.defaultAmount) : '');
+    setIsTagCatDropdownOpen(false);
   };
 
   const handleSaveQuickTag = async () => {
@@ -262,17 +290,21 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#F5F3EF]">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-2xl bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center shadow-2xs">
-            <FolderTree className="w-4 h-4" />
+            {mainTab === 'CATEGORIES' ? <FolderTree className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
           </div>
           <div>
-            <h3 className="text-sm font-bold text-[#1C1917]">Quản lý nhóm chi tiêu & nguồn thu</h3>
+            <h3 className="text-sm font-bold text-[#1C1917]">
+              {mainTab === 'CATEGORIES' ? 'Quản lý nhóm chi tiêu & nguồn thu' : 'Gợi ý 1-chạm (Quick Tags)'}
+            </h3>
             <p className="text-[11px] text-[#78716C]">
-              Tùy biến các danh mục của {activeHousehold?.name || 'tổ ấm'}
+              {mainTab === 'CATEGORIES'
+                ? `Tùy biến các danh mục của ${activeHousehold?.name || 'tổ ấm'}`
+                : 'Tùy biến các phím tắt xuất hiện trên bàn phím ghi sổ nhanh'}
             </p>
           </div>
         </div>
 
-        {/* Bộ chuyển đổi loại: Khoản chi vs Thu nhập & Nút khôi phục mẫu */}
+        {/* Bộ chuyển đổi loại: Khoản chi vs Thu nhập */}
         <div className="flex items-center gap-1.5">
           <div className="flex items-center bg-[#F5F3EF] border border-[#E6E2DA] rounded-xl p-0.5 shadow-2xs">
             <button
@@ -314,6 +346,59 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
           </div>
         </div>
       </div>
+
+      {/* THANH CHUYỂN ĐỔI TAB CHÍNH: Nhóm Danh mục vs Gợi ý 1-chạm */}
+      <div className="flex items-center gap-1.5 p-1 bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl">
+        <button
+          type="button"
+          onClick={() => {
+            playActionClick();
+            triggerHaptic(10);
+            setMainTab('CATEGORIES');
+          }}
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            mainTab === 'CATEGORIES'
+              ? 'bg-white text-[#0F3D39] shadow-xs'
+              : 'text-[#78716C] hover:text-[#1C1917]'
+          }`}
+        >
+          <FolderTree className="w-3.5 h-3.5" />
+          <span>Nhóm danh mục</span>
+          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-medium ${
+            mainTab === 'CATEGORIES' ? 'bg-[#E7EFEF] text-[#0F3D39]' : 'bg-[#E6E2DA] text-[#78716C]'
+          }`}>
+            {activeCategories.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            playActionClick();
+            triggerHaptic(10);
+            setMainTab('QUICK_TAGS');
+          }}
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            mainTab === 'QUICK_TAGS'
+              ? 'bg-white text-[#0F3D39] shadow-xs'
+              : 'text-[#78716C] hover:text-[#1C1917]'
+          }`}
+        >
+          <Zap className="w-3.5 h-3.5 fill-[#0F3D39]" />
+          <span>Gợi ý 1-chạm (Quick Tags)</span>
+          <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-medium ${
+            mainTab === 'QUICK_TAGS' ? 'bg-[#E7EFEF] text-[#0F3D39]' : 'bg-[#E6E2DA] text-[#78716C]'
+          }`}>
+            {currentTypeQuickTags.length}
+          </span>
+        </button>
+      </div>
+
+      {/* =========================================================================
+          TAB 1: QUẢN LÝ NHÓM DANH MỤC
+          ========================================================================= */}
+      {mainTab === 'CATEGORIES' && (
+        <div className="space-y-4 animate-in fade-in duration-150">
 
       {/* Danh sách các nhóm danh mục đang hoạt động hoặc Empty State */}
       {activeCategories.length === 0 ? (
@@ -666,91 +751,148 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
           )}
         </div>
       )}
-
-      {/* KHU VỰC: QUẢN LÝ QUICK TAGS (GỢI Ý 1-CHẠM) */}
-      <div className="pt-6 border-t-2 border-[#F5F3EF] space-y-3.5">
-        {/* Header của Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="w-6 h-6 rounded-lg bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center shadow-2xs">
-                <Zap className="w-3.5 h-3.5 fill-[#0F3D39]" />
-              </span>
-              <h3 className="text-sm font-bold text-[#1C1917]">
-                Gợi ý 1-chạm (Quick Tags)
-              </h3>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#FAF9F6] border border-[#E6E2DA] text-[#78716C] font-semibold">
-                {currentTypeQuickTags.length} phím tắt
-              </span>
-            </div>
-            <p className="text-[11px] text-[#78716C] mt-0.5">
-              Phím tắt xuất hiện trên bàn phím ghi sổ để chọn nhanh nhóm {activeType === 'INCOME' ? 'thu nhập' : 'chi tiêu'} và số tiền quen thuộc
-            </p>
-          </div>
-
-          {!isAddingTag && !editingTag && (
-            <button
-              type="button"
-              onClick={handleStartAddTag}
-              className="px-3.5 py-2 bg-[#FAF9F6] hover:bg-white border border-[#E6E2DA] hover:border-[#0F3D39] text-[#0F3D39] text-xs font-semibold rounded-xl transition-all shadow-2xs inline-flex items-center gap-1.5 cursor-pointer self-start sm:self-auto active:scale-95"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Thêm phím tắt</span>
-            </button>
-          )}
         </div>
+      )}
 
-        {/* Form Thêm / Sửa Quick Tag */}
-        {(isAddingTag || editingTag) && (
-          <div className="p-4 rounded-2xl border border-[#0F3D39]/20 bg-[#FAF9F6] shadow-xs space-y-3.5 animate-in fade-in duration-150">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#1C1917] flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-[#0F3D39]" />
-                {editingTag ? 'Chỉnh sửa phím tắt' : `Thêm phím tắt ${activeType === 'INCOME' ? 'thu nhập' : 'chi tiêu'} mới`}
-              </span>
+      {/* =========================================================================
+          TAB 2: QUẢN LÝ QUICK TAGS (GỢI Ý 1-CHẠM)
+          ========================================================================= */}
+      {mainTab === 'QUICK_TAGS' && (
+        <div className="space-y-4 animate-in fade-in duration-150">
+          {/* Header của Tab Quick Tags */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-lg bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center shadow-2xs">
+                  <Zap className="w-3.5 h-3.5 fill-[#0F3D39]" />
+                </span>
+                <h3 className="text-sm font-bold text-[#1C1917]">
+                  Gợi ý 1-chạm (Quick Tags)
+                </h3>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#FAF9F6] border border-[#E6E2DA] text-[#78716C] font-semibold">
+                  {currentTypeQuickTags.length} phím tắt
+                </span>
+              </div>
+              <p className="text-[11px] text-[#78716C] mt-0.5">
+                Phím tắt xuất hiện trên bàn phím ghi sổ để chọn nhanh nhóm {activeType === 'INCOME' ? 'thu nhập' : 'chi tiêu'} và số tiền quen thuộc
+              </p>
+            </div>
+
+            {!isAddingTag && !editingTag && (
               <button
                 type="button"
-                onClick={resetTagForm}
-                className="p-1 rounded-lg hover:bg-white text-[#78716C] hover:text-[#1C1917] transition-all cursor-pointer"
+                onClick={handleStartAddTag}
+                className="px-3.5 py-2 bg-[#FAF9F6] hover:bg-white border border-[#E6E2DA] hover:border-[#0F3D39] text-[#0F3D39] text-xs font-semibold rounded-xl transition-all shadow-2xs inline-flex items-center gap-1.5 cursor-pointer self-start sm:self-auto active:scale-95"
               >
-                <X className="w-4 h-4" />
+                <Plus className="w-3.5 h-3.5" />
+                <span>Thêm phím tắt</span>
               </button>
-            </div>
+            )}
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Tên nhãn */}
-              <div>
-                <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
-                  Tên phím tắt <span className="text-[#E11D48]">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={tagLabel}
-                  onChange={(e) => setTagLabel(e.target.value)}
-                  placeholder={activeType === 'INCOME' ? 'vd: Lương chính, Thưởng dự án, Cổ tức...' : 'vd: Cà phê sáng, Cơm trưa, Xăng xe, Bỉm sữa...'}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-[#E6E2DA] bg-white focus:outline-none focus:border-[#0F3D39] focus:ring-1 focus:ring-[#0F3D39] transition-all"
-                  autoFocus
-                />
-              </div>
-
-              {/* Danh mục liên kết */}
-              <div>
-                <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
-                  Gắn vào Danh mục <span className="text-[#E11D48]">*</span>
-                </label>
-                <select
-                  value={tagCategoryId}
-                  onChange={(e) => setTagCategoryId(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-[#E6E2DA] bg-white focus:outline-none focus:border-[#0F3D39] focus:ring-1 focus:ring-[#0F3D39] transition-all"
+          {/* Form Thêm / Sửa Quick Tag */}
+          {(isAddingTag || editingTag) && (
+            <div className="p-4 rounded-2xl border border-[#0F3D39]/20 bg-[#FAF9F6] shadow-xs space-y-3.5 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-[#1C1917] flex items-center gap-1.5">
+                  <Zap className="w-3.5 h-3.5 text-[#0F3D39]" />
+                  {editingTag ? 'Chỉnh sửa phím tắt' : `Thêm phím tắt ${activeType === 'INCOME' ? 'thu nhập' : 'chi tiêu'} mới`}
+                </span>
+                <button
+                  type="button"
+                  onClick={resetTagForm}
+                  className="p-1 rounded-lg hover:bg-white text-[#78716C] hover:text-[#1C1917] transition-all cursor-pointer"
                 >
-                  {activeCategories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-            </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Tên nhãn */}
+                <div>
+                  <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
+                    Tên phím tắt <span className="text-[#E11D48]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={tagLabel}
+                    onChange={(e) => setTagLabel(e.target.value)}
+                    placeholder={activeType === 'INCOME' ? 'vd: Lương chính, Thưởng dự án, Cổ tức...' : 'vd: Cà phê sáng, Cơm trưa, Xăng xe, Bỉm sữa...'}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#E6E2DA] bg-white focus:outline-none focus:border-[#0F3D39] focus:ring-1 focus:ring-[#0F3D39] transition-all"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Danh mục liên kết - Droplist có Icon và Màu sắc tương tự Numpad */}
+                <div className="relative" ref={tagCatDropdownRef}>
+                  <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
+                    Gắn vào Danh mục <span className="text-[#E11D48]">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playActionClick();
+                      triggerHaptic(5);
+                      setIsTagCatDropdownOpen((prev) => !prev);
+                    }}
+                    className={`w-full px-3 py-2 rounded-xl border bg-white text-xs flex items-center justify-between transition-all cursor-pointer ${
+                      isTagCatDropdownOpen
+                        ? 'border-[#0F3D39] ring-2 ring-[#0F3D39]/20'
+                        : 'border-[#E6E2DA] hover:border-[#0F3D39]/50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border border-[#E6E2DA]/80 bg-[#FAF9F6] shadow-2xs">
+                        {renderCategoryIcon(selectedTagCategory?.icon, "w-3.5 h-3.5", selectedTagCategory?.color || (activeType === 'INCOME' ? '#10B981' : '#0F3D39'))}
+                      </span>
+                      <span className="font-semibold text-[#1C1917] truncate">
+                        {selectedTagCategory?.name || (activeType === 'INCOME' ? 'Chọn nguồn thu' : 'Chọn danh mục chi')}
+                      </span>
+                    </div>
+                    <ChevronDown
+                      className={`w-4 h-4 text-[#78716C] transition-transform duration-200 shrink-0 ${
+                        isTagCatDropdownOpen ? 'rotate-180 text-[#0F3D39]' : ''
+                      }`}
+                    />
+                  </button>
+
+                  {/* Menu thả xuống */}
+                  {isTagCatDropdownOpen && (
+                    <div className="absolute top-full left-0 right-0 mt-1 max-h-52 overflow-y-auto bg-white border border-[#E6E2DA] rounded-2xl shadow-xl p-1.5 z-40 space-y-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                      {activeCategories.map((cat) => {
+                        const isSelected = (tagCategoryId || activeCategories[0]?.id) === cat.id;
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            onClick={() => {
+                              playActionClick();
+                              triggerHaptic(10);
+                              setTagCategoryId(cat.id);
+                              setIsTagCatDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-left text-xs transition-colors cursor-pointer ${
+                              isSelected
+                                ? activeType === 'INCOME'
+                                  ? 'bg-[#ECFDF5] text-[#047857] font-semibold'
+                                  : 'bg-[#E7EFEF] text-[#0F3D39] font-semibold'
+                                : 'text-[#1C1917] hover:bg-[#FAF9F6]'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border border-[#E6E2DA]/80 bg-white shadow-2xs">
+                                {renderCategoryIcon(cat.icon, "w-3.5 h-3.5", cat.color || (activeType === 'INCOME' ? '#10B981' : '#0F3D39'))}
+                              </span>
+                              <span className="truncate">{cat.name}</span>
+                            </div>
+                            {isSelected && <Check className="w-3.5 h-3.5 text-[#0F3D39] shrink-0" />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
 
             {/* Biểu tượng Emoji & Số tiền mặc định */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -899,6 +1041,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
           </div>
         )}
       </div>
-    </div>
-  );
+    )}
+  </div>
+);
 };
