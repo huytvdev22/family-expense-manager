@@ -677,6 +677,22 @@ export async function updateMemberEmail(
 }
 
 /**
+ * CẬP NHẬT TÊN TỔ ẤM
+ */
+export async function updateHouseholdName(
+  householdId: string,
+  name: string
+): Promise<void> {
+  if (!db || !householdId || !name.trim()) return;
+
+  const householdRef = doc(db, 'households', householdId);
+  await updateDoc(householdRef, {
+    name: name.trim(),
+    updatedAt: Date.now()
+  }).catch((e) => console.warn('Lỗi cập nhật tên tổ ấm:', e));
+}
+
+/**
  * TỰ ĐỘNG BÙ DANH MỤC MẶC ĐỊNH BỊ THIẾU VÀO TỔ ẤM (SELF-HEALING)
  * Đảm bảo các tổ ấm tạo từ trước tự động nhận đủ các danh mục Thu Nhập & Chi Tiêu chuẩn
  */

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Heart,
   Users,
@@ -19,7 +19,8 @@ import {
   RotateCcw,
   CheckCircle2,
   Clock,
-  Settings
+  Settings,
+  X
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from './Toast';
@@ -52,6 +53,7 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
     userHouseholds,
     switchHousehold,
     updateBudget,
+    updateHouseholdName,
     soundEnabled,
     toggleSound,
     loginWithGoogle,
@@ -67,6 +69,23 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'general' | 'categories'>('general');
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState(String(activeHousehold?.monthlyBudget || 30000000));
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState(activeHousehold?.name || 'Tổ Ấm Nhỏ');
+
+  useEffect(() => {
+    if (activeHousehold?.name) {
+      setNameInput(activeHousehold.name);
+    }
+  }, [activeHousehold?.name]);
+
+  const handleSaveName = async () => {
+    if (!nameInput.trim()) {
+      showToast('Tên tổ ấm không được để trống', 'warning');
+      return;
+    }
+    await updateHouseholdName(nameInput.trim());
+    setIsEditingName(false);
+  };
 
   // Trạng thái quản lý phiên bản & cập nhật
   const { showToast } = useToast();
@@ -172,15 +191,65 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
           <div className="w-12 h-12 rounded-2xl bg-[#0F3D39] text-[#FAF9F6] flex items-center justify-center shadow-xs">
             <Heart className="w-6 h-6 fill-current text-[#FAF9F6]" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-[#1C1917]">
-                {activeHousehold?.name || 'Tổ Ấm Nhỏ'}
-              </h2>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#047857] font-semibold border border-[#10B981]/20">
-                Đồng hành
-              </span>
-            </div>
+          <div className="flex-1 min-w-0">
+            {isEditingName ? (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <input
+                  type="text"
+                  value={nameInput}
+                  onChange={(e) => setNameInput(e.target.value)}
+                  placeholder="Nhập tên tổ ấm..."
+                  className="px-2.5 py-1 text-sm font-bold bg-[#FAF9F6] border border-[#0F3D39] rounded-xl outline-hidden text-[#1C1917] max-w-[200px]"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSaveName();
+                    if (e.key === 'Escape') setIsEditingName(false);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveName}
+                  className="p-1.5 rounded-xl bg-[#0F3D39] text-white hover:bg-[#174E4A] transition-all cursor-pointer shadow-xs active:scale-95"
+                  title="Lưu tên tổ ấm"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNameInput(activeHousehold?.name || 'Tổ Ấm Nhỏ');
+                    setIsEditingName(false);
+                  }}
+                  className="p-1.5 rounded-xl bg-[#FAF9F6] border border-[#E6E2DA] text-[#78716C] hover:text-[#1C1917] transition-all cursor-pointer active:scale-95"
+                  title="Hủy"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base font-bold text-[#1C1917] truncate">
+                  {activeHousehold?.name || 'Tổ Ấm Nhỏ'}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(5);
+                    setNameInput(activeHousehold?.name || 'Tổ Ấm Nhỏ');
+                    setIsEditingName(true);
+                  }}
+                  className="w-7 h-7 rounded-xl flex items-center justify-center text-[#78716C] hover:text-[#0F3D39] hover:bg-[#FAF9F6] border border-transparent hover:border-[#E6E2DA] transition-all cursor-pointer active:scale-95"
+                  title="Đổi tên tổ ấm"
+                  aria-label="Đổi tên tổ ấm"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#047857] font-semibold border border-[#10B981]/20">
+                  Đồng hành
+                </span>
+              </div>
+            )}
             <p className="text-xs text-[#78716C] font-mono mt-0.5">
               Mã tổ ấm: <span className="font-semibold text-[#0F3D39]">{activeHousehold?.id || 'hh_demo_family'}</span>
             </p>

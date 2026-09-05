@@ -25,6 +25,7 @@ import {
   setMemberRole,
   syncMemberPhoto,
   updateMemberEmail as firestoreUpdateMemberEmail,
+  updateHouseholdName as firestoreUpdateHouseholdName,
   saveCategory,
   updateCategory,
   archiveCategory,
@@ -106,6 +107,7 @@ interface AppContextType {
   editTransaction: (oldTx: Transaction, updatedTx: Transaction) => Promise<void>;
   removeTransaction: (tx: Transaction) => Promise<void>;
   updateBudget: (newBudget: number) => Promise<void>;
+  updateHouseholdName: (name: string) => Promise<void>;
   createNewHousehold: (name: string, budget: number) => Promise<void>;
   generateInviteCode: () => Promise<string>;
   joinWithInviteCode: (code: string) => Promise<void>;
@@ -656,6 +658,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setActiveHousehold((prev) => prev ? { ...prev, monthlyBudget: newBudget } : null);
   };
 
+  // CẬP NHẬT TÊN TỔ ẤM
+  const updateHouseholdName = async (name: string) => {
+    const trimmed = name.trim();
+    if (!activeHousehold || !trimmed) return;
+
+    playSuccessChime();
+    triggerHaptic(10);
+
+    setActiveHousehold((prev) => prev ? { ...prev, name: trimmed, updatedAt: Date.now() } : null);
+    setUserHouseholds((prev) =>
+      prev.map((hh) => (hh.id === activeHousehold.id ? { ...hh, name: trimmed, updatedAt: Date.now() } : hh))
+    );
+
+    if (isFirebaseActive && firebaseUser) {
+      try {
+        await firestoreUpdateHouseholdName(activeHousehold.id, trimmed);
+      } catch (err) {
+        console.error('Lỗi cập nhật tên tổ ấm lên Firestore:', err);
+      }
+    }
+
+    showToast(`Đã đổi tên tổ ấm thành "${trimmed}"`, 'success');
+  };
+
   // THÊM DANH MỤC MỚI
   const createCategory = async (catData: Omit<Category, 'id' | 'createdAt' | 'isArchived' | 'order'>) => {
     const newCat: Category = {
@@ -1065,6 +1091,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         editTransaction,
         removeTransaction,
         updateBudget,
+        updateHouseholdName,
         createNewHousehold,
         generateInviteCode,
         joinWithInviteCode,

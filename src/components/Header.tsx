@@ -64,13 +64,8 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <h1 className="text-sm sm:text-base font-semibold tracking-tight text-[#1C1917] leading-none whitespace-nowrap">
-                  Tổ Ấm Nhỏ
+                  {activeHousehold?.name || 'Tổ Ấm Nhỏ'}
                 </h1>
-                {activeHousehold?.name && activeHousehold.name !== 'Tổ Ấm Nhỏ' && (
-                  <span className="text-[10px] uppercase font-mono tracking-wider px-1.5 py-0.5 rounded-full bg-[#E7EFEF] text-[#0F3D39] font-medium truncate max-w-[90px] sm:max-w-[120px]">
-                    {activeHousehold.name}
-                  </span>
-                )}
               </div>
               <p className="text-[11px] sm:text-xs text-[#78716C] mt-0.5 font-normal truncate hidden sm:block">
                 Sổ cái tài chính đồng hành
