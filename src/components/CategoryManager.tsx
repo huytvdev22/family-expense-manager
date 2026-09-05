@@ -21,7 +21,15 @@ interface CategoryManagerProps {
 }
 
 export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = '' }) => {
-  const { categories, activeHousehold, createCategory, editCategory, removeCategory, restoreCategory } = useApp();
+  const { 
+    categories, 
+    activeHousehold, 
+    createCategory, 
+    editCategory, 
+    removeCategory, 
+    restoreCategory,
+    restoreDefaultCategories 
+  } = useApp();
   const { showToast } = useToast();
 
   // Chế độ xem theo loại: 'EXPENSE' (Khoản chi) hoặc 'INCOME' (Thu nhập)
@@ -139,105 +147,142 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
           </div>
         </div>
 
-        {/* Bộ chuyển đổi loại: Khoản chi vs Thu nhập */}
-        <div className="flex items-center bg-[#F5F3EF] border border-[#E6E2DA] rounded-xl p-0.5 shadow-2xs">
+        {/* Bộ chuyển đổi loại: Khoản chi vs Thu nhập & Nút khôi phục mẫu */}
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center bg-[#F5F3EF] border border-[#E6E2DA] rounded-xl p-0.5 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => {
+                playActionClick();
+                triggerHaptic(10);
+                setActiveType('EXPENSE');
+                setEditingCat(null);
+                setIsAdding(false);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all tactile-btn cursor-pointer ${
+                activeType === 'EXPENSE'
+                  ? 'bg-[#0F3D39] text-white shadow-2xs'
+                  : 'text-[#78716C] hover:text-[#1C1917]'
+              }`}
+            >
+              💸 Khoản chi
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                playActionClick();
+                triggerHaptic(10);
+                setActiveType('INCOME');
+                setEditingCat(null);
+                setIsAdding(false);
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all tactile-btn cursor-pointer ${
+                activeType === 'INCOME'
+                  ? 'bg-[#10B981] text-white shadow-2xs'
+                  : 'text-[#78716C] hover:text-[#1C1917]'
+              }`}
+            >
+              💰 Thu nhập
+            </button>
+          </div>
+
           <button
             type="button"
-            onClick={() => {
-              playActionClick();
-              triggerHaptic(10);
-              setActiveType('EXPENSE');
-              setEditingCat(null);
-              setIsAdding(false);
-            }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all tactile-btn cursor-pointer ${
-              activeType === 'EXPENSE'
-                ? 'bg-[#0F3D39] text-white shadow-2xs'
-                : 'text-[#78716C] hover:text-[#1C1917]'
-            }`}
+            onClick={() => restoreDefaultCategories(activeType)}
+            className="p-2 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] text-[#78716C] hover:text-[#0F3D39] hover:bg-white hover:border-[#0F3D39] transition-all cursor-pointer shadow-2xs"
+            title={`Khôi phục các danh mục ${activeType === 'INCOME' ? 'Thu Nhập' : 'Chi Tiêu'} mẫu chuẩn`}
           >
-            💸 Khoản chi
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              playActionClick();
-              triggerHaptic(10);
-              setActiveType('INCOME');
-              setEditingCat(null);
-              setIsAdding(false);
-            }}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all tactile-btn cursor-pointer ${
-              activeType === 'INCOME'
-                ? 'bg-[#10B981] text-white shadow-2xs'
-                : 'text-[#78716C] hover:text-[#1C1917]'
-            }`}
-          >
-            💰 Thu nhập
+            <RotateCcw className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Danh sách các nhóm danh mục đang hoạt động */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-        {activeCategories.map((cat) => {
-          return (
-            <div
-              key={cat.id}
-              className="p-3.5 rounded-2xl border border-[#F5F3EF] bg-[#FAF9F6] hover:bg-white hover:border-[#E6E2DA] transition-all flex flex-col justify-between gap-2.5 shadow-2xs group"
-            >
-              {/* Dòng 1: Tên nhóm, màu và các nút thao tác */}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span
-                    className="w-3.5 h-3.5 rounded-full shrink-0 shadow-2xs"
-                    style={{ backgroundColor: cat.color }}
-                  />
-                  <p className="text-xs font-bold text-[#1C1917] truncate">{cat.name}</p>
-                </div>
+      {/* Danh sách các nhóm danh mục đang hoạt động hoặc Empty State */}
+      {activeCategories.length === 0 ? (
+        <div className="p-8 rounded-3xl border-2 border-dashed border-[#E6E2DA] bg-[#FAF9F6] text-center space-y-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-white border border-[#E6E2DA] shadow-2xs flex items-center justify-center mx-auto text-[#0F3D39]">
+            <FolderTree className="w-6 h-6 opacity-60" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-[#1C1917]">
+              Chưa có danh mục {activeType === 'INCOME' ? 'Thu Nhập' : 'Chi Tiêu'} nào
+            </p>
+            <p className="text-[11px] text-[#78716C] max-w-sm mx-auto mt-0.5">
+              {activeType === 'INCOME'
+                ? 'Tổ ấm của bạn chưa có danh mục thu nhập chuẩn (Tiền lương, Tiền thưởng, Thu nhập phụ...). Bấm nút bên dưới để khôi phục ngay!'
+                : 'Tổ ấm của bạn hiện chưa có danh mục chi tiêu nào.'}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => restoreDefaultCategories(activeType)}
+            className="px-4 py-2.5 bg-[#0F3D39] hover:bg-[#174E4A] text-white text-xs font-bold rounded-2xl transition-all shadow-xs inline-flex items-center gap-1.5 cursor-pointer active:scale-95"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Khôi phục danh mục {activeType === 'INCOME' ? 'Thu Nhập' : 'Chi Tiêu'} mẫu</span>
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+          {activeCategories.map((cat) => {
+            return (
+              <div
+                key={cat.id}
+                className="p-3.5 rounded-2xl border border-[#F5F3EF] bg-[#FAF9F6] hover:bg-white hover:border-[#E6E2DA] transition-all flex flex-col justify-between gap-2.5 shadow-2xs group"
+              >
+                {/* Dòng 1: Tên nhóm, màu và các nút thao tác */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span
+                      className="w-3.5 h-3.5 rounded-full shrink-0 shadow-2xs"
+                      style={{ backgroundColor: cat.color }}
+                    />
+                    <p className="text-xs font-bold text-[#1C1917] truncate">{cat.name}</p>
+                  </div>
 
-                <div className="flex items-center gap-1 shrink-0">
-                  {cat.isDefault ? (
-                    <span 
-                      className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-[#E7EFEF] text-[#0F3D39] font-medium flex items-center gap-0.5"
-                      title="Danh mục chuẩn mặc định của ứng dụng"
-                    >
-                      <Shield className="w-2.5 h-2.5" />
-                      <span>Chuẩn</span>
-                    </span>
-                  ) : (
+                  <div className="flex items-center gap-1 shrink-0">
+                    {cat.isDefault ? (
+                      <span 
+                        className="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-[#E7EFEF] text-[#0F3D39] font-medium flex items-center gap-0.5"
+                        title="Danh mục chuẩn mặc định của ứng dụng"
+                      >
+                        <Shield className="w-2.5 h-2.5" />
+                        <span>Chuẩn</span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCategory(cat)}
+                        className="text-[#A8A29E] hover:text-[#E11D48] p-1 rounded-md hover:bg-[#FFF1F2] opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
+                        title="Xóa hoặc ẩn nhóm này"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
                     <button
                       type="button"
-                      onClick={() => handleDeleteCategory(cat)}
-                      className="text-[#A8A29E] hover:text-[#E11D48] p-1 rounded-md hover:bg-[#FFF1F2] opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
-                      title="Xóa hoặc ẩn nhóm này"
+                      onClick={() => handleStartEdit(cat)}
+                      className="text-[#A8A29E] hover:text-[#0F3D39] p-1 rounded-md hover:bg-[#E7EFEF] opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
+                      title="Chỉnh sửa tên, màu sắc, hạn mức"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Edit3 className="w-3.5 h-3.5" />
                     </button>
-                  )}
+                  </div>
+                </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleStartEdit(cat)}
-                    className="text-[#A8A29E] hover:text-[#0F3D39] p-1 rounded-md hover:bg-[#E7EFEF] opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
-                    title="Chỉnh sửa tên, màu sắc, hạn mức"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
+                {/* Dòng 2: Hạn mức ngân sách */}
+                <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#F5F3EF]">
+                  <span className="text-[#78716C]">Hạn mức tháng:</span>
+                  <span className="font-mono text-[#0F3D39] font-semibold">
+                    {cat.monthlyLimit ? formatVND(cat.monthlyLimit) : 'Không giới hạn'}
+                  </span>
                 </div>
               </div>
-
-              {/* Dòng 2: Hạn mức ngân sách */}
-              <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#F5F3EF]">
-                <span className="text-[#78716C]">Hạn mức tháng:</span>
-                <span className="font-mono text-[#0F3D39] font-semibold">
-                  {cat.monthlyLimit ? formatVND(cat.monthlyLimit) : 'Không giới hạn'}
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Form Chỉnh sửa Danh mục Inline */}
       {editingCat && (

@@ -5,7 +5,7 @@ import { formatVND } from '../utils/currency';
 import { playKeyClick, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { QuickTags } from './QuickTags';
-import { DEFAULT_INCOME_QUICK_TAGS } from '../services/mockData';
+import { DEFAULT_INCOME_QUICK_TAGS, DEFAULT_CATEGORIES } from '../services/mockData';
 import type { QuickTagItem, CategoryKey } from '../types';
 import { useToast } from './Toast';
 
@@ -37,12 +37,14 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
   const currentCategories = useMemo(() => {
     const activeList = categories.filter((c) => !c.isArchived);
     const list = activeList.filter((c) => (c.type || 'EXPENSE') === txType);
-    return list.length > 0 ? list : activeList;
+    if (list.length > 0) return list;
+    // Fallback an toàn: nếu danh mục của loại này chưa kịp tải, hiển thị danh mục mặc định chuẩn của đúng loại đó
+    return DEFAULT_CATEGORIES.filter((c) => (c.type || 'EXPENSE') === txType);
   }, [categories, txType]);
 
   // Nhóm chi/thu được chọn
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>(
-    currentCategories[0]?.id || 'cat_essential'
+    currentCategories[0]?.id || (txType === 'INCOME' ? 'cat_income_salary' : 'cat_essential')
   );
 
   // Ghi chú / Diễn giải
@@ -52,7 +54,8 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
 
   // Tự động chuyển danh mục mặc định khi đổi loại giao dịch
   useEffect(() => {
-    const firstCat = categories.find((c) => (c.type || 'EXPENSE') === txType);
+    const firstCat = categories.find((c) => !c.isArchived && (c.type || 'EXPENSE') === txType)
+      || DEFAULT_CATEGORIES.find((c) => (c.type || 'EXPENSE') === txType);
     if (firstCat) {
       setSelectedCategoryId(firstCat.id);
     }

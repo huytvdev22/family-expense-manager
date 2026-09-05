@@ -29,9 +29,12 @@ import {
   updateCategory,
   archiveCategory,
   unarchiveCategory,
-  deleteCategoryPermanently
+  deleteCategoryPermanently,
+  seedMissingCategories,
+  restoreDefaultCategories as firestoreRestoreDefaultCategories
 } from '../services/firestoreService';
 import { 
+  DEFAULT_CATEGORIES,
   MOCK_USER, 
   MOCK_HOUSEHOLD, 
   MOCK_CATEGORIES, 
@@ -61,6 +64,7 @@ interface AppContextType {
   editCategory: (categoryId: string, updates: Partial<Category>) => Promise<void>;
   removeCategory: (category: Category) => Promise<void>;
   restoreCategory: (categoryId: string) => Promise<void>;
+  restoreDefaultCategories: (type?: 'EXPENSE' | 'INCOME') => Promise<void>;
   
   // Thời gian xem sổ cái
   currentYearMonth: string;
@@ -389,7 +393,29 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     const unsubCat = subscribeCategories(activeHousehold.id, (cats) => {
-      if (cats.length > 0) setCategories(cats);
+      if (cats.length > 0) {
+        // Kiểm tra xem tổ ấm có thiếu danh mục thu nhập hay danh mục mặc định nào không
+        const hasIncome = cats.some((c) => (c.type || 'EXPENSE') === 'INCOME');
+        const existingIds = new Set(cats.map((c) => c.id));
+        const missingDefaults = DEFAULT_CATEGORIES.filter((def) => !existingIds.has(def.id));
+
+        if (!hasIncome || missingDefaults.length > 0) {
+          // Bù vào Firestore trong nền để lưu vĩnh viễn
+          seedMissingCategories(activeHousehold.id, cats).catch((err) => {
+            console.warn('Lỗi tự động bù danh mục tổ ấm:', err);
+          });
+          // Gộp ngay lập tức vào state cục bộ để giao diện có ngay lập tức
+          setCategories([...cats, ...missingDefaults]);
+        } else {
+          setCategories(cats);
+        }
+      } else {
+        // Tổ ấm hoàn toàn chưa có danh mục nào (mới tạo hoặc rỗng)
+        seedMissingCategories(activeHousehold.id, []).catch((err) => {
+          console.warn('Lỗi tự động bù danh mục tổ ấm rỗng:', err);
+        });
+        setCategories(DEFAULT_CATEGORIES);
+      }
     });
 
     const unsubTx = subscribeTransactions(activeHousehold.id, currentYearMonth, (txs) => {
@@ -611,6 +637,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     showToast('Đã khôi phục danh mục thành công!', 'success');
   };
 
+  // KHÔI PHỤC TOÀN BỘ DANH MỤC MẪU (CHO THU NHẬP HOẶC CHI TIÊU)
+  const restoreDefaultCategories = async (type?: 'EXPENSE' | 'INCOME') => {
+    playSuccessChime();
+    triggerHaptic(15);
+    const targets = type
+      ? DEFAULT_CATEGORIES.filter((c) => (c.type || 'EXPENSE') === type)
+      : DEFAULT_CATEGORIES;
+
+    setCategories((prev) => {
+      const remaining = prev.filter((c) => !targets.some((t) => t.id === c.id));
+      return [...remaining, ...targets];
+    });
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      try {
+        await firestoreRestoreDefaultCategories(activeHousehold.id, type);
+      } catch (err) {
+        console.error('Lỗi lưu danh mục mẫu lên Firestore:', err);
+      }
+    }
+    showToast(
+      type === 'INCOME'
+        ? 'Đã khôi phục danh mục Thu Nhập mẫu thành công!'
+        : 'Đã khôi phục danh mục mẫu thành công!',
+      'success'
+    );
+  };
+
   // TẠO TỔ ẤM MỚI
   const createNewHousehold = async (name: string, budget: number) => {
     if (isFirebaseActive && currentUser) {
@@ -787,6 +841,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         editCategory,
         removeCategory,
         restoreCategory,
+        restoreDefaultCategories,
         currentYearMonth,
         setCurrentYearMonth,
         goToPreviousMonth,

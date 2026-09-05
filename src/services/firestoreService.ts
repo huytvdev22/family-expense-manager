@@ -649,3 +649,48 @@ export async function updateMemberEmail(
     updatedAt: Date.now()
   }).catch((e) => console.warn('Lỗi cập nhật email thành viên tổ ấm:', e));
 }
+
+/**
+ * TỰ ĐỘNG BÙ DANH MỤC MẶC ĐỊNH BỊ THIẾU VÀO TỔ ẤM (SELF-HEALING)
+ * Đảm bảo các tổ ấm tạo từ trước tự động nhận đủ các danh mục Thu Nhập & Chi Tiêu chuẩn
+ */
+export async function seedMissingCategories(
+  householdId: string,
+  existingCategories: Category[]
+): Promise<Category[]> {
+  if (!db || !householdId) return [];
+
+  const existingIds = new Set(existingCategories.map((c) => c.id));
+  const missingCategories = DEFAULT_CATEGORIES.filter((cat) => !existingIds.has(cat.id));
+
+  if (missingCategories.length === 0) {
+    return [];
+  }
+
+  console.log(`Đang tự động bổ sung ${missingCategories.length} danh mục mặc định vào tổ ấm ${householdId}...`);
+  const catCol = collection(db, `households/${householdId}/categories`);
+
+  const writePromises = missingCategories.map((cat) => setDoc(doc(catCol, cat.id), cat));
+  await Promise.allSettled(writePromises);
+
+  return missingCategories;
+}
+
+/**
+ * KHÔI PHỤC DANH MỤC MẪU CHO TỔ ẤM
+ */
+export async function restoreDefaultCategories(
+  householdId: string,
+  type?: 'EXPENSE' | 'INCOME'
+): Promise<void> {
+  if (!db || !householdId) return;
+
+  const targets = type 
+    ? DEFAULT_CATEGORIES.filter(c => (c.type || 'EXPENSE') === type)
+    : DEFAULT_CATEGORIES;
+
+  const catCol = collection(db, `households/${householdId}/categories`);
+  const promises = targets.map(cat => setDoc(doc(catCol, cat.id), { ...cat, isArchived: false }));
+  await Promise.allSettled(promises);
+}
+
