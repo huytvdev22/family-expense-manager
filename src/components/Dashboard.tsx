@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -7,15 +7,20 @@ import {
   ShieldCheck, 
   AlertCircle, 
   Sparkles,
-  ArrowUpRight,
   ReceiptText,
   PiggyBank,
-  Wallet
+  Wallet,
+  SlidersHorizontal,
+  RotateCcw,
+  Info
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND } from '../utils/currency';
+import { playActionClick } from '../utils/audio';
+import { triggerHaptic } from '../utils/haptics';
 import { DailySpendingChart } from './DailySpendingChart';
 import { CategoryBreakdown } from './CategoryBreakdown';
+import { ReportCategoryFilterModal } from './ReportCategoryFilterModal';
 
 export const Dashboard: React.FC = () => {
   const {
@@ -35,7 +40,103 @@ export const Dashboard: React.FC = () => {
 
   const monthlyBudget = activeHousehold?.monthlyBudget || 30000000;
 
-  // 1. Tính toán Tốc độ đốt tiền (Burn Rate) & Dự phóng chi cuối tháng
+  // Trạng thái modal và danh mục bị loại trừ khỏi Báo cáo & Dự phóng
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const storageKey = `harmony_report_excluded_categories_${activeHousehold?.id || 'default'}`;
+
+  const [excludedCategoryIds, setExcludedCategoryIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Đồng bộ lại khi đổi hộ gia đình
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`harmony_report_excluded_categories_${activeHousehold?.id || 'default'}`);
+      setExcludedCategoryIds(saved ? JSON.parse(saved) : []);
+    } catch {
+      setExcludedCategoryIds([]);
+    }
+  }, [activeHousehold?.id]);
+
+  const updateExcludedCategoryIds = (newIds: string[]) => {
+    setExcludedCategoryIds(newIds);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(newIds));
+    } catch (e) {
+      console.error('Lỗi lưu excludedCategoryIds', e);
+    }
+  };
+
+  const handleToggleCategory = (categoryId: string) => {
+    const updated = excludedCategoryIds.includes(categoryId)
+      ? excludedCategoryIds.filter((id) => id !== categoryId)
+      : [...excludedCategoryIds, categoryId];
+    updateExcludedCategoryIds(updated);
+  };
+
+  const handleSelectAll = () => {
+    updateExcludedCategoryIds([]);
+  };
+
+  const handleExcludeDebtAndSavings = () => {
+    const debtOrSavingCatIds = categories
+      .filter((c) => c.type === 'EXPENSE' && (
+        c.categoryKey === 'SAVING' || 
+        c.id === 'cat_debt' || 
+        c.name.toLowerCase().includes('nợ') || 
+        c.name.toLowerCase().includes('ngân hàng') ||
+        c.name.toLowerCase().includes('vay')
+      ))
+      .map((c) => c.id);
+    updateExcludedCategoryIds(Array.from(new Set([...excludedCategoryIds, ...debtOrSavingCatIds])));
+  };
+
+  // 1. Phân loại giao dịch theo bộ lọc danh mục
+  const {
+    includedExpenseTransactions,
+    excludedExpenseTransactions,
+    reportTotalExpense,
+    excludedTotalExpense,
+    excludedCategoryNames
+  } = useMemo(() => {
+    const included: typeof transactions = [];
+    const excluded: typeof transactions = [];
+    let incTotal = 0;
+    let excTotal = 0;
+
+    transactions.forEach((tx) => {
+      if (tx.type === 'EXPENSE') {
+        if (excludedCategoryIds.includes(tx.categoryId)) {
+          excluded.push(tx);
+          excTotal += tx.amount;
+        } else {
+          included.push(tx);
+          incTotal += tx.amount;
+        }
+      }
+    });
+
+    const names = categories
+      .filter((c) => excludedCategoryIds.includes(c.id))
+      .map((c) => c.name);
+
+    return {
+      includedExpenseTransactions: included,
+      excludedExpenseTransactions: excluded,
+      reportTotalExpense: incTotal,
+      excludedTotalExpense: excTotal,
+      excludedCategoryNames: names
+    };
+  }, [transactions, categories, excludedCategoryIds]);
+
+  const hasExcludedCategories = excludedCategoryIds.length > 0;
+
+  // 2. Tính toán Tốc độ đốt tiền (Burn Rate) & Dự phóng chi cuối tháng dựa trên số liệu đã lọc
   const {
     dailyBurnRate,
     projectedExpense,
@@ -43,6 +144,10 @@ export const Dashboard: React.FC = () => {
     projectedDiff,
     husbandTxCount,
     wifeTxCount,
+    husbandReportExpense,
+    wifeReportExpense,
+    husbandReportRatio,
+    wifeReportRatio,
     husbandAvgTx,
     wifeAvgTx,
     topExpenses,
@@ -58,37 +163,45 @@ export const Dashboard: React.FC = () => {
     const currentDay = isCurrentMonth ? now.getDate() : daysInMonth;
 
     const daysCounted = Math.max(1, currentDay);
-    const burnRate = Math.round(totalExpense / daysCounted);
+    // Tốc độ đốt tiền tính theo số tiền chi tiêu được đưa vào báo cáo
+    const burnRate = Math.round(reportTotalExpense / daysCounted);
     const projected = Math.round(burnRate * daysInMonth);
     const isOver = projected > monthlyBudget;
     const diff = Math.abs(projected - monthlyBudget);
 
-    // Thống kê chi tiết Vợ - Chồng
+    // Thống kê chi tiết Vợ - Chồng trên các khoản chi được tính
     let hCount = 0;
     let wCount = 0;
+    let hSum = 0;
+    let wSum = 0;
     let essentialSum = 0;
 
-    transactions.forEach((tx) => {
-      if (tx.type === 'EXPENSE') {
-        if (tx.paidBy === 'Chồng') hCount += 1;
-        else wCount += 1;
+    includedExpenseTransactions.forEach((tx) => {
+      if (tx.paidBy === 'Chồng') {
+        hCount += 1;
+        hSum += tx.amount;
+      } else {
+        wCount += 1;
+        wSum += tx.amount;
+      }
 
-        if (tx.categoryKey === 'ESSENTIAL') {
-          essentialSum += tx.amount;
-        }
+      if (tx.categoryKey === 'ESSENTIAL') {
+        essentialSum += tx.amount;
       }
     });
 
-    const hAvg = hCount > 0 ? Math.round(husbandExpense / hCount) : 0;
-    const wAvg = wCount > 0 ? Math.round(wifeExpense / wCount) : 0;
+    const hAvg = hCount > 0 ? Math.round(hSum / hCount) : 0;
+    const wAvg = wCount > 0 ? Math.round(wSum / wCount) : 0;
 
-    // Top 5 khoản chi lớn nhất
-    const top5 = [...transactions]
-      .filter((tx) => tx.type === 'EXPENSE')
+    const hRatio = reportTotalExpense > 0 ? Math.round((hSum / reportTotalExpense) * 100) : 50;
+    const wRatio = reportTotalExpense > 0 ? 100 - hRatio : 50;
+
+    // Top 5 khoản chi lớn nhất trong các khoản chi được đưa vào báo cáo
+    const top5 = [...includedExpenseTransactions]
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
 
-    const essRatio = totalExpense > 0 ? Math.round((essentialSum / totalExpense) * 100) : 0;
+    const essRatio = reportTotalExpense > 0 ? Math.round((essentialSum / reportTotalExpense) * 100) : 0;
 
     return {
       dailyBurnRate: burnRate,
@@ -97,15 +210,105 @@ export const Dashboard: React.FC = () => {
       projectedDiff: diff,
       husbandTxCount: hCount,
       wifeTxCount: wCount,
+      husbandReportExpense: hSum,
+      wifeReportExpense: wSum,
+      husbandReportRatio: hRatio,
+      wifeReportRatio: wRatio,
       husbandAvgTx: hAvg,
       wifeAvgTx: wAvg,
       topExpenses: top5,
       essentialRatio: essRatio
     };
-  }, [transactions, currentYearMonth, totalExpense, monthlyBudget, husbandExpense, wifeExpense]);
+  }, [includedExpenseTransactions, currentYearMonth, reportTotalExpense, monthlyBudget]);
+
+  // Giao dịch truyền vào biểu đồ ngày: các khoản chi bị loại trừ sẽ không làm bẹp dí các ngày sinh hoạt
+  const transactionsForChart = useMemo(() => {
+    return transactions.filter(
+      (tx) => tx.type !== 'EXPENSE' || !excludedCategoryIds.includes(tx.categoryId)
+    );
+  }, [transactions, excludedCategoryIds]);
 
   return (
-    <div className="space-y-5 animate-in fade-in duration-200">
+    <div className="space-y-4 animate-in fade-in duration-200">
+      {/* =========================================================================
+          THANH CÔNG CỤ & BỘ LỌC DANH MỤC BÁO CÁO & DỰ PHÓNG
+          ========================================================================= */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-white border border-[#E6E2DA] rounded-2xl p-3 shadow-2xs">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-[#FAF9F6] text-[#1C1917] border border-[#E6E2DA] flex items-center justify-center">
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#1C1917]">
+                Danh mục tính Báo cáo & Dự phóng
+              </span>
+              {hasExcludedCategories ? (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#B45309] font-bold border border-[#FDE68A]">
+                  Đang loại trừ {excludedCategoryIds.length} nhóm
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#E7EFEF] text-[#0F3D39] font-medium border border-[#D1E2E0]">
+                  Tính toàn bộ danh mục
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-[#78716C] mt-0.5">
+              {hasExcludedCategories 
+                ? `Đã trừ ${formatVND(excludedTotalExpense)} để nhịp chi và dự phòng phản ánh đúng sinh hoạt`
+                : 'Bấm cài đặt để loại trừ các khoản trả nợ ngân hàng hoặc chi đột biến lớn'}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          {hasExcludedCategories && (
+            <button
+              onClick={() => {
+                playActionClick();
+                triggerHaptic(6);
+                handleSelectAll();
+              }}
+              className="py-1.5 px-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] hover:bg-[#F5F3EF] text-[11px] font-medium text-[#78716C] hover:text-[#1C1917] flex items-center gap-1 transition-colors active:scale-95"
+              title="Tính toán toàn bộ các danh mục"
+            >
+              <RotateCcw className="w-3 h-3" />
+              <span>Tính tất cả</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              playActionClick();
+              triggerHaptic(8);
+              setIsFilterModalOpen(true);
+            }}
+            className="py-1.5 px-3 rounded-xl bg-[#0F3D39] text-white text-xs font-semibold hover:bg-[#174E4A] flex items-center gap-1.5 transition-all shadow-xs active:scale-95"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
+            <span>Tùy chọn nhóm</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Banner thông báo chi tiết nếu đang có danh mục bị loại trừ */}
+      {hasExcludedCategories && (
+        <div className="bg-[#FEF3C7]/60 border border-[#FDE68A] rounded-2xl p-3 text-xs text-[#92400E] flex items-center justify-between gap-3 animate-in fade-in duration-150">
+          <div className="flex items-center gap-2 min-w-0">
+            <Info className="w-4 h-4 shrink-0 text-[#B45309]" />
+            <p className="truncate text-[11px] sm:text-xs">
+              Đang bỏ qua: <strong>{excludedCategoryNames.join(', ')}</strong> ({formatVND(excludedTotalExpense)}). Sổ cái gốc vẫn giữ nguyên.
+            </p>
+          </div>
+          <button
+            onClick={() => setIsFilterModalOpen(true)}
+            className="text-[11px] font-bold text-[#B45309] hover:underline shrink-0 font-mono"
+          >
+            Đổi bộ lọc
+          </button>
+        </div>
+      )}
+
       {/* =========================================================================
           KHỐI 1: TỔNG QUAN DÒNG TIỀN & THẶNG DƯ TÍCH LŨY (FINANCIAL HEALTH)
           ========================================================================= */}
@@ -115,20 +318,26 @@ export const Dashboard: React.FC = () => {
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-[#78716C] flex items-center gap-1.5">
               <Wallet className="w-3.5 h-3.5 text-[#0F3D39]" />
-              Chi tiêu tháng này
+              Chi tiêu tính báo cáo
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#FAF9F6] text-[#78716C] border border-[#E6E2DA]">
-              {transactions.filter((t) => t.type === 'EXPENSE').length} giao dịch
+              {includedExpenseTransactions.length} giao dịch
             </span>
           </div>
 
           <div className="mt-2.5">
             <div className="text-2xl font-bold font-mono text-[#1C1917] tracking-tight tabular-nums">
-              {formatVND(totalExpense)}
+              {formatVND(reportTotalExpense)}
             </div>
-            <p className="text-[11px] text-[#78716C] mt-1 flex items-center gap-1">
-              Hạn mức: <span className="font-mono font-medium">{formatVND(monthlyBudget)}</span>
-            </p>
+            {hasExcludedCategories ? (
+              <p className="text-[10px] text-[#B45309] mt-0.5 font-mono">
+                Sổ cái gốc: {formatVND(totalExpense)}
+              </p>
+            ) : (
+              <p className="text-[11px] text-[#78716C] mt-1 flex items-center gap-1">
+                Hạn mức: <span className="font-mono font-medium">{formatVND(monthlyBudget)}</span>
+              </p>
+            )}
           </div>
 
           <div className="mt-3 pt-2.5 border-t border-[#F5F3EF] flex items-center justify-between text-[11px]">
@@ -225,26 +434,26 @@ export const Dashboard: React.FC = () => {
                 Cán cân đồng hành Vợ — Chồng
               </h3>
               <p className="text-[11px] text-[#78716C]">
-                Tỷ trọng chi trả và tần suất giao dịch trong tháng
+                Tỷ trọng chi trả và tần suất giao dịch trong tháng {hasExcludedCategories && '(sau lọc)'}
               </p>
             </div>
           </div>
           <span className="text-xs font-mono font-bold text-[#1C1917]">
-            {husbandRatio}% / {wifeRatio}%
+            {husbandReportRatio}% / {wifeReportRatio}%
           </span>
         </div>
 
         {/* Thanh tỷ lệ song phương */}
         <div className="h-3 w-full rounded-full overflow-hidden flex bg-[#F5F3EF] border border-[#E6E2DA]/60 mb-4">
           <div
-            style={{ width: `${husbandRatio}%` }}
+            style={{ width: `${husbandReportRatio}%` }}
             className="h-full bg-[#0F3D39] transition-all duration-300"
-            title={`Chồng: ${husbandRatio}%`}
+            title={`Chồng: ${husbandReportRatio}%`}
           />
           <div
-            style={{ width: `${wifeRatio}%` }}
+            style={{ width: `${wifeReportRatio}%` }}
             className="h-full bg-[#B45309] transition-all duration-300"
-            title={`Vợ: ${wifeRatio}%`}
+            title={`Vợ: ${wifeReportRatio}%`}
           />
         </div>
 
@@ -256,11 +465,11 @@ export const Dashboard: React.FC = () => {
               <span className="w-2.5 h-2.5 rounded-full bg-[#0F3D39]" />
               <span className="text-xs font-semibold text-[#1C1917]">Chồng</span>
               <span className="text-[10px] font-mono text-[#0F3D39] ml-auto font-medium">
-                {husbandRatio}%
+                {husbandReportRatio}%
               </span>
             </div>
             <div className="text-lg font-bold font-mono text-[#1C1917] tabular-nums">
-              {formatVND(husbandExpense)}
+              {formatVND(husbandReportExpense)}
             </div>
             <div className="text-[11px] text-[#78716C] flex justify-between border-t border-[#E6E2DA]/40 pt-1.5 font-mono">
               <span>{husbandTxCount} lần chi</span>
@@ -274,11 +483,11 @@ export const Dashboard: React.FC = () => {
               <span className="w-2.5 h-2.5 rounded-full bg-[#B45309]" />
               <span className="text-xs font-semibold text-[#1C1917]">Vợ</span>
               <span className="text-[10px] font-mono text-[#B45309] ml-auto font-medium">
-                {wifeRatio}%
+                {wifeReportRatio}%
               </span>
             </div>
             <div className="text-lg font-bold font-mono text-[#1C1917] tabular-nums">
-              {formatVND(wifeExpense)}
+              {formatVND(wifeReportExpense)}
             </div>
             <div className="text-[11px] text-[#78716C] flex justify-between border-t border-[#E6E2DA]/40 pt-1.5 font-mono">
               <span>{wifeTxCount} lần chi</span>
@@ -292,7 +501,7 @@ export const Dashboard: React.FC = () => {
           KHỐI 3: BIỂU ĐỒ NHỊP ĐIỆU THEO NGÀY (DAILY RHYTHM CHART)
           ========================================================================= */}
       <DailySpendingChart
-        transactions={transactions}
+        transactions={transactionsForChart}
         currentYearMonth={currentYearMonth}
       />
 
@@ -300,9 +509,9 @@ export const Dashboard: React.FC = () => {
           KHỐI 4: PHÂN BỔ CƠ CẤU THEO NHÓM CHI (CATEGORY BREAKDOWN)
           ========================================================================= */}
       <CategoryBreakdown
-        transactions={transactions}
+        transactions={includedExpenseTransactions}
         categories={categories}
-        totalExpense={totalExpense}
+        totalExpense={reportTotalExpense}
       />
 
       {/* =========================================================================
@@ -317,7 +526,7 @@ export const Dashboard: React.FC = () => {
                 <ReceiptText className="w-4 h-4" />
               </div>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#1C1917]">
-                Top 5 khoản chi lớn nhất
+                Top 5 khoản chi tính báo cáo
               </h3>
             </div>
             <span className="text-[11px] text-[#78716C] font-mono">Tháng này</span>
@@ -368,7 +577,7 @@ export const Dashboard: React.FC = () => {
           <div className="space-y-2.5 text-xs text-[#57534E] leading-relaxed">
             <p>
               🏡 <strong>Chi tiêu thiết yếu:</strong> Đang chiếm{' '}
-              <strong className="text-[#1C1917] font-mono">{essentialRatio}%</strong> tổng chi.
+              <strong className="text-[#1C1917] font-mono">{essentialRatio}%</strong> chi tiêu báo cáo.
               {essentialRatio <= 70 ? (
                 ' Mức này nằm trong ngưỡng an toàn lý tưởng của quy tắc ngân sách gia đình.'
               ) : (
@@ -378,9 +587,9 @@ export const Dashboard: React.FC = () => {
 
             <p>
               ⚖️ <strong>Cán cân đồng hành:</strong>{' '}
-              {husbandRatio > 65 ? (
+              {husbandReportRatio > 65 ? (
                 'Chồng đang gánh vác phần lớn chi phí tháng này. Hai vợ chồng có thể cùng xem lại để san sẻ thêm.'
-              ) : wifeRatio > 65 ? (
+              ) : wifeReportRatio > 65 ? (
                 'Vợ đang chi trả phần lớn các khoản trong tháng. Hãy cùng nhau rà soát lại các mục chung nhé.'
               ) : (
                 'Hai vợ chồng đang cùng nhau san sẻ chi tiêu rất cân bằng và gắn kết!'
@@ -403,6 +612,19 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal Cài đặt Danh mục tính Báo cáo & Dự phóng */}
+      <ReportCategoryFilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        categories={categories}
+        transactions={transactions}
+        excludedCategoryIds={excludedCategoryIds}
+        onToggleCategory={handleToggleCategory}
+        onSelectAll={handleSelectAll}
+        onExcludeDebtAndSavings={handleExcludeDebtAndSavings}
+      />
     </div>
   );
 };
+
