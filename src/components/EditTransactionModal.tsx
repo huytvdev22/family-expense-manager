@@ -34,9 +34,16 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [isCategoryOpen, setIsCategoryOpen] = useState<boolean>(false);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Lưu vết danh mục và mục tiêu riêng biệt cho Khoản chi vs Thu nhập để không bị mất khi chuyển tab
+  const lastExpenseCatId = useRef<string>('');
+  const lastIncomeCatId = useRef<string>('');
+  const lastExpenseGoalId = useRef<string | null>(null);
+  const userUnlinkedGoal = useRef<boolean>(false);
+
   // Khởi tạo form khi transaction thay đổi
   useEffect(() => {
     if (transaction) {
+      const isExpense = (transaction.type || 'EXPENSE') === 'EXPENSE';
       setTxType(transaction.type || 'EXPENSE');
       setAmountStr(String(transaction.amount));
       setSelectedCategoryId(transaction.categoryId);
@@ -45,6 +52,14 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       setNote(transaction.note || '');
       setSelectedGoalId(transaction.goalId || null);
       setIsCategoryOpen(false);
+      userUnlinkedGoal.current = !transaction.goalId;
+
+      if (isExpense) {
+        lastExpenseCatId.current = transaction.categoryId;
+        lastExpenseGoalId.current = transaction.goalId || null;
+      } else {
+        lastIncomeCatId.current = transaction.categoryId;
+      }
     }
   }, [transaction]);
 
@@ -54,10 +69,54 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
     return list.length > 0 ? list : categories;
   }, [categories, txType, transaction?.categoryId]);
 
+  // Chuyển đổi loại giao dịch (Khoản chi <-> Thu nhập) và khôi phục đúng danh mục/mục tiêu trước đó
+  const handleTypeChange = (newType: 'EXPENSE' | 'INCOME') => {
+    if (newType === txType) return;
+    playActionClick();
+    triggerHaptic(10);
+    setTxType(newType);
+    setIsCategoryOpen(false);
+
+    if (newType === 'EXPENSE') {
+      const expenseList = categories.filter((c) => (!c.isArchived || c.id === transaction?.categoryId) && (c.type || 'EXPENSE') === 'EXPENSE');
+      const targetCatId = lastExpenseCatId.current || (transaction?.type === 'EXPENSE' ? transaction.categoryId : '') || expenseList[0]?.id;
+      const validCat = expenseList.find((c) => c.id === targetCatId) || expenseList[0];
+      if (validCat) {
+        setSelectedCategoryId(validCat.id);
+      }
+      setSelectedGoalId(lastExpenseGoalId.current);
+    } else {
+      const incomeList = categories.filter((c) => (!c.isArchived || c.id === transaction?.categoryId) && c.type === 'INCOME');
+      const targetCatId = lastIncomeCatId.current || (transaction?.type === 'INCOME' ? transaction.categoryId : '') || incomeList[0]?.id;
+      const validCat = incomeList.find((c) => c.id === targetCatId) || incomeList[0];
+      if (validCat) {
+        setSelectedCategoryId(validCat.id);
+      }
+      setSelectedGoalId(null);
+    }
+  };
+
+  // Chọn danh mục từ droplist
+  const handleSelectCategory = (catId: string) => {
+    playActionClick();
+    triggerHaptic(10);
+    setSelectedCategoryId(catId);
+    setIsCategoryOpen(false);
+    userUnlinkedGoal.current = false;
+
+    if (txType === 'EXPENSE') {
+      lastExpenseCatId.current = catId;
+    } else {
+      lastIncomeCatId.current = catId;
+    }
+  };
+
   // Đảm bảo selectedCategoryId luôn hợp lệ với loại giao dịch
   useEffect(() => {
     if (currentCategories.length > 0 && !currentCategories.some((c) => c.id === selectedCategoryId)) {
-      setSelectedCategoryId(currentCategories[0].id);
+      const preferredId = txType === 'EXPENSE' ? lastExpenseCatId.current : lastIncomeCatId.current;
+      const match = currentCategories.find((c) => c.id === preferredId);
+      setSelectedCategoryId(match ? match.id : currentCategories[0].id);
     }
     setIsCategoryOpen(false);
   }, [txType, currentCategories, selectedCategoryId]);
@@ -106,6 +165,26 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
     }
     return [];
   }, [categories, selectedCategoryId, financialGoals, transaction?.goalId]);
+
+  // Tự động duy trì và khôi phục mục tiêu tài chính khi danh mục khớp (ví dụ: Trả nợ ngân hàng / Tích lũy)
+  useEffect(() => {
+    if (matchingGoals.length > 0) {
+      if (!userUnlinkedGoal.current) {
+        setSelectedGoalId((prev) => {
+          if (prev && matchingGoals.some((g) => g.id === prev)) return prev;
+          if (lastExpenseGoalId.current && matchingGoals.some((g) => g.id === lastExpenseGoalId.current)) {
+            return lastExpenseGoalId.current;
+          }
+          if (transaction?.goalId && matchingGoals.some((g) => g.id === transaction.goalId)) {
+            return transaction.goalId;
+          }
+          return matchingGoals[0].id;
+        });
+      }
+    } else {
+      setSelectedGoalId(null);
+    }
+  }, [matchingGoals, transaction?.goalId]);
 
   if (!isOpen || !transaction) return null;
 
@@ -211,11 +290,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           <div className="grid grid-cols-2 gap-1 p-1 bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl shadow-2xs">
             <button
               type="button"
-              onClick={() => {
-                playActionClick();
-                triggerHaptic(10);
-                setTxType('EXPENSE');
-              }}
+              onClick={() => handleTypeChange('EXPENSE')}
               className={`py-2 rounded-xl text-xs font-semibold transition-all tactile-btn cursor-pointer ${
                 txType === 'EXPENSE'
                   ? 'bg-white text-[#C15C3D] shadow-xs'
@@ -226,11 +301,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => {
-                playActionClick();
-                triggerHaptic(10);
-                setTxType('INCOME');
-              }}
+              onClick={() => handleTypeChange('INCOME')}
               className={`py-2 rounded-xl text-xs font-semibold transition-all tactile-btn cursor-pointer ${
                 txType === 'INCOME'
                   ? 'bg-[#0F3D39] text-white shadow-xs'
@@ -306,12 +377,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                     <button
                       key={cat.id}
                       type="button"
-                      onClick={() => {
-                        playActionClick();
-                        triggerHaptic(10);
-                        setSelectedCategoryId(cat.id);
-                        setIsCategoryOpen(false);
-                      }}
+                      onClick={() => handleSelectCategory(cat.id)}
                       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left text-xs transition-colors cursor-pointer ${
                         isSelected
                           ? 'bg-[#E7EFEF] text-[#0F3D39] font-semibold'
@@ -344,7 +410,15 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                 {selectedGoalId && (
                   <button
                     type="button"
-                    onClick={() => setSelectedGoalId(null)}
+                    onClick={() => {
+                      playActionClick();
+                      triggerHaptic(10);
+                      setSelectedGoalId(null);
+                      if (txType === 'EXPENSE') {
+                        lastExpenseGoalId.current = null;
+                      }
+                      userUnlinkedGoal.current = true;
+                    }}
                     className="text-[10px] text-[#78716C] hover:text-[#E11D48] underline transition-colors cursor-pointer"
                   >
                     Không gắn
@@ -361,7 +435,12 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                       onClick={() => {
                         playActionClick();
                         triggerHaptic(10);
-                        setSelectedGoalId(isChosen ? null : g.id);
+                        const nextGoalId = isChosen ? null : g.id;
+                        setSelectedGoalId(nextGoalId);
+                        if (txType === 'EXPENSE') {
+                          lastExpenseGoalId.current = nextGoalId;
+                        }
+                        userUnlinkedGoal.current = !nextGoalId;
                       }}
                       className={`shrink-0 px-2.5 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-1.5 transition-all tactile-btn cursor-pointer ${
                         isChosen
@@ -459,7 +538,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
               type="button"
               onClick={handleDelete}
               disabled={isDeleting || isSaving}
-              className="px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#E11D48] hover:bg-[#FFF1F2] border border-transparent hover:border-[#FDA4AF] transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              className="px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#E11D48] bg-white border border-[#FECDD3] hover:bg-[#FFF1F2] hover:border-[#FDA4AF] shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>{isDeleting ? 'Đang xóa...' : 'Xóa khoản này'}</span>
