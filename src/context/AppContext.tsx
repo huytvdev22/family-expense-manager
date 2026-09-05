@@ -111,9 +111,13 @@ interface AppContextType {
   husbandIncomeRatio: number;
   wifeIncomeRatio: number;
   
-  // Âm thanh xúc giác
+  // Âm thanh xúc giác & Cài đặt hiển thị
   soundEnabled: boolean;
   toggleSound: () => void;
+  compactCurrency: boolean;
+  toggleCompactCurrency: () => void;
+  defaultCollapseDays: boolean;
+  toggleDefaultCollapseDays: () => void;
   
   // Hành động tài chính & tổ ấm
   logTransaction: (tx: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'>) => Promise<void>;
@@ -162,6 +166,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
   const [soundEnabled, setSoundState] = useState<boolean>(isSoundEnabled());
+  const [compactCurrency, setCompactCurrency] = useState<boolean>(() => {
+    return localStorage.getItem('setting_compact_currency') === 'true';
+  });
+  const [defaultCollapseDays, setDefaultCollapseDays] = useState<boolean>(() => {
+    return localStorage.getItem('setting_default_collapse_days') === 'true';
+  });
   const [userRole, setUserRole] = useState<'Chồng' | 'Vợ'>(() => {
     return (localStorage.getItem('user_role') as 'Chồng' | 'Vợ') || 'Chồng';
   });
@@ -272,6 +282,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const next = !soundEnabled;
     setSoundState(next);
     setSoundEnabled(next);
+  };
+
+  // Chuyển đổi bật/tắt định dạng số tiền rút gọn (vd: 1 tr thay vì 1.000.000 ₫)
+  const toggleCompactCurrency = () => {
+    const next = !compactCurrency;
+    setCompactCurrency(next);
+    localStorage.setItem('setting_compact_currency', String(next));
+  };
+
+  // Chuyển đổi bật/tắt mặc định thu gọn theo ngày trong sổ cái
+  const toggleDefaultCollapseDays = () => {
+    const next = !defaultCollapseDays;
+    setDefaultCollapseDays(next);
+    localStorage.setItem('setting_default_collapse_days', String(next));
   };
 
   // Điều hướng tháng
@@ -1181,6 +1205,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         wifeIncomeRatio,
         soundEnabled,
         toggleSound,
+        compactCurrency,
+        toggleCompactCurrency,
+        defaultCollapseDays,
+        toggleDefaultCollapseDays,
         logTransaction,
         editTransaction,
         removeTransaction,

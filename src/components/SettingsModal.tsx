@@ -11,7 +11,10 @@ import {
   RefreshCw, 
   Sparkles, 
   CheckCircle2,
-  Loader2
+  Loader2,
+  Receipt,
+  Coins,
+  Layers
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { playActionClick } from '../utils/audio';
@@ -33,6 +36,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const {
     soundEnabled,
     toggleSound,
+    compactCurrency,
+    toggleCompactCurrency,
+    defaultCollapseDays,
+    toggleDefaultCollapseDays,
     firebaseUser,
     isFirebaseActive,
     logout,
@@ -144,7 +151,93 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           </div>
 
           {/* =========================================================================
-              2. TÀI KHOẢN NGƯỜI DÙNG & FIREBASE CLOUD SYNC
+              2. HIỂN THỊ SỔ CÁI & TIỀN TỆ
+              ========================================================================= */}
+          <div className="bg-white border border-[#E6E2DA] rounded-2xl p-4 shadow-2xs space-y-3.5">
+            <h4 className="text-xs uppercase font-semibold text-[#78716C] tracking-wider flex items-center gap-1.5">
+              <Receipt className="w-3.5 h-3.5 text-[#0F3D39]" />
+              <span>Hiển thị sổ cái & Tiền tệ</span>
+            </h4>
+
+            {/* Mục 1: Định dạng số tiền rút gọn */}
+            <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center gap-3 pr-2">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors shrink-0 ${
+                  compactCurrency ? 'bg-[#E7EFEF] text-[#0F3D39]' : 'bg-[#F5F3EF] text-[#A8A29E]'
+                }`}>
+                  <Coins className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-[#1C1917]">Số tiền rút gọn (1 tr, 350 k)</p>
+                  <p className="text-[11px] text-[#78716C] mt-0.5">
+                    {compactCurrency 
+                      ? 'Đang hiển thị: 1 tr thay vì 1.000.000 ₫'
+                      : 'Đang hiển thị đầy đủ: 1.000.000 ₫'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  toggleCompactCurrency();
+                  playActionClick();
+                  triggerHaptic(10);
+                }}
+                className={`w-11 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer shrink-0 ${
+                  compactCurrency ? 'bg-[#0F3D39]' : 'bg-[#E6E2DA]'
+                }`}
+                title={compactCurrency ? 'Đang bật rút gọn số tiền' : 'Đang hiển thị số tiền đầy đủ'}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full bg-white transition-transform shadow-xs ${
+                    compactCurrency ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Mục 2: Mặc định thu gọn theo ngày */}
+            <div className="flex items-center justify-between pt-2 border-t border-[#F5F3EF]">
+              <div className="flex items-center gap-3 pr-2">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors shrink-0 ${
+                  defaultCollapseDays ? 'bg-[#E7EFEF] text-[#0F3D39]' : 'bg-[#F5F3EF] text-[#A8A29E]'
+                }`}>
+                  <Layers className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-[#1C1917]">Mặc định thu gọn theo ngày</p>
+                  <p className="text-[11px] text-[#78716C] mt-0.5">
+                    {defaultCollapseDays
+                      ? 'Tự động thu gọn các ngày khi xem sổ cái'
+                      : 'Mặc định mở rộng tất cả các ngày'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  toggleDefaultCollapseDays();
+                  playActionClick();
+                  triggerHaptic(10);
+                }}
+                className={`w-11 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer shrink-0 ${
+                  defaultCollapseDays ? 'bg-[#0F3D39]' : 'bg-[#E6E2DA]'
+                }`}
+                title={defaultCollapseDays ? 'Đang bật mặc định thu gọn' : 'Đang bật mặc định mở rộng'}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full bg-white transition-transform shadow-xs ${
+                    defaultCollapseDays ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* =========================================================================
+              3. TÀI KHOẢN NGƯỜI DÙNG & FIREBASE CLOUD SYNC
               ========================================================================= */}
           <div className="bg-white border border-[#E6E2DA] rounded-2xl p-4 shadow-2xs space-y-3">
             <div className="flex items-center justify-between gap-3">

@@ -13,16 +13,21 @@ export function formatVND(amount: number, showSymbol = true): string {
 export function formatCompactVND(amount: number): string {
   if (isNaN(amount) || amount === 0) return '0 ₫';
 
-  if (Math.abs(amount) >= 1_000_000_000) {
-    return `${(amount / 1_000_000_000).toFixed(1).replace('.0', '')} tỷ`;
+  const sign = amount < 0 ? '-' : '';
+  const abs = Math.abs(amount);
+
+  if (abs >= 1_000_000_000) {
+    const val = (abs / 1_000_000_000).toFixed(1).replace('.0', '').replace('.', ',');
+    return `${sign}${val} tỷ`;
   }
-  if (Math.abs(amount) >= 1_000_000) {
-    return `${(amount / 1_000_000).toFixed(1).replace('.0', '')} tr`;
+  if (abs >= 1_000_000) {
+    const val = (abs / 1_000_000).toFixed(1).replace('.0', '').replace('.', ',');
+    return `${sign}${val} tr`;
   }
-  if (Math.abs(amount) >= 1_000) {
-    return `${Math.round(amount / 1_000)}k`;
+  if (abs >= 1_000) {
+    return `${sign}${Math.round(abs / 1_000)} k`;
   }
-  return `${amount} ₫`;
+  return `${sign}${abs} ₫`;
 }
 
 export function getCurrentYearMonth(): string {
