@@ -290,11 +290,11 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-[#F5F3EF]">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-2xl bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center shadow-2xs">
-            {mainTab === 'CATEGORIES' ? <FolderTree className="w-4 h-4" /> : <Zap className="w-4 h-4" />}
+            {mainTab === 'CATEGORIES' ? <FolderTree className="w-4 h-4" /> : <Zap className="w-4 h-4 fill-[#0F3D39]" />}
           </div>
           <div>
             <h3 className="text-sm font-bold text-[#1C1917]">
-              {mainTab === 'CATEGORIES' ? 'Quản lý nhóm chi tiêu & nguồn thu' : 'Gợi ý 1-chạm (Quick Tags)'}
+              {mainTab === 'CATEGORIES' ? 'Quản lý nhóm chi tiêu & nguồn thu' : 'Quản lý phím tắt'}
             </h3>
             <p className="text-[11px] text-[#78716C]">
               {mainTab === 'CATEGORIES'
@@ -347,7 +347,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
         </div>
       </div>
 
-      {/* THANH CHUYỂN ĐỔI TAB CHÍNH: Nhóm Danh mục vs Gợi ý 1-chạm */}
+      {/* THANH CHUYỂN ĐỔI TAB CHÍNH: Nhóm Danh mục vs Phím tắt */}
       <div className="flex items-center gap-1.5 p-1 bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl">
         <button
           type="button"
@@ -385,7 +385,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
           }`}
         >
           <Zap className="w-3.5 h-3.5 fill-[#0F3D39]" />
-          <span>Gợi ý 1-chạm (Quick Tags)</span>
+          <span>Phím tắt</span>
           <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-medium ${
             mainTab === 'QUICK_TAGS' ? 'bg-[#E7EFEF] text-[#0F3D39]' : 'bg-[#E6E2DA] text-[#78716C]'
           }`}>
@@ -755,53 +755,97 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
       )}
 
       {/* =========================================================================
-          TAB 2: QUẢN LÝ QUICK TAGS (GỢI Ý 1-CHẠM)
+          TAB 2: QUẢN LÝ PHÍM TẮT (QUICK TAGS)
           ========================================================================= */}
       {mainTab === 'QUICK_TAGS' && (
         <div className="space-y-4 animate-in fade-in duration-150">
-          {/* Header của Tab Quick Tags */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-lg bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center shadow-2xs">
-                  <Zap className="w-3.5 h-3.5 fill-[#0F3D39]" />
-                </span>
-                <h3 className="text-sm font-bold text-[#1C1917]">
-                  Gợi ý 1-chạm (Quick Tags)
-                </h3>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-[#FAF9F6] border border-[#E6E2DA] text-[#78716C] font-semibold">
-                  {currentTypeQuickTags.length} phím tắt
-                </span>
+          {/* Danh sách các thẻ Phím tắt hoặc Empty State */}
+          {currentTypeQuickTags.length === 0 ? (
+            <div className="p-8 rounded-3xl border-2 border-dashed border-[#E6E2DA] bg-[#FAF9F6] text-center space-y-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-white border border-[#E6E2DA] shadow-2xs flex items-center justify-center mx-auto text-[#0F3D39]">
+                <Zap className="w-6 h-6 opacity-60 fill-[#0F3D39]" />
               </div>
-              <p className="text-[11px] text-[#78716C] mt-0.5">
-                Phím tắt xuất hiện trên bàn phím ghi sổ để chọn nhanh nhóm {activeType === 'INCOME' ? 'thu nhập' : 'chi tiêu'} và số tiền quen thuộc
-              </p>
+              <div>
+                <p className="text-xs font-bold text-[#1C1917]">
+                  Chưa có phím tắt {activeType === 'INCOME' ? 'Thu Nhập' : 'Chi Tiêu'} nào
+                </p>
+                <p className="text-[11px] text-[#78716C] max-w-sm mx-auto mt-0.5">
+                  Tạo các phím tắt để chọn nhanh nhóm và số tiền quen thuộc trên bàn phím số
+                </p>
+              </div>
             </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {currentTypeQuickTags.map((tag) => (
+                <div
+                  key={tag.id}
+                  className="p-3.5 rounded-2xl border border-[#F5F3EF] bg-[#FAF9F6] hover:bg-white hover:border-[#E6E2DA] transition-all flex flex-col justify-between gap-2.5 shadow-2xs group"
+                >
+                  {/* Dòng 1: Biểu tượng, tên phím tắt và thao tác */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border border-[#E6E2DA]/80 bg-white shadow-2xs text-base">
+                        {tag.emoji}
+                      </span>
+                      <p className="text-xs font-bold text-[#1C1917] truncate">{tag.label}</p>
+                    </div>
 
-            {!isAddingTag && !editingTag && (
-              <button
-                type="button"
-                onClick={handleStartAddTag}
-                className="px-3.5 py-2 bg-[#FAF9F6] hover:bg-white border border-[#E6E2DA] hover:border-[#0F3D39] text-[#0F3D39] text-xs font-semibold rounded-xl transition-all shadow-2xs inline-flex items-center gap-1.5 cursor-pointer self-start sm:self-auto active:scale-95"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Thêm phím tắt</span>
-              </button>
-            )}
-          </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleStartEditTag(tag)}
+                        className="text-[#A8A29E] hover:text-[#0F3D39] p-1 rounded-md hover:bg-[#E7EFEF] opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
+                        title="Chỉnh sửa phím tắt"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteQuickTag(tag)}
+                        className="text-[#A8A29E] hover:text-[#E11D48] p-1 rounded-md hover:bg-[#FFF1F2] opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
+                        title="Xóa phím tắt"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
 
-          {/* Form Thêm / Sửa Quick Tag */}
-          {(isAddingTag || editingTag) && (
-            <div className="p-4 rounded-2xl border border-[#0F3D39]/20 bg-[#FAF9F6] shadow-xs space-y-3.5 animate-in fade-in duration-150">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#1C1917] flex items-center gap-1.5">
-                  <Zap className="w-3.5 h-3.5 text-[#0F3D39]" />
-                  {editingTag ? 'Chỉnh sửa phím tắt' : `Thêm phím tắt ${activeType === 'INCOME' ? 'thu nhập' : 'chi tiêu'} mới`}
-                </span>
+                  {/* Dòng 2: Danh mục gắn kèm & Số tiền mặc định */}
+                  <div className="flex items-center justify-between text-[11px] pt-1.5 border-t border-[#F5F3EF]">
+                    <span className="text-[#78716C] truncate mr-2">
+                      Gắn vào: <span className="font-semibold text-[#1C1917]">{tag.categoryName}</span>
+                    </span>
+                    <span className="font-mono text-[#0F3D39] font-semibold shrink-0">
+                      {tag.defaultAmount ? (
+                        formatVND(tag.defaultAmount)
+                      ) : (
+                        <span className="text-[#A8A29E] font-normal font-sans text-[10px]">Tự nhập tiền</span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Form Thêm / Sửa Quick Tag Inline */}
+          {(isAddingTag || editingTag) ? (
+            <div className="p-4 rounded-2xl border-2 border-[#0F3D39]/30 bg-white space-y-3 shadow-md animate-in fade-in duration-150">
+              <div className="flex items-center justify-between pb-2 border-b border-[#F5F3EF]">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-[#0F3D39] fill-[#0F3D39]" />
+                  <h4 className="text-xs font-bold text-[#1C1917]">
+                    {editingTag ? (
+                      <>Chỉnh sửa phím tắt: <span className="text-[#0F3D39]">{editingTag.label}</span></>
+                    ) : (
+                      `Thêm phím tắt ${activeType === 'INCOME' ? 'thu nhập' : 'chi tiêu'} mới`
+                    )}
+                  </h4>
+                </div>
                 <button
                   type="button"
                   onClick={resetTagForm}
-                  className="p-1 rounded-lg hover:bg-white text-[#78716C] hover:text-[#1C1917] transition-all cursor-pointer"
+                  className="text-[#78716C] hover:text-[#1C1917] p-1 rounded-md hover:bg-[#F5F3EF] cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -818,12 +862,12 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
                     value={tagLabel}
                     onChange={(e) => setTagLabel(e.target.value)}
                     placeholder={activeType === 'INCOME' ? 'vd: Lương chính, Thưởng dự án, Cổ tức...' : 'vd: Cà phê sáng, Cơm trưa, Xăng xe, Bỉm sữa...'}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#E6E2DA] bg-white focus:outline-none focus:border-[#0F3D39] focus:ring-1 focus:ring-[#0F3D39] transition-all"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] outline-hidden focus:border-[#0F3D39] transition-all"
                     autoFocus
                   />
                 </div>
 
-                {/* Danh mục liên kết - Droplist có Icon và Màu sắc tương tự Numpad */}
+                {/* Danh mục liên kết - Droplist có Icon và Màu sắc */}
                 <div className="relative" ref={tagCatDropdownRef}>
                   <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
                     Gắn vào Danh mục <span className="text-[#E11D48]">*</span>
@@ -835,14 +879,14 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
                       triggerHaptic(5);
                       setIsTagCatDropdownOpen((prev) => !prev);
                     }}
-                    className={`w-full px-3 py-2 rounded-xl border bg-white text-xs flex items-center justify-between transition-all cursor-pointer ${
+                    className={`w-full px-3 py-2 rounded-xl border bg-[#FAF9F6] text-xs flex items-center justify-between transition-all cursor-pointer ${
                       isTagCatDropdownOpen
-                        ? 'border-[#0F3D39] ring-2 ring-[#0F3D39]/20'
+                        ? 'border-[#0F3D39] ring-2 ring-[#0F3D39]/20 bg-white'
                         : 'border-[#E6E2DA] hover:border-[#0F3D39]/50'
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border border-[#E6E2DA]/80 bg-[#FAF9F6] shadow-2xs">
+                      <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border border-[#E6E2DA]/80 bg-white shadow-2xs">
                         {renderCategoryIcon(selectedTagCategory?.icon, "w-3.5 h-3.5", selectedTagCategory?.color || (activeType === 'INCOME' ? '#10B981' : '#0F3D39'))}
                       </span>
                       <span className="font-semibold text-[#1C1917] truncate">
@@ -894,154 +938,97 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
                 </div>
               </div>
 
-            {/* Biểu tượng Emoji & Số tiền mặc định */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Chọn Emoji */}
-              <div>
-                <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
-                  Biểu tượng Emoji
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={tagEmoji}
-                    onChange={(e) => setTagEmoji(e.target.value)}
-                    maxLength={4}
-                    className="w-12 px-2 py-1.5 text-center text-base rounded-xl border border-[#E6E2DA] bg-white focus:outline-none focus:border-[#0F3D39]"
-                  />
-                  <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar flex-1">
-                    {(activeType === 'INCOME' ? QUICK_TAG_EMOJIS_INCOME : QUICK_TAG_EMOJIS_EXPENSE).map((em) => (
-                      <button
-                        key={em}
-                        type="button"
-                        onClick={() => {
-                          setTagEmoji(em);
-                          playActionClick();
-                        }}
-                        className={`w-7 h-7 shrink-0 rounded-lg text-sm flex items-center justify-center transition-all cursor-pointer ${
-                          tagEmoji === em
-                            ? 'bg-[#0F3D39] text-white shadow-2xs scale-105'
-                            : 'bg-white border border-[#E6E2DA] hover:bg-[#F5F3EF]'
-                        }`}
-                      >
-                        {em}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Số tiền mặc định (tùy chọn) */}
-              <div>
-                <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
-                  Số tiền gợi ý sẵn (Tùy chọn)
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={tagDefaultAmount ? Number(tagDefaultAmount.replace(/\D/g, '')).toLocaleString('vi-VN') : ''}
-                    onChange={(e) => {
-                      const raw = e.target.value.replace(/\D/g, '');
-                      setTagDefaultAmount(raw);
-                    }}
-                    placeholder="Không bắt buộc (vd: 35.000)"
-                    className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-[#E6E2DA] bg-white focus:outline-none focus:border-[#0F3D39] focus:ring-1 focus:ring-[#0F3D39] transition-all pr-10"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#A8A29E] font-medium pointer-events-none">
-                    VND
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Nút hành động */}
-            <div className="flex items-center justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={resetTagForm}
-                className="px-3.5 py-1.5 rounded-xl border border-[#E6E2DA] bg-white text-xs font-semibold text-[#78716C] hover:text-[#1C1917] transition-all cursor-pointer"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveQuickTag}
-                className="px-4 py-1.5 rounded-xl bg-[#0F3D39] text-white text-xs font-semibold hover:bg-[#174E4A] transition-all shadow-2xs cursor-pointer flex items-center gap-1.5"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>{editingTag ? 'Lưu cập nhật' : 'Tạo phím tắt'}</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Danh sách các thẻ Quick Tag */}
-        {currentTypeQuickTags.length === 0 ? (
-          <div className="p-6 rounded-2xl border border-dashed border-[#E6E2DA] bg-[#FAF9F6] text-center space-y-2">
-            <p className="text-xs font-medium text-[#78716C]">
-              Chưa có phím tắt nào cho {activeType === 'INCOME' ? 'thu nhập' : 'khoản chi'}.
-            </p>
-            <button
-              type="button"
-              onClick={handleStartAddTag}
-              className="text-xs font-semibold text-[#0F3D39] hover:underline cursor-pointer inline-flex items-center gap-1"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Tạo phím tắt đầu tiên</span>
-            </button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-            {currentTypeQuickTags.map((tag) => (
-              <div
-                key={tag.id}
-                className="p-3 rounded-2xl border border-[#E6E2DA] bg-[#FAF9F6] hover:bg-white hover:border-[#D6D2CA] transition-all flex items-center justify-between gap-2.5 shadow-2xs group"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <span className="w-8 h-8 rounded-xl bg-white border border-[#E6E2DA] flex items-center justify-center text-base shrink-0 shadow-2xs">
-                    {tag.emoji}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold text-[#1C1917] truncate">
-                      {tag.label}
-                    </p>
-                    <div className="flex items-center gap-1.5 mt-0.5">
-                      <span className="text-[10px] text-[#78716C] bg-white border border-[#E6E2DA]/80 px-1.5 py-0.2 rounded-md truncate max-w-[110px]">
-                        {tag.categoryName}
-                      </span>
-                      {tag.defaultAmount && (
-                        <span className="text-[10px] font-mono font-semibold text-[#0F3D39]">
-                          {formatVND(tag.defaultAmount)}
-                        </span>
-                      )}
+              {/* Biểu tượng Emoji & Số tiền mặc định */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Chọn Emoji */}
+                <div>
+                  <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
+                    Biểu tượng Emoji
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={tagEmoji}
+                      onChange={(e) => setTagEmoji(e.target.value)}
+                      maxLength={4}
+                      className="w-12 px-2 py-1.5 text-center text-base rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] outline-hidden focus:border-[#0F3D39]"
+                    />
+                    <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar flex-1">
+                      {(activeType === 'INCOME' ? QUICK_TAG_EMOJIS_INCOME : QUICK_TAG_EMOJIS_EXPENSE).map((em) => (
+                        <button
+                          key={em}
+                          type="button"
+                          onClick={() => {
+                            setTagEmoji(em);
+                            playActionClick();
+                          }}
+                          className={`w-7 h-7 shrink-0 rounded-lg text-sm flex items-center justify-center transition-all cursor-pointer ${
+                            tagEmoji === em
+                              ? 'bg-[#0F3D39] text-white shadow-2xs scale-105'
+                              : 'bg-white border border-[#E6E2DA] hover:bg-[#F5F3EF]'
+                          }`}
+                        >
+                          {em}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => handleStartEditTag(tag)}
-                    className="p-1.5 rounded-lg text-[#78716C] hover:text-[#0F3D39] hover:bg-[#E7EFEF] transition-all cursor-pointer"
-                    title="Chỉnh sửa phím tắt"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteQuickTag(tag)}
-                    className="p-1.5 rounded-lg text-[#78716C] hover:text-[#E11D48] hover:bg-[#FEE2E2] transition-all cursor-pointer"
-                    title="Xóa phím tắt"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                {/* Số tiền mặc định (tùy chọn) */}
+                <div>
+                  <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
+                    Số tiền gợi ý sẵn (Tùy chọn)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={tagDefaultAmount ? Number(tagDefaultAmount.replace(/\D/g, '')).toLocaleString('vi-VN') : ''}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/\D/g, '');
+                        setTagDefaultAmount(raw);
+                      }}
+                      placeholder="Không bắt buộc (vd: 35.000)"
+                      className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] outline-hidden focus:border-[#0F3D39] focus:ring-1 focus:ring-[#0F3D39] transition-all pr-10"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#A8A29E] font-medium pointer-events-none">
+                      VND
+                    </span>
+                  </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    )}
+
+              {/* Nút hành động */}
+              <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#F5F3EF]">
+                <button
+                  type="button"
+                  onClick={resetTagForm}
+                  className="px-4 py-2 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] text-xs font-semibold text-[#78716C] hover:text-[#1C1917] hover:bg-white transition-all cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveQuickTag}
+                  className="px-4 py-2 rounded-xl bg-[#0F3D39] text-white text-xs font-semibold hover:bg-[#174E4A] transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 active:scale-95"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>{editingTag ? 'Lưu cập nhật' : 'Tạo phím tắt'}</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleStartAddTag}
+              className="w-full py-3 rounded-2xl border-2 border-dashed border-[#D3CDC2] hover:border-[#0F3D39] text-xs font-semibold text-[#0F3D39] hover:bg-[#E7EFEF]/50 flex items-center justify-center gap-1.5 transition-all tactile-btn cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Thêm phím tắt {activeType === 'EXPENSE' ? 'chi tiêu' : 'thu nhập'} mới</span>
+            </button>
+          )}
+        </div>
+      )}
   </div>
 );
 };
