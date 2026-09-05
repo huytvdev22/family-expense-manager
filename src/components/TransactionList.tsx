@@ -19,7 +19,7 @@ export const TransactionList: React.FC = () => {
   // Nhóm giao dịch theo ngày (date: "YYYY-MM-DD")
   const groupedTransactions = useMemo(() => {
     const groups: Record<string, Transaction[]> = {};
-    
+
     transactions.forEach((tx) => {
       const dateKey = tx.date;
       if (!groups[dateKey]) {
@@ -116,7 +116,7 @@ export const TransactionList: React.FC = () => {
         <div className="flex items-center gap-2">
           <Receipt className="w-4 h-4 text-[#0F3D39]" />
           <h2 className="text-xs uppercase tracking-wider font-semibold text-[#78716C]">
-            Sổ cái thu chi gần đây
+            thu chi gần đây
           </h2>
         </div>
         <div className="flex items-center gap-2">
@@ -165,7 +165,7 @@ export const TransactionList: React.FC = () => {
 
                 <div className="flex items-center gap-2 font-mono text-[11px] tabular-nums shrink-0">
                   {dayIncome > 0 && (
-                    <span 
+                    <span
                       className="text-[#059669] font-medium"
                       title={`Tổng thu: ${formatVND(dayIncome)}`}
                     >
@@ -196,9 +196,8 @@ export const TransactionList: React.FC = () => {
                         {/* Cột trái: Tên khoản chi / thu, danh mục, người chi / nhận */}
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div
-                            className={`w-2 h-2 rounded-full shrink-0 ${
-                              isIncome ? 'bg-[#10B981]' : 'bg-[#0F3D39]'
-                            }`}
+                            className={`w-2 h-2 rounded-full shrink-0 ${isIncome ? 'bg-[#10B981]' : 'bg-[#0F3D39]'
+                              }`}
                           />
                           <div className="min-w-0">
                             <p className="text-xs font-medium text-[#1C1917] truncate group-hover:text-[#0F3D39] transition-colors">
@@ -210,13 +209,12 @@ export const TransactionList: React.FC = () => {
                               </span>
                               <span className="text-[#D3CDC2] text-[10px]">•</span>
                               <span
-                                className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium ${
-                                  isIncome
+                                className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium ${isIncome
                                     ? 'bg-[#ECFDF5] text-[#047857]'
                                     : tx.paidBy === 'Chồng'
-                                    ? 'bg-[#E7EFEF] text-[#0F3D39]'
-                                    : 'bg-[#FEF3C7] text-[#B45309]'
-                                }`}
+                                      ? 'bg-[#E7EFEF] text-[#0F3D39]'
+                                      : 'bg-[#FEF3C7] text-[#B45309]'
+                                  }`}
                               >
                                 {isIncome ? `${tx.paidBy} nhận` : tx.paidBy}
                               </span>
@@ -228,9 +226,8 @@ export const TransactionList: React.FC = () => {
                         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                           <span
                             title={formatVND(tx.amount)}
-                            className={`text-xs font-semibold font-mono tabular-nums ${
-                              isIncome ? 'text-[#047857] font-bold' : 'text-[#1C1917]'
-                            }`}
+                            className={`text-xs font-semibold font-mono tabular-nums ${isIncome ? 'text-[#047857] font-bold' : 'text-[#1C1917]'
+                              }`}
                           >
                             {isIncome ? `+ ${displayAmount(tx.amount)}` : displayAmount(tx.amount)}
                           </span>
