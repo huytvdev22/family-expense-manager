@@ -12,11 +12,25 @@ import {
   where,
   orderBy,
   onSnapshot,
+  deleteField,
   type Unsubscribe
 } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Household, Category, Transaction, MonthlySummary, Invitation, UserProfile, FinancialGoal } from '../types';
 import { DEFAULT_CATEGORIES } from './mockData';
+
+/**
+ * Loại bỏ tất cả các field có giá trị undefined trước khi ghi vào Firestore
+ */
+function cleanFirestorePayload<T extends Record<string, any>>(obj: T): Record<string, any> {
+  const result: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      result[key] = value;
+    }
+  }
+  return result;
+}
 
 /**
  * TẠO HOẶC LẤY HỒ SƠ NGƯỜI DÙNG TỪ GOOGLE AUTH
@@ -32,19 +46,21 @@ export async function getOrCreateUserProfile(user: { uid: string; email: string 
   }
 
   // Tạo mới profile nếu lần đầu đăng nhập
-  const newProfile: UserProfile = {
+  const newProfile: Record<string, any> = {
     uid: user.uid,
     email: user.email || '',
     displayName: user.displayName || 'Thành viên',
-    photoURL: user.photoURL || undefined,
     householdIds: [],
     activeHouseholdId: '',
     createdAt: new Date().toISOString(),
     updatedAt: Date.now()
   };
+  if (user.photoURL) {
+    newProfile.photoURL = user.photoURL;
+  }
 
   await setDoc(userRef, newProfile);
-  return newProfile;
+  return newProfile as UserProfile;
 }
 
 /**
@@ -148,12 +164,14 @@ export async function addTransactionWithSummary(
 
   await runTransaction(db, async (transaction) => {
     // 1. Ghi bản ghi giao dịch
-    transaction.set(newTxRef, {
+    const rawTx = {
       ...txData,
       id: newTxRef.id,
       timestamp,
       createdAt
-    });
+    };
+
+    transaction.set(newTxRef, cleanFirestorePayload(rawTx));
 
     // 2. Cập nhật cộng dồn số liệu tháng nguyên tử
     const isExpense = txData.type === 'EXPENSE';
@@ -224,10 +242,18 @@ export async function updateTransactionWithSummary(
 
   await runTransaction(firestore, async (transaction) => {
     // 1. Cập nhật bản ghi giao dịch
-    transaction.set(txRef, {
+    const updatePayload: Record<string, any> = {
       ...updatedTx,
       updatedAt: Date.now()
-    }, { merge: true });
+    };
+
+    // Nếu trước đó có liên kết mục tiêu nhưng bản mới đã gỡ, dùng deleteField() để xóa trường
+    if (oldTx.goalId && !updatedTx.goalId) {
+      updatePayload.goalId = deleteField();
+      updatePayload.goalName = deleteField();
+    }
+
+    transaction.set(txRef, cleanFirestorePayload(updatePayload), { merge: true });
 
     // 2. Điều chỉnh số liệu tháng
     if (oldYearMonth === newYearMonth) {
@@ -729,10 +755,10 @@ export async function saveFinancialGoal(
   if (!db || !householdId) return;
 
   const goalRef = doc(db, `households/${householdId}/financial_goals`, goal.id);
-  await setDoc(goalRef, {
+  await setDoc(goalRef, cleanFirestorePayload({
     ...goal,
     updatedAt: Date.now()
-  }, { merge: true });
+  }), { merge: true });
 }
 
 /**

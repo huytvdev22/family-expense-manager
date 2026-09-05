@@ -7,7 +7,7 @@ import { triggerHaptic } from '../utils/haptics';
 import { renderGoalIcon } from '../utils/categoryIcons';
 import { QuickTags } from './QuickTags';
 import { DEFAULT_INCOME_QUICK_TAGS, DEFAULT_CATEGORIES } from '../services/mockData';
-import type { QuickTagItem, CategoryKey } from '../types';
+import type { QuickTagItem, CategoryKey, Transaction } from '../types';
 import { useToast } from './Toast';
 
 interface NumpadProps {
@@ -213,7 +213,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
 
     try {
       setIsSubmitting(true);
-      await logTransaction({
+      const txPayload: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'> = {
         amount,
         type: txType,
         categoryId: currentCat.id,
@@ -223,9 +223,14 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
         paidByUid: currentUser?.uid || 'anonymous',
         note: note.trim() || currentCat.name,
         date: todayStr,
-        goalId: selectedGoalId || undefined,
-        goalName: selectedGoal?.title
-      });
+      };
+
+      if (selectedGoalId) {
+        txPayload.goalId = selectedGoalId;
+        txPayload.goalName = selectedGoal?.title || '';
+      }
+
+      await logTransaction(txPayload);
 
       // Reset màn hình
       setAmountStr('0');

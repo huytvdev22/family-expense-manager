@@ -225,9 +225,15 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
         paidBy,
         note: note.trim() || cat.name,
         date,
-        goalId: selectedGoalId || undefined,
-        goalName: selectedGoal?.title
       };
+
+      if (selectedGoalId) {
+        updatedTx.goalId = selectedGoalId;
+        updatedTx.goalName = selectedGoal?.title || '';
+      } else {
+        delete updatedTx.goalId;
+        delete updatedTx.goalName;
+      }
 
       await editTransaction(transaction, updatedTx);
       showToast(`Đã cập nhật ${txType === 'EXPENSE' ? 'khoản chi' : 'thu nhập'} thành công!`, 'success');
