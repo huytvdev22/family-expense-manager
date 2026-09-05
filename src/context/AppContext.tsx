@@ -552,35 +552,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Nếu giao dịch gắn liền với một Mục tiêu Tự do Tài chính (Khoản nợ hoặc Tích lũy)
     if (txData.goalId) {
+      adjustGoalBalance(txData.goalId, txData.amount);
       const targetGoal = financialGoals.find((g) => g.id === txData.goalId);
       if (targetGoal) {
-        let nextAmount = targetGoal.currentAmount;
-        let nextStatus = targetGoal.status;
-
-        if (targetGoal.type === 'DEBT_PAYOFF') {
-          // Trả nợ: Giảm dần dư nợ về 0
-          nextAmount = Math.max(0, targetGoal.currentAmount - txData.amount);
-          if (nextAmount === 0) nextStatus = 'COMPLETED';
-        } else {
-          // Tích lũy: Tăng dần số tiền tiết kiệm
-          nextAmount = targetGoal.currentAmount + txData.amount;
-          if (targetGoal.targetAmount > 0 && nextAmount >= targetGoal.targetAmount) {
-            nextStatus = 'COMPLETED';
-          }
-        }
-
-        setFinancialGoals((prev) =>
-          prev.map((g) =>
-            g.id === targetGoal.id
-              ? { ...g, currentAmount: nextAmount, status: nextStatus, updatedAt: Date.now() }
-              : g
-          )
-        );
-
-        if (isFirebaseActive && activeHousehold && firebaseUser) {
-          updateGoalProgress(activeHousehold.id, targetGoal.id, txData.amount, targetGoal.type);
-        }
-
         if (targetGoal.type === 'DEBT_PAYOFF') {
           showToast(`Đã giảm dư nợ mục tiêu "${targetGoal.title}"!`, 'success');
         } else {
@@ -590,9 +564,65 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // HÀM BÙ TRỪ TIẾN ĐỘ MỤC TIÊU TỰ DO TÀI CHÍNH
+  const adjustGoalBalance = (goalId: string | undefined, amountDelta: number) => {
+    if (!goalId || amountDelta === 0) return;
+    const targetGoal = financialGoals.find((g) => g.id === goalId);
+    if (!targetGoal) return;
+
+    let nextAmount = targetGoal.currentAmount;
+    let nextStatus = targetGoal.status;
+
+    if (targetGoal.type === 'DEBT_PAYOFF') {
+      nextAmount = Math.max(0, targetGoal.currentAmount - amountDelta);
+      if (nextAmount === 0) {
+        nextStatus = 'COMPLETED';
+      } else if (nextStatus === 'COMPLETED') {
+        nextStatus = 'ACTIVE';
+      }
+    } else {
+      nextAmount = Math.max(0, targetGoal.currentAmount + amountDelta);
+      if (targetGoal.targetAmount > 0 && nextAmount >= targetGoal.targetAmount) {
+        nextStatus = 'COMPLETED';
+      } else if (nextStatus === 'COMPLETED') {
+        nextStatus = 'ACTIVE';
+      }
+    }
+
+    setFinancialGoals((prev) =>
+      prev.map((g) =>
+        g.id === targetGoal.id
+          ? { ...g, currentAmount: nextAmount, status: nextStatus, updatedAt: Date.now() }
+          : g
+      )
+    );
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      updateGoalProgress(activeHousehold.id, targetGoal.id, amountDelta, targetGoal.type);
+    }
+  };
+
   // HÀNH ĐỘNG CẬP NHẬT GIAO DỊCH
   const editTransaction = async (oldTx: Transaction, updatedTx: Transaction) => {
     playSuccessChime();
+
+    // Đồng bộ điều chỉnh số dư mục tiêu Tự do Tài chính
+    if (oldTx.goalId === updatedTx.goalId) {
+      if (oldTx.goalId) {
+        const delta = updatedTx.amount - oldTx.amount;
+        if (delta !== 0) {
+          adjustGoalBalance(oldTx.goalId, delta);
+        }
+      }
+    } else {
+      // Đổi mục tiêu hoặc gỡ/gắn mới
+      if (oldTx.goalId) {
+        adjustGoalBalance(oldTx.goalId, -oldTx.amount);
+      }
+      if (updatedTx.goalId) {
+        adjustGoalBalance(updatedTx.goalId, updatedTx.amount);
+      }
+    }
 
     if (isFirebaseActive && activeHousehold && firebaseUser) {
       await updateTransactionWithSummary(activeHousehold.id, oldTx, updatedTx);
@@ -606,6 +636,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // HÀNH ĐỘNG XÓA GIAO DỊCH
   const removeTransaction = async (tx: Transaction) => {
+    // Hoàn tác số tiền đã trừ/cộng vào mục tiêu Tự do Tài chính nếu có
+    if (tx.goalId) {
+      adjustGoalBalance(tx.goalId, -tx.amount);
+      showToast('Đã hoàn lại số dư cho mục tiêu tài chính', 'info');
+    }
+
     if (isFirebaseActive && activeHousehold && firebaseUser) {
       await deleteTransactionWithSummary(activeHousehold.id, tx);
     } else {

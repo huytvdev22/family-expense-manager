@@ -759,7 +759,7 @@ export async function updateGoalProgress(
   amountDelta: number,
   type: 'DEBT_PAYOFF' | 'SAVINGS'
 ): Promise<void> {
-  if (!db || !householdId || !goalId || amountDelta <= 0) return;
+  if (!db || !householdId || !goalId || amountDelta === 0) return;
 
   const goalRef = doc(db, `households/${householdId}/financial_goals`, goalId);
 
@@ -775,11 +775,15 @@ export async function updateGoalProgress(
       newAmount = Math.max(0, data.currentAmount - amountDelta);
       if (newAmount === 0) {
         newStatus = 'COMPLETED';
+      } else if (newStatus === 'COMPLETED') {
+        newStatus = 'ACTIVE';
       }
     } else {
-      newAmount = data.currentAmount + amountDelta;
+      newAmount = Math.max(0, data.currentAmount + amountDelta);
       if (data.targetAmount > 0 && newAmount >= data.targetAmount) {
         newStatus = 'COMPLETED';
+      } else if (newStatus === 'COMPLETED') {
+        newStatus = 'ACTIVE';
       }
     }
 

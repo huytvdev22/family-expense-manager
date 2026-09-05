@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Check, Trash2, Calendar, Tag, User, DollarSign, FileText } from 'lucide-react';
+import { X, Check, Trash2, Calendar, Tag, User, DollarSign, FileText, Target } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from './Toast';
 import { formatVND } from '../utils/currency';
@@ -18,7 +18,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   onClose,
   transaction
 }) => {
-  const { categories, editTransaction, removeTransaction } = useApp();
+  const { categories, editTransaction, removeTransaction, financialGoals } = useApp();
   const { showToast } = useToast();
 
   const [txType, setTxType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
@@ -27,6 +27,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [paidBy, setPaidBy] = useState<'Chồng' | 'Vợ'>('Chồng');
   const [date, setDate] = useState<string>('');
   const [note, setNote] = useState<string>('');
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(transaction?.goalId || null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
@@ -39,6 +40,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       setPaidBy(transaction.paidBy as 'Chồng' | 'Vợ');
       setDate(transaction.date || new Date().toISOString().split('T')[0]);
       setNote(transaction.note || '');
+      setSelectedGoalId(transaction.goalId || null);
     }
   }, [transaction]);
 
@@ -54,6 +56,28 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       setSelectedCategoryId(currentCategories[0].id);
     }
   }, [txType, currentCategories, selectedCategoryId]);
+
+  // Xác định mục tiêu liên quan dựa trên danh mục được chọn (Trả nợ hoặc Tích lũy)
+  const matchingGoals = useMemo(() => {
+    const currentCat = categories.find((c) => c.id === selectedCategoryId);
+    if (!currentCat) return [];
+
+    const isDebtCat = currentCat.id === 'cat_debt' 
+      || currentCat.name.toLowerCase().includes('nợ') 
+      || currentCat.name.toLowerCase().includes('ngân hàng');
+
+    const isSavingCat = currentCat.categoryKey === 'SAVING' 
+      || currentCat.name.toLowerCase().includes('tích lũy') 
+      || currentCat.name.toLowerCase().includes('tiết kiệm');
+
+    if (isDebtCat) {
+      return financialGoals.filter((g) => (g.status === 'ACTIVE' || g.id === transaction?.goalId) && g.type === 'DEBT_PAYOFF');
+    }
+    if (isSavingCat) {
+      return financialGoals.filter((g) => (g.status === 'ACTIVE' || g.id === transaction?.goalId) && g.type === 'SAVINGS');
+    }
+    return [];
+  }, [categories, selectedCategoryId, financialGoals, transaction?.goalId]);
 
   if (!isOpen || !transaction) return null;
 
@@ -82,6 +106,8 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       playActionClick();
       triggerHaptic(10);
 
+      const selectedGoal = financialGoals.find((g) => g.id === selectedGoalId);
+
       const updatedTx: Transaction = {
         ...transaction,
         amount,
@@ -91,7 +117,9 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
         categoryKey: cat.categoryKey as CategoryKey,
         paidBy,
         note: note.trim() || cat.name,
-        date
+        date,
+        goalId: selectedGoalId || undefined,
+        goalName: selectedGoal?.title
       };
 
       await editTransaction(transaction, updatedTx);
@@ -241,6 +269,55 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
               })}
             </div>
           </div>
+
+          {/* Dải chọn Mục tiêu Tự do Tài chính liên kết */}
+          {matchingGoals.length > 0 && (
+            <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-2.5 flex flex-col gap-1.5 shadow-2xs animate-in fade-in duration-150">
+              <div className="flex items-center justify-between px-0.5">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#0F3D39]">
+                  <Target className="w-3.5 h-3.5 text-[#B45309]" />
+                  <span>Gắn vào mục tiêu Tự do TC:</span>
+                </div>
+                {selectedGoalId && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGoalId(null)}
+                    className="text-[10px] text-[#78716C] hover:text-[#E11D48] underline transition-colors cursor-pointer"
+                  >
+                    Không gắn
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                {matchingGoals.map((g) => {
+                  const isChosen = selectedGoalId === g.id;
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => {
+                        playActionClick();
+                        triggerHaptic(10);
+                        setSelectedGoalId(isChosen ? null : g.id);
+                      }}
+                      className={`shrink-0 px-2.5 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-1.5 transition-all tactile-btn cursor-pointer ${
+                        isChosen
+                          ? 'bg-[#0F3D39] text-white border-[#0F3D39] shadow-2xs font-semibold'
+                          : 'bg-white text-[#1C1917] border-[#E6E2DA] hover:bg-[#F5F3EF]'
+                      }`}
+                    >
+                      <span>{g.icon || '🎯'}</span>
+                      <span className="truncate max-w-[130px]">{g.title}</span>
+                      <span className={`text-[10px] font-mono ${isChosen ? 'text-white/80' : 'text-[#78716C]'}`}>
+                        ({formatVND(g.currentAmount, false)}₫)
+                      </span>
+                      {isChosen && <Check className="w-3 h-3 stroke-[2.5]" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Chọn người chi / người nhận */}
           <div>
