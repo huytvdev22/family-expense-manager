@@ -17,7 +17,8 @@ import {
   Trash2,
   Key,
   HelpCircle,
-  ArrowLeft
+  ArrowLeft,
+  Edit2
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from './Toast';
@@ -47,12 +48,16 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
   onClose,
   reportData
 }) => {
-  const { activeHousehold } = useApp();
+  const { activeHousehold, updateMemberEmail } = useApp();
   const { showToast } = useToast();
 
   const [activeTab, setActiveTab] = useState<'compose' | 'preview'>('compose');
   const [recipientTarget, setRecipientTarget] = useState<RecipientTarget>('both');
   const [customEmail, setCustomEmail] = useState<string>('');
+  
+  // Trạng thái cập nhật nhanh email thành viên
+  const [editingRole, setEditingRole] = useState<'husband' | 'wife' | null>(null);
+  const [editingEmailValue, setEditingEmailValue] = useState<string>('');
   
   // Trạng thái màn hình Cài đặt EmailJS
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
@@ -83,11 +88,13 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
   const [copiedHtml, setCopiedHtml] = useState<boolean>(false);
 
   // Nhận diện email Chồng & Vợ từ activeHousehold an toàn
-  const { husbandEmail, wifeEmail, husbandName, wifeName } = useMemo(() => {
+  const { husbandEmail, wifeEmail, husbandName, wifeName, husbandUid, wifeUid } = useMemo(() => {
     let hEmail = '';
     let wEmail = '';
     let hName = 'Chồng';
     let wName = 'Vợ';
+    let hUid = '';
+    let wUid = '';
 
     if (activeHousehold?.members && Array.isArray(activeHousehold.members)) {
       activeHousehold.members.forEach((uid) => {
@@ -98,29 +105,63 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
         if (role === 'Chồng') {
           hEmail = email;
           hName = name || 'Chồng';
+          hUid = uid;
         } else if (role === 'Vợ') {
           wEmail = email;
           wName = name || 'Vợ';
+          wUid = uid;
         } else {
           // Fallback nếu chưa chọn vai trò
           if (!hEmail) {
             hEmail = email;
             hName = name || 'Thành viên 1';
+            hUid = uid;
           } else if (!wEmail) {
             wEmail = email;
             wName = name || 'Thành viên 2';
+            wUid = uid;
           }
         }
       });
+    }
+
+    // Fallback nếu lưu dưới key tổng quát 'wife' hoặc 'husband'
+    if (!wEmail && activeHousehold?.memberEmails?.['wife']) {
+      wEmail = activeHousehold.memberEmails['wife'];
+    }
+    if (!hEmail && activeHousehold?.memberEmails?.['husband']) {
+      hEmail = activeHousehold.memberEmails['husband'];
     }
 
     return {
       husbandEmail: hEmail,
       wifeEmail: wEmail,
       husbandName: hName,
-      wifeName: wName
+      wifeName: wName,
+      husbandUid: hUid,
+      wifeUid: wUid
     };
   }, [activeHousehold]);
+
+  // Xử lý lưu email thành viên ngay tại chỗ
+  const handleSaveMemberEmail = async (targetRole: 'husband' | 'wife') => {
+    const cleanEmail = editingEmailValue.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      showToast('Vui lòng nhập địa chỉ email hợp lệ!', 'warning');
+      return;
+    }
+
+    const targetUid = targetRole === 'husband'
+      ? (husbandUid || 'husband')
+      : (wifeUid || 'wife');
+
+    playActionClick();
+    await updateMemberEmail(targetUid, cleanEmail);
+    setEditingRole(null);
+    setEditingEmailValue('');
+    playSuccessChime();
+    triggerHaptic(15);
+  };
 
   // Trích xuất an toàn các chỉ số
   const safeData = useMemo(() => {
@@ -242,7 +283,7 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
       `- Tổng Thu nhập: ${formatVND(safeData.totalIncome)}\n` +
       `- Tổng Chi tiêu: ${formatVND(safeData.totalExpense)}\n` +
       `- Tích lũy: ${formatVND(safeData.netSavings)} (${safeData.savingsRatio}%)\n\n` +
-      `Xem chi tiết tại: https://family-expense-manager.web.app\n` +
+      `Xem chi tiết tại: https://toamnho-family.web.app\n` +
       `Sổ Cái Gia Đình - Hạnh phúc từ sự sẻ chia!`
     );
 
@@ -597,38 +638,172 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
                     <div className="space-y-1.5">
                       {/* Email Chồng */}
                       {(recipientTarget === 'both' || recipientTarget === 'husband') && (
-                        <div className="flex items-center justify-between p-2 rounded-xl bg-[#FAF9F6] border border-[#F5F3EF]">
-                          <div className="flex items-center gap-2 truncate">
-                            <span className="w-2 h-2 rounded-full bg-[#0F3D39] inline-block shrink-0" />
-                            <span className="font-semibold text-[#1C1917] truncate">
-                              👔 {husbandName}:
-                            </span>
-                            <span className="font-mono text-[#0F3D39] truncate">
-                              {husbandEmail || '(Chưa cập nhật email)'}
-                            </span>
+                        editingRole === 'husband' ? (
+                          <div className="p-2.5 rounded-xl bg-white border border-[#0F3D39] shadow-xs space-y-2 animate-in fade-in duration-150">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-[#0F3D39]">
+                                Cập nhật email cho 👔 {husbandName}:
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setEditingRole(null)}
+                                className="text-[#78716C] hover:text-[#1C1917] p-0.5 rounded cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="email"
+                                value={editingEmailValue}
+                                onChange={(e) => setEditingEmailValue(e.target.value)}
+                                placeholder="email.chong@gmail.com"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveMemberEmail('husband');
+                                }}
+                                className="flex-1 text-xs p-2 rounded-lg border border-[#E6E2DA] bg-[#FAF9F6] outline-hidden focus:border-[#0F3D39]"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveMemberEmail('husband')}
+                                className="px-3 py-2 rounded-lg bg-[#0F3D39] text-white text-[11px] font-bold hover:bg-[#174E4A] transition-all cursor-pointer shrink-0"
+                              >
+                                Lưu
+                              </button>
+                            </div>
                           </div>
-                          <span className="text-[9px] bg-[#E7EFEF] text-[#0F3D39] px-2 py-0.5 rounded-full font-bold shrink-0">
-                            Chồng
-                          </span>
-                        </div>
+                        ) : (
+                          <div className="flex items-center justify-between p-2 rounded-xl bg-[#FAF9F6] border border-[#F5F3EF]">
+                            <div className="flex items-center gap-2 truncate min-w-0 flex-1">
+                              <span className="w-2 h-2 rounded-full bg-[#0F3D39] inline-block shrink-0" />
+                              <span className="font-semibold text-[#1C1917] shrink-0">
+                                👔 {husbandName}:
+                              </span>
+                              <span 
+                                onClick={() => {
+                                  if (!husbandEmail) {
+                                    setEditingRole('husband');
+                                    setEditingEmailValue('');
+                                  }
+                                }}
+                                className={`font-mono truncate ${
+                                  husbandEmail 
+                                    ? 'text-[#0F3D39]' 
+                                    : 'text-[#B45309] italic cursor-pointer hover:underline'
+                                }`}
+                              >
+                                {husbandEmail || '(Chưa cập nhật email)'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingRole('husband');
+                                  setEditingEmailValue(husbandEmail || '');
+                                }}
+                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
+                                  husbandEmail 
+                                    ? 'text-[#78716C] hover:text-[#0F3D39] hover:bg-[#E7EFEF]' 
+                                    : 'text-[#0F3D39] bg-[#E7EFEF] hover:bg-[#0F3D39] hover:text-white font-bold'
+                                }`}
+                                title="Cập nhật địa chỉ email"
+                              >
+                                <Edit2 className="w-2.5 h-2.5" />
+                                <span>{husbandEmail ? 'Sửa' : 'Thêm email'}</span>
+                              </button>
+                              <span className="text-[9px] bg-[#E7EFEF] text-[#0F3D39] px-2 py-0.5 rounded-full font-bold">
+                                Chồng
+                              </span>
+                            </div>
+                          </div>
+                        )
                       )}
 
                       {/* Email Vợ */}
                       {(recipientTarget === 'both' || recipientTarget === 'wife') && (
-                        <div className="flex items-center justify-between p-2 rounded-xl bg-[#FAF9F6] border border-[#F5F3EF]">
-                          <div className="flex items-center gap-2 truncate">
-                            <span className="w-2 h-2 rounded-full bg-[#B45309] inline-block shrink-0" />
-                            <span className="font-semibold text-[#1C1917] truncate">
-                              👗 {wifeName}:
-                            </span>
-                            <span className="font-mono text-[#B45309] truncate">
-                              {wifeEmail || '(Chưa cập nhật email)'}
-                            </span>
+                        editingRole === 'wife' ? (
+                          <div className="p-2.5 rounded-xl bg-white border border-[#B45309] shadow-xs space-y-2 animate-in fade-in duration-150">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-bold text-[#B45309]">
+                                Cập nhật email cho 👗 {wifeName}:
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setEditingRole(null)}
+                                className="text-[#78716C] hover:text-[#1C1917] p-0.5 rounded cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                type="email"
+                                value={editingEmailValue}
+                                onChange={(e) => setEditingEmailValue(e.target.value)}
+                                placeholder="email.vo@gmail.com"
+                                autoFocus
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveMemberEmail('wife');
+                                }}
+                                className="flex-1 text-xs p-2 rounded-lg border border-[#E6E2DA] bg-[#FAF9F6] outline-hidden focus:border-[#B45309]"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleSaveMemberEmail('wife')}
+                                className="px-3 py-2 rounded-lg bg-[#B45309] text-white text-[11px] font-bold hover:bg-[#92400E] transition-all cursor-pointer shrink-0"
+                              >
+                                Lưu
+                              </button>
+                            </div>
                           </div>
-                          <span className="text-[9px] bg-[#FEF3C7] text-[#B45309] px-2 py-0.5 rounded-full font-bold shrink-0">
-                            Vợ
-                          </span>
-                        </div>
+                        ) : (
+                          <div className="flex items-center justify-between p-2 rounded-xl bg-[#FAF9F6] border border-[#F5F3EF]">
+                            <div className="flex items-center gap-2 truncate min-w-0 flex-1">
+                              <span className="w-2 h-2 rounded-full bg-[#B45309] inline-block shrink-0" />
+                              <span className="font-semibold text-[#1C1917] shrink-0">
+                                👗 {wifeName}:
+                              </span>
+                              <span 
+                                onClick={() => {
+                                  if (!wifeEmail) {
+                                    setEditingRole('wife');
+                                    setEditingEmailValue('');
+                                  }
+                                }}
+                                className={`font-mono truncate ${
+                                  wifeEmail 
+                                    ? 'text-[#B45309]' 
+                                    : 'text-[#B45309] italic cursor-pointer hover:underline font-medium'
+                                }`}
+                              >
+                                {wifeEmail || '(Chưa cập nhật email)'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingRole('wife');
+                                  setEditingEmailValue(wifeEmail || '');
+                                }}
+                                className={`text-[10px] font-semibold px-2 py-0.5 rounded-md flex items-center gap-1 transition-all cursor-pointer ${
+                                  wifeEmail 
+                                    ? 'text-[#78716C] hover:text-[#B45309] hover:bg-[#FEF3C7]' 
+                                    : 'text-[#B45309] bg-[#FEF3C7] hover:bg-[#B45309] hover:text-white font-bold'
+                                }`}
+                                title="Cập nhật địa chỉ email cho vợ"
+                              >
+                                <Edit2 className="w-2.5 h-2.5" />
+                                <span>{wifeEmail ? 'Sửa' : 'Thêm email'}</span>
+                              </button>
+                              <span className="text-[9px] bg-[#FEF3C7] text-[#B45309] px-2 py-0.5 rounded-full font-bold">
+                                Vợ
+                              </span>
+                            </div>
+                          </div>
+                        )
                       )}
                     </div>
 

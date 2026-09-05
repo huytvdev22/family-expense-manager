@@ -417,7 +417,7 @@ export const generateMonthlyReportHtml = (data?: EmailReportData): string => {
 
         <!-- Nút CTA -->
         <div style="text-align: center;">
-          <a href="https://family-expense-manager.web.app" class="cta-btn">
+          <a href="https://toamnho-family.web.app" class="cta-btn">
             📖 Mở Sổ Cái Gia Đình
           </a>
         </div>

@@ -24,6 +24,7 @@ import {
   acceptInvitation,
   setMemberRole,
   syncMemberPhoto,
+  updateMemberEmail as firestoreUpdateMemberEmail,
   saveCategory,
   updateCategory,
   archiveCategory,
@@ -51,6 +52,7 @@ interface AppContextType {
   isLoading: boolean;
   userRole: 'Chồng' | 'Vợ';
   updateUserRole: (role: 'Chồng' | 'Vợ') => Promise<void>;
+  updateMemberEmail: (uid: string, email: string) => Promise<void>;
   
   // Tổ ấm hiện tại
   activeHousehold: Household | null;
@@ -146,8 +148,55 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           syncMemberPhoto(activeHousehold.id, currentUser.uid, currentUser.photoURL);
         }
       }
+
+      // Tự động đồng bộ email người dùng vào tổ ấm nếu chưa có hoặc thay đổi
+      if (currentUser.email && activeHousehold.id) {
+        const currentEmail = activeHousehold.memberEmails?.[currentUser.uid];
+        if (!currentEmail || currentEmail !== currentUser.email) {
+          firestoreUpdateMemberEmail(activeHousehold.id, currentUser.uid, currentUser.email);
+          setActiveHousehold((prev) => prev ? {
+            ...prev,
+            memberEmails: {
+              ...(prev.memberEmails || {}),
+              [currentUser.uid]: currentUser.email
+            }
+          } : null);
+        }
+      }
     }
-  }, [activeHousehold?.id, currentUser?.uid, currentUser?.photoURL]);
+  }, [activeHousehold?.id, currentUser?.uid, currentUser?.photoURL, currentUser?.email]);
+
+  // CẬP NHẬT EMAIL CỦA THÀNH VIÊN TRONG TỔ ẤM (CHO PHÉP VỢ/CHỒNG CẬP NHẬT HỘ NHAU)
+  const updateMemberEmail = async (uid: string, email: string) => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      showToast('Vui lòng nhập địa chỉ email hợp lệ!', 'warning');
+      return;
+    }
+
+    // Cập nhật state cục bộ ngay lập tức để giao diện phản hồi tức thì
+    setActiveHousehold((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        memberEmails: {
+          ...(prev.memberEmails || {}),
+          [uid]: cleanEmail
+        }
+      };
+    });
+
+    // Cập nhật lên Firestore nếu đang kích hoạt Firebase
+    if (isFirebaseActive && firebaseUser && activeHousehold) {
+      try {
+        await firestoreUpdateMemberEmail(activeHousehold.id, uid, cleanEmail);
+      } catch (err) {
+        console.error('Lỗi khi lưu email thành viên:', err);
+      }
+    }
+
+    showToast('Đã lưu địa chỉ email thành công!', 'success');
+  };
 
   // CẬP NHẬT VAI TRÒ CỦA BẢN THÂN TRONG TỔ ẤM
   const updateUserRole = async (role: 'Chồng' | 'Vợ') => {
@@ -731,6 +780,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         isAuthenticating,
         userRole,
         updateUserRole,
+        updateMemberEmail,
         activeHousehold,
         categories,
         createCategory,

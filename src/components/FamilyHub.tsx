@@ -161,6 +161,10 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
                   ? userRole
                   : (uid1 && activeHousehold?.memberRoles?.[uid1]) || (userRole === 'Chồng' ? 'Vợ' : 'Chồng');
 
+                const email1 = isMe1 && currentUser?.email
+                  ? currentUser.email
+                  : (uid1 ? activeHousehold?.memberEmails?.[uid1] : undefined);
+
                 return (
                   <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] flex items-center gap-2.5">
                     {photo1 ? (
@@ -175,14 +179,21 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
                         {name1.charAt(0).toUpperCase() || (role1 === 'Chồng' ? 'C' : 'V')}
                       </div>
                     )}
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-xs font-bold text-[#1C1917] truncate">
                         {name1} {isMe1 && <span className="font-normal text-[#78716C] text-[10px]">(Bạn)</span>}
                       </p>
-                      <p className="text-[10px] text-[#047857] font-mono flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block" />
-                        {role1}
-                      </p>
+                      <div className="flex items-center justify-between gap-1 mt-0.5">
+                        <p className="text-[10px] text-[#047857] font-mono flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block" />
+                          {role1}
+                        </p>
+                        {email1 && (
+                          <p className="text-[9px] text-[#78716C] font-mono truncate max-w-[130px]">
+                            {email1}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -203,6 +214,10 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
                     ? userRole
                     : (uid2 && activeHousehold?.memberRoles?.[uid2]) || (userRole === 'Chồng' ? 'Vợ' : 'Chồng');
 
+                  const email2 = isMe2 && currentUser?.email
+                    ? currentUser.email
+                    : (uid2 ? activeHousehold?.memberEmails?.[uid2] : undefined);
+
                   return (
                     <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] flex items-center gap-2.5">
                       {photo2 ? (
@@ -217,14 +232,21 @@ export const FamilyHub: React.FC<FamilyHubProps> = ({
                           {name2.charAt(0).toUpperCase() || (role2 === 'Chồng' ? 'C' : 'V')}
                         </div>
                       )}
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold text-[#1C1917] truncate">
                           {name2} {isMe2 && <span className="font-normal text-[#78716C] text-[10px]">(Bạn)</span>}
                         </p>
-                        <p className="text-[10px] text-[#047857] font-mono flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block" />
-                          {role2}
-                        </p>
+                        <div className="flex items-center justify-between gap-1 mt-0.5">
+                          <p className="text-[10px] text-[#047857] font-mono flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] inline-block" />
+                            {role2}
+                          </p>
+                          {email2 && (
+                            <p className="text-[9px] text-[#78716C] font-mono truncate max-w-[130px]">
+                              {email2}
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );

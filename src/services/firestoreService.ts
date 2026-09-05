@@ -632,3 +632,20 @@ export async function syncMemberPhoto(
     updatedAt: Date.now()
   }).catch((e) => console.warn('Lỗi đồng bộ avatar tổ ấm:', e));
 }
+
+/**
+ * CẬP NHẬT HOẶC ĐỒNG BỘ EMAIL THÀNH VIÊN VÀO TỔ ẤM
+ */
+export async function updateMemberEmail(
+  householdId: string,
+  uid: string,
+  email: string
+): Promise<void> {
+  if (!db || !householdId || !uid) return;
+
+  const householdRef = doc(db, 'households', householdId);
+  await updateDoc(householdRef, {
+    [`memberEmails.${uid}`]: email.trim().toLowerCase(),
+    updatedAt: Date.now()
+  }).catch((e) => console.warn('Lỗi cập nhật email thành viên tổ ấm:', e));
+}
