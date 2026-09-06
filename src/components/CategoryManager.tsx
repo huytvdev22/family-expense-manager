@@ -238,8 +238,12 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
       monthlyLimit: !isNaN(limitVal) && limitVal > 0 ? limitVal : undefined
     };
 
-    await editCategory(editingCat.id, updates);
-    setEditingCat(null);
+    try {
+      await editCategory(editingCat.id, updates);
+      setEditingCat(null);
+    } catch (e) {
+      console.error('Lỗi khi sửa danh mục:', e);
+    }
   };
 
   // Thêm nhóm mới
@@ -250,20 +254,24 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
     }
 
     const limitVal = Number(newCatLimit);
-    await createCategory({
-      name: newCatName.trim(),
-      type: activeType,
-      categoryKey: (activeType === 'INCOME' ? 'INCOME' : 'OTHER') as CategoryKey,
-      icon: newCatIcon || (activeType === 'INCOME' ? 'briefcase' : 'folder'),
-      color: newCatColor,
-      isDefault: false,
-      monthlyLimit: !isNaN(limitVal) && limitVal > 0 ? limitVal : undefined
-    });
+    try {
+      await createCategory({
+        name: newCatName.trim(),
+        type: activeType,
+        categoryKey: (activeType === 'INCOME' ? 'INCOME' : 'OTHER') as CategoryKey,
+        icon: newCatIcon || (activeType === 'INCOME' ? 'briefcase' : 'folder'),
+        color: newCatColor,
+        isDefault: false,
+        monthlyLimit: !isNaN(limitVal) && limitVal > 0 ? limitVal : undefined
+      });
 
-    setIsAdding(false);
-    setNewCatName('');
-    setNewCatLimit('');
-    setNewCatIcon(activeType === 'INCOME' ? 'briefcase' : 'folder');
+      setIsAdding(false);
+      setNewCatName('');
+      setNewCatLimit('');
+      setNewCatIcon(activeType === 'INCOME' ? 'briefcase' : 'folder');
+    } catch (e) {
+      console.error('Lỗi khi thêm danh mục:', e);
+    }
   };
 
   // Xóa hoặc Ẩn danh mục

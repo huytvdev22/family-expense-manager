@@ -26,6 +26,7 @@ import {
   syncMemberPhoto,
   updateMemberEmail as firestoreUpdateMemberEmail,
   updateHouseholdName as firestoreUpdateHouseholdName,
+  updateHouseholdBudget as firestoreUpdateHouseholdBudget,
   saveCategory,
   updateCategory,
   archiveCategory,
@@ -718,7 +719,23 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     if (isFirebaseActive && activeHousehold && firebaseUser) {
-      await updateTransactionWithSummary(activeHousehold.id, oldTx, updatedTx);
+      try {
+        await updateTransactionWithSummary(activeHousehold.id, oldTx, updatedTx);
+      } catch (err) {
+        console.error('Lỗi khi cập nhật giao dịch lên Firestore:', err);
+        // Hoàn tác điều chỉnh số dư mục tiêu
+        if (oldTx.goalId === updatedTx.goalId) {
+          if (oldTx.goalId) {
+            const delta = updatedTx.amount - oldTx.amount;
+            if (delta !== 0) adjustGoalBalance(oldTx.goalId, -delta);
+          }
+        } else {
+          if (oldTx.goalId) adjustGoalBalance(oldTx.goalId, oldTx.amount);
+          if (updatedTx.goalId) adjustGoalBalance(updatedTx.goalId, -updatedTx.amount);
+        }
+        showToast('Không thể lưu cập nhật giao dịch. Vui lòng thử lại!', 'error');
+        throw err;
+      }
     } else {
       // Cập nhật Mock Data cục bộ
       setTransactions((prev) =>
@@ -736,7 +753,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     if (isFirebaseActive && activeHousehold && firebaseUser) {
-      await deleteTransactionWithSummary(activeHousehold.id, tx);
+      try {
+        await deleteTransactionWithSummary(activeHousehold.id, tx);
+      } catch (err) {
+        console.error('Lỗi khi xóa giao dịch trên Firestore:', err);
+        // Hoàn tác lại số dư nếu xóa thất bại
+        if (tx.goalId) {
+          adjustGoalBalance(tx.goalId, tx.amount);
+        }
+        showToast('Không thể xóa giao dịch. Vui lòng kiểm tra kết nối mạng!', 'error');
+        throw err;
+      }
     } else {
       setTransactions((prev) => prev.filter((item) => item.id !== tx.id));
     }
@@ -744,8 +771,31 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // CẬP NHẬT NGÂN SÁCH THÁNG
   const updateBudget = async (newBudget: number) => {
-    if (!activeHousehold) return;
+    if (!activeHousehold || isNaN(newBudget) || newBudget < 0) return;
+    const oldBudget = activeHousehold.monthlyBudget;
+
     setActiveHousehold((prev) => prev ? { ...prev, monthlyBudget: newBudget } : null);
+    setUserHouseholds((prev) =>
+      prev.map((hh) => (hh.id === activeHousehold.id ? { ...hh, monthlyBudget: newBudget } : hh))
+    );
+
+    if (isFirebaseActive && firebaseUser) {
+      try {
+        await firestoreUpdateHouseholdBudget(activeHousehold.id, newBudget);
+        showToast(`Đã cập nhật ngân sách tháng thành ${formatVND(newBudget)}`, 'success');
+      } catch (err) {
+        console.error('Lỗi cập nhật ngân sách tháng lên Firestore:', err);
+        // Rollback lại giá trị cũ
+        setActiveHousehold((prev) => prev ? { ...prev, monthlyBudget: oldBudget } : null);
+        setUserHouseholds((prev) =>
+          prev.map((hh) => (hh.id === activeHousehold.id ? { ...hh, monthlyBudget: oldBudget } : hh))
+        );
+        showToast('Không thể lưu ngân sách. Vui lòng thử lại!', 'error');
+        throw err;
+      }
+    } else {
+      showToast(`Đã cập nhật ngân sách tháng thành ${formatVND(newBudget)}`, 'success');
+    }
   };
 
   // CẬP NHẬT TÊN TỔ ẤM
@@ -774,8 +824,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // THÊM DANH MỤC MỚI
   const createCategory = async (catData: Omit<Category, 'id' | 'createdAt' | 'isArchived' | 'order'>) => {
+    // Đảm bảo không truyền undefined field
+    const cleanData = { ...catData };
+    if (cleanData.monthlyLimit === undefined || cleanData.monthlyLimit === null || isNaN(cleanData.monthlyLimit) || cleanData.monthlyLimit <= 0) {
+      delete cleanData.monthlyLimit;
+    }
+
     const newCat: Category = {
-      ...catData,
+      ...cleanData,
       id: `cat_${Date.now()}`,
       order: categories.length + 1,
       isArchived: false,
@@ -786,23 +842,49 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCategories((prev) => [...prev, newCat]);
 
     if (isFirebaseActive && activeHousehold && firebaseUser) {
-      await saveCategory(activeHousehold.id, newCat);
+      try {
+        await saveCategory(activeHousehold.id, newCat);
+        showToast(`Đã tạo nhóm "${newCat.name}"`, 'success');
+      } catch (error) {
+        console.error('Lỗi khi lưu danh mục lên Firestore:', error);
+        // Rollback state nếu lưu thất bại
+        setCategories((prev) => prev.filter((c) => c.id !== newCat.id));
+        showToast('Không thể lưu nhóm chi tiêu. Vui lòng thử lại!', 'error');
+        throw error;
+      }
+    } else {
+      showToast(`Đã tạo nhóm "${newCat.name}"`, 'success');
     }
-    showToast(`Đã tạo nhóm "${newCat.name}"`, 'success');
   };
 
   // CHỈNH SỬA DANH MỤC
   const editCategory = async (categoryId: string, updates: Partial<Category>) => {
     playActionClick();
     triggerHaptic(10);
+    const prevCategory = categories.find((c) => c.id === categoryId);
+
     setCategories((prev) =>
       prev.map((c) => (c.id === categoryId ? { ...c, ...updates } : c))
     );
 
     if (isFirebaseActive && activeHousehold && firebaseUser) {
-      await updateCategory(activeHousehold.id, categoryId, updates);
+      try {
+        await updateCategory(activeHousehold.id, categoryId, updates);
+        showToast('Đã lưu thay đổi danh mục', 'success');
+      } catch (error) {
+        console.error('Lỗi khi cập nhật danh mục trên Firestore:', error);
+        // Rollback nếu thất bại
+        if (prevCategory) {
+          setCategories((prev) =>
+            prev.map((c) => (c.id === categoryId ? prevCategory : c))
+          );
+        }
+        showToast('Không thể cập nhật danh mục. Vui lòng thử lại!', 'error');
+        throw error;
+      }
+    } else {
+      showToast('Đã lưu thay đổi danh mục', 'success');
     }
-    showToast('Đã lưu thay đổi danh mục', 'success');
   };
 
   // XÓA HOẶC ẨN DANH MỤC AN TOÀN
@@ -892,46 +974,60 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       try {
         const created = await firestoreCreateQuickTag(activeHousehold.id, tagData);
         setQuickTags((prev) => prev.map((t) => (t.id === tempId ? created : t)));
+        showToast('Đã thêm phím tắt gợi ý 1-chạm!', 'success');
       } catch (err) {
         console.error('Lỗi tạo Quick Tag trên Firestore:', err);
-        showToast('Lỗi lưu Quick Tag lên đám mây', 'warning');
+        setQuickTags((prev) => prev.filter((t) => t.id !== tempId));
+        showToast('Không thể lưu phím tắt lên đám mây. Vui lòng thử lại!', 'error');
+        throw err;
       }
+    } else {
+      showToast('Đã thêm phím tắt gợi ý 1-chạm!', 'success');
     }
-    showToast('Đã thêm phím tắt gợi ý 1-chạm!', 'success');
   };
 
   // CHỈNH SỬA QUICK TAG
   const editQuickTag = async (tagId: string, updates: Partial<QuickTagItem>) => {
     playActionClick();
     triggerHaptic(10);
+    const prevTags = quickTags;
     setQuickTags((prev) => prev.map((t) => (t.id === tagId ? { ...t, ...updates } : t)));
 
     if (isFirebaseActive && activeHousehold && firebaseUser) {
       try {
         await firestoreUpdateQuickTag(activeHousehold.id, tagId, updates);
+        showToast('Đã cập nhật phím tắt!', 'success');
       } catch (err) {
         console.error('Lỗi cập nhật Quick Tag trên Firestore:', err);
-        showToast('Lỗi cập nhật Quick Tag', 'warning');
+        setQuickTags(prevTags);
+        showToast('Không thể cập nhật phím tắt. Vui lòng thử lại!', 'error');
+        throw err;
       }
+    } else {
+      showToast('Đã cập nhật phím tắt!', 'success');
     }
-    showToast('Đã cập nhật phím tắt!', 'success');
   };
 
   // XÓA QUICK TAG
   const removeQuickTag = async (tagId: string) => {
     playActionClick();
     triggerHaptic(10);
+    const prevTags = quickTags;
     setQuickTags((prev) => prev.filter((t) => t.id !== tagId));
 
     if (isFirebaseActive && activeHousehold && firebaseUser) {
       try {
         await firestoreDeleteQuickTag(activeHousehold.id, tagId);
+        showToast('Đã xóa phím tắt!', 'info');
       } catch (err) {
         console.error('Lỗi xóa Quick Tag trên Firestore:', err);
-        showToast('Lỗi xóa Quick Tag trên đám mây', 'warning');
+        setQuickTags(prevTags);
+        showToast('Không thể xóa phím tắt. Vui lòng thử lại!', 'error');
+        throw err;
       }
+    } else {
+      showToast('Đã xóa phím tắt!', 'info');
     }
-    showToast('Đã xóa phím tắt!', 'info');
   };
 
   // TẠO TỔ ẤM MỚI
@@ -1046,8 +1142,15 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   // TẠO MỤC TIÊU MỚI (TRẢ NỢ HOẶC TÍCH LŨY)
   const createGoal = async (goalData: Omit<FinancialGoal, 'id' | 'createdAt' | 'updatedAt' | 'householdId'>) => {
     if (!activeHousehold) return;
+    const cleanData = { ...goalData };
+    if (!cleanData.deadline) delete cleanData.deadline;
+    if (!cleanData.note?.trim()) delete cleanData.note;
+    if (!cleanData.monthlyTarget || cleanData.monthlyTarget <= 0) delete cleanData.monthlyTarget;
+    if (!cleanData.categoryId) delete cleanData.categoryId;
+    if (!cleanData.categoryKey) delete cleanData.categoryKey;
+
     const newGoal: FinancialGoal = {
-      ...goalData,
+      ...cleanData,
       id: `goal_${Date.now()}`,
       householdId: activeHousehold.id,
       createdAt: new Date().toISOString(),
@@ -1060,32 +1163,44 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (isFirebaseActive && firebaseUser) {
       try {
         await saveFinancialGoal(activeHousehold.id, newGoal);
+        showToast(`Đã tạo mục tiêu "${newGoal.title}"`, 'success');
       } catch (err) {
         console.error('Lỗi lưu mục tiêu lên Firestore:', err);
+        setFinancialGoals((prev) => prev.filter((g) => g.id !== newGoal.id));
+        showToast('Không thể lưu mục tiêu lên đám mây. Vui lòng thử lại!', 'error');
+        throw err;
       }
+    } else {
+      showToast(`Đã tạo mục tiêu "${newGoal.title}"`, 'success');
     }
-    showToast(`Đã tạo mục tiêu "${newGoal.title}"`, 'success');
   };
 
   // CHỈNH SỬA THÔNG TIN MỤC TIÊU
   const editGoal = async (goalId: string, updates: Partial<FinancialGoal>) => {
     playActionClick();
     triggerHaptic(10);
+    const existing = financialGoals.find((g) => g.id === goalId);
+    if (!existing) return;
+
     setFinancialGoals((prev) =>
       sortFinancialGoals(prev.map((g) => (g.id === goalId ? { ...g, ...updates, updatedAt: Date.now() } : g)))
     );
 
     if (isFirebaseActive && activeHousehold && firebaseUser) {
-      const existing = financialGoals.find((g) => g.id === goalId);
-      if (existing) {
-        try {
-          await saveFinancialGoal(activeHousehold.id, { ...existing, ...updates, updatedAt: Date.now() });
-        } catch (err) {
-          console.error('Lỗi cập nhật mục tiêu lên Firestore:', err);
-        }
+      try {
+        await saveFinancialGoal(activeHousehold.id, { ...existing, ...updates, updatedAt: Date.now() });
+        showToast('Đã lưu thay đổi mục tiêu', 'success');
+      } catch (err) {
+        console.error('Lỗi cập nhật mục tiêu lên Firestore:', err);
+        setFinancialGoals((prev) =>
+          sortFinancialGoals(prev.map((g) => (g.id === goalId ? existing : g)))
+        );
+        showToast('Không thể lưu thay đổi mục tiêu. Vui lòng thử lại!', 'error');
+        throw err;
       }
+    } else {
+      showToast('Đã lưu thay đổi mục tiêu', 'success');
     }
-    showToast('Đã lưu thay đổi mục tiêu', 'success');
   };
 
   // XÓA MỤC TIÊU
@@ -1093,53 +1208,65 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     playActionClick();
     triggerHaptic(15);
     const target = financialGoals.find((g) => g.id === goalId);
+    if (!target) return;
+
     setFinancialGoals((prev) => prev.filter((g) => g.id !== goalId));
 
     if (isFirebaseActive && activeHousehold && firebaseUser) {
       try {
         await deleteFinancialGoal(activeHousehold.id, goalId);
+        showToast(`Đã xóa mục tiêu "${target?.title || ''}"`, 'info');
       } catch (err) {
         console.error('Lỗi xóa mục tiêu trên Firestore:', err);
+        setFinancialGoals((prev) => sortFinancialGoals([...prev, target]));
+        showToast('Không thể xóa mục tiêu. Vui lòng thử lại!', 'error');
+        throw err;
       }
+    } else {
+      showToast(`Đã xóa mục tiêu "${target?.title || ''}"`, 'info');
     }
-    showToast(`Đã xóa mục tiêu "${target?.title || ''}"`, 'info');
   };
 
   // CẬP NHẬT TRỰC TIẾP DƯ NỢ / SỐ TIỀN CỦA MỤC TIÊU
   const updateGoalAmount = async (goalId: string, newAmount: number) => {
     playSuccessChime();
     triggerHaptic(10);
+    const existing = financialGoals.find((g) => g.id === goalId);
+    if (!existing) return;
+
+    const nextStatus = existing.type === 'DEBT_PAYOFF'
+      ? (newAmount === 0 ? 'COMPLETED' : 'ACTIVE')
+      : (existing.targetAmount > 0 && newAmount >= existing.targetAmount ? 'COMPLETED' : 'ACTIVE');
+
     setFinancialGoals((prev) =>
       sortFinancialGoals(
         prev.map((g) => {
           if (g.id !== goalId) return g;
-          const nextStatus = g.type === 'DEBT_PAYOFF'
-            ? (newAmount === 0 ? 'COMPLETED' : 'ACTIVE')
-            : (g.targetAmount > 0 && newAmount >= g.targetAmount ? 'COMPLETED' : 'ACTIVE');
           return { ...g, currentAmount: newAmount, status: nextStatus, updatedAt: Date.now() };
         })
       )
     );
 
     if (isFirebaseActive && activeHousehold && firebaseUser) {
-      const existing = financialGoals.find((g) => g.id === goalId);
-      if (existing) {
-        const nextStatus = existing.type === 'DEBT_PAYOFF'
-          ? (newAmount === 0 ? 'COMPLETED' : 'ACTIVE')
-          : (existing.targetAmount > 0 && newAmount >= existing.targetAmount ? 'COMPLETED' : 'ACTIVE');
-        try {
-          await saveFinancialGoal(activeHousehold.id, {
-            ...existing,
-            currentAmount: newAmount,
-            status: nextStatus,
-            updatedAt: Date.now()
-          });
-        } catch (err) {
-          console.error('Lỗi cập nhật số tiền mục tiêu:', err);
-        }
+      try {
+        await saveFinancialGoal(activeHousehold.id, {
+          ...existing,
+          currentAmount: newAmount,
+          status: nextStatus,
+          updatedAt: Date.now()
+        });
+        showToast('Đã cập nhật số tiền mục tiêu thành công!', 'success');
+      } catch (err) {
+        console.error('Lỗi cập nhật số tiền mục tiêu:', err);
+        setFinancialGoals((prev) =>
+          sortFinancialGoals(prev.map((g) => (g.id === goalId ? existing : g)))
+        );
+        showToast('Không thể cập nhật số tiền mục tiêu. Vui lòng thử lại!', 'error');
+        throw err;
       }
+    } else {
+      showToast('Đã cập nhật số tiền mục tiêu thành công!', 'success');
     }
-    showToast('Đã cập nhật số tiền mục tiêu thành công!', 'success');
   };
 
   // ĐĂNG NHẬP GOOGLE

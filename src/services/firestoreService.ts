@@ -59,7 +59,7 @@ export async function getOrCreateUserProfile(user: { uid: string; email: string 
     newProfile.photoURL = user.photoURL;
   }
 
-  await setDoc(userRef, newProfile);
+  await setDoc(userRef, cleanFirestorePayload(newProfile));
   return newProfile as UserProfile;
 }
 
@@ -91,12 +91,12 @@ export async function createHousehold(name: string, monthlyBudget: number, user:
     updatedAt: Date.now()
   };
 
-  await setDoc(householdRef, newHousehold);
+  await setDoc(householdRef, cleanFirestorePayload(newHousehold));
 
   // Sinh 4 danh mục chuẩn
   const catCol = collection(db, `households/${householdId}/categories`);
   for (const cat of DEFAULT_CATEGORIES) {
-    await setDoc(doc(catCol, cat.id), cat);
+    await setDoc(doc(catCol, cat.id), cleanFirestorePayload(cat));
   }
 
   // Cập nhật profile người dùng trỏ tới tổ ấm mới
@@ -380,7 +380,7 @@ export async function saveCategory(
   if (!db) throw new Error('Firestore chưa được khởi tạo');
 
   const catRef = doc(db, `households/${householdId}/categories/${category.id}`);
-  await setDoc(catRef, category);
+  await setDoc(catRef, cleanFirestorePayload(category));
 }
 
 /**
@@ -394,10 +394,14 @@ export async function updateCategory(
   if (!db) throw new Error('Firestore chưa được khởi tạo');
 
   const catRef = doc(db, `households/${householdId}/categories/${categoryId}`);
-  await updateDoc(catRef, {
+  const payload: Record<string, any> = {
     ...updates,
     updatedAt: Date.now()
-  });
+  };
+  if ('monthlyLimit' in updates && updates.monthlyLimit === undefined) {
+    payload.monthlyLimit = deleteField();
+  }
+  await updateDoc(catRef, cleanFirestorePayload(payload));
 }
 
 /**
@@ -693,6 +697,22 @@ export async function updateHouseholdName(
 }
 
 /**
+ * CẬP NHẬT HẠN MỨC NGÂN SÁCH THÁNG CỦA TỔ ẤM
+ */
+export async function updateHouseholdBudget(
+  householdId: string,
+  monthlyBudget: number
+): Promise<void> {
+  if (!db || !householdId || isNaN(monthlyBudget) || monthlyBudget < 0) return;
+
+  const householdRef = doc(db, 'households', householdId);
+  await updateDoc(householdRef, {
+    monthlyBudget,
+    updatedAt: Date.now()
+  });
+}
+
+/**
  * TỰ ĐỘNG BÙ DANH MỤC MẶC ĐỊNH BỊ THIẾU VÀO TỔ ẤM (SELF-HEALING)
  * Đảm bảo các tổ ấm tạo từ trước tự động nhận đủ các danh mục Thu Nhập & Chi Tiêu chuẩn
  */
@@ -712,7 +732,7 @@ export async function seedMissingCategories(
   console.log(`Đang tự động bổ sung ${missingCategories.length} danh mục mặc định vào tổ ấm ${householdId}...`);
   const catCol = collection(db, `households/${householdId}/categories`);
 
-  const writePromises = missingCategories.map((cat) => setDoc(doc(catCol, cat.id), cat));
+  const writePromises = missingCategories.map((cat) => setDoc(doc(catCol, cat.id), cleanFirestorePayload(cat)));
   await Promise.allSettled(writePromises);
 
   return missingCategories;
@@ -732,7 +752,7 @@ export async function restoreDefaultCategories(
     : DEFAULT_CATEGORIES;
 
   const catCol = collection(db, `households/${householdId}/categories`);
-  const promises = targets.map(cat => setDoc(doc(catCol, cat.id), { ...cat, isArchived: false }));
+  const promises = targets.map(cat => setDoc(doc(catCol, cat.id), cleanFirestorePayload({ ...cat, isArchived: false })));
   await Promise.allSettled(promises);
 }
 
@@ -774,7 +794,7 @@ export async function saveFinancialGoal(
   await setDoc(goalRef, cleanFirestorePayload({
     ...goal,
     updatedAt: Date.now()
-  }), { merge: true });
+  }));
 }
 
 /**
