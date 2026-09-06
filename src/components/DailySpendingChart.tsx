@@ -1,18 +1,20 @@
 import React, { useState, useMemo } from 'react';
-import { BarChart3, Calendar, Info } from 'lucide-react';
+import { BarChart3, Calendar, ChevronRight } from 'lucide-react';
 import type { Transaction } from '../types';
 import { formatVND } from '../utils/currency';
-import { playKeyClick } from '../utils/audio';
+import { playKeyClick, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 
 interface DailySpendingChartProps {
   transactions: Transaction[];
   currentYearMonth: string; // "YYYY-MM"
+  onViewDayDetail?: (day: number, fullDate: string) => void;
 }
 
 export const DailySpendingChart: React.FC<DailySpendingChartProps> = ({
   transactions,
-  currentYearMonth
+  currentYearMonth,
+  onViewDayDetail
 }) => {
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
 
@@ -113,7 +115,7 @@ export const DailySpendingChart: React.FC<DailySpendingChartProps> = ({
 
       {/* Chi tiết ngày được chọn (nếu có tương tác) */}
       {selectedDay && selectedData && (
-        <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-3 flex items-center justify-between text-xs animate-in fade-in duration-150">
+        <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs animate-in fade-in duration-150">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-[#0F3D39]" />
             <span className="font-semibold text-[#1C1917]">
@@ -126,13 +128,32 @@ export const DailySpendingChart: React.FC<DailySpendingChartProps> = ({
             )}
           </div>
 
-          <div className="text-right">
-            <span className="font-mono font-bold text-[#1C1917] tabular-nums">
-              {formatVND(selectedData.amount)}
-            </span>
-            <span className="text-[10px] text-[#78716C] block">
-              {selectedData.count > 0 ? `${selectedData.count} giao dịch` : 'Không phát sinh chi tiêu'}
-            </span>
+          <div className="flex items-center justify-between sm:justify-end gap-3.5">
+            <div className="text-left sm:text-right">
+              <span className="font-mono font-bold text-[#1C1917] tabular-nums block">
+                {formatVND(selectedData.amount)}
+              </span>
+              <span className="text-[10px] text-[#78716C] block font-mono">
+                {selectedData.count > 0 ? `${selectedData.count} giao dịch` : 'Không phát sinh chi tiêu'}
+              </span>
+            </div>
+
+            {selectedData.count > 0 && onViewDayDetail && (
+              <button
+                type="button"
+                onClick={() => {
+                  playActionClick();
+                  triggerHaptic(8);
+                  const fullDate = `${currentYearMonth}-${selectedDay.toString().padStart(2, '0')}`;
+                  onViewDayDetail(selectedDay, fullDate);
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-[#0F3D39] hover:bg-[#174E4A] text-white text-xs font-bold shadow-2xs transition-all cursor-pointer shrink-0 group active:scale-95"
+                title="Xem danh sách các khoản chi của ngày này"
+              >
+                <span>Xem chi tiết</span>
+                <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            )}
           </div>
         </div>
       )}

@@ -12,7 +12,8 @@ import {
   Wallet,
   SlidersHorizontal,
   RotateCcw,
-  Info
+  Info,
+  Calendar
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND } from '../utils/currency';
@@ -21,6 +22,10 @@ import { triggerHaptic } from '../utils/haptics';
 import { DailySpendingChart } from './DailySpendingChart';
 import { CategoryBreakdown } from './CategoryBreakdown';
 import { ReportCategoryFilterModal } from './ReportCategoryFilterModal';
+import { SpendingHistoryModal } from './SpendingHistoryModal';
+import { EditTransactionModal } from './EditTransactionModal';
+import { renderCategoryIcon } from '../utils/categoryIcons';
+import type { Transaction } from '../types';
 
 export const Dashboard: React.FC = () => {
   const {
@@ -43,6 +48,16 @@ export const Dashboard: React.FC = () => {
   // Trạng thái modal và danh mục bị loại trừ khỏi Báo cáo & Dự phóng
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const storageKey = `harmony_report_excluded_categories_${activeHousehold?.id || 'default'}`;
+
+  // Trạng thái modal xem lịch sử chi tiêu theo Ngày hoặc theo Nhóm chi
+  const [activeHistoryModal, setActiveHistoryModal] = useState<
+    | { type: 'DATE'; day: number; fullDate: string }
+    | { type: 'CATEGORY'; categoryId: string }
+    | null
+  >(null);
+
+  // Trạng thái modal chỉnh sửa giao dịch khi click vào 1 item trong modal lịch sử
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   const [excludedCategoryIds, setExcludedCategoryIds] = useState<string[]>(() => {
     try {
@@ -227,6 +242,95 @@ export const Dashboard: React.FC = () => {
       (tx) => tx.type !== 'EXPENSE' || !excludedCategoryIds.includes(tx.categoryId)
     );
   }, [transactions, excludedCategoryIds]);
+
+  // Cấu hình dữ liệu cho SpendingHistoryModal (xem theo Ngày hoặc theo Nhóm chi)
+  const historyModalConfig = useMemo(() => {
+    if (!activeHistoryModal) return null;
+
+    if (activeHistoryModal.type === 'DATE') {
+      const { day, fullDate } = activeHistoryModal;
+      const [yearStr, monthStr] = currentYearMonth.split('-');
+      const dayStr = day.toString().padStart(2, '0');
+      const dateTxs = transactionsForChart
+        .filter((tx) => tx.type === 'EXPENSE' && tx.date === fullDate)
+        .sort((a, b) => b.id.localeCompare(a.id));
+
+      const dayTotal = dateTxs.reduce((sum, tx) => sum + tx.amount, 0);
+      const isSpike = dailyBurnRate > 0 && dayTotal > dailyBurnRate * 1.5;
+
+      return {
+        title: `Ngày ${dayStr}/${monthStr}/${yearStr}`,
+        badgeText: 'LỊCH SỬ CHI TIÊU THEO NGÀY',
+        badgeColor: (isSpike ? 'amber' : 'pine') as 'amber' | 'pine',
+        icon: <Calendar className="w-5 h-5" />,
+        iconBgColor: isSpike ? '#B45309' : '#0F3D39',
+        summaryLeft: {
+          label: 'Tổng chi tiêu trong ngày',
+          amount: dayTotal,
+          count: dateTxs.length
+        },
+        summaryRight: {
+          label: 'So với mức trung bình',
+          value: isSpike ? 'Đột biến (>1.5x)' : 'Bình thường',
+          valueColor: isSpike ? 'text-[#B45309]' : 'text-[#0F3D39]',
+          subtext: `TB: ${formatVND(dailyBurnRate)}/ngày`
+        },
+        transactions: dateTxs,
+        emptyMessage: 'Không có khoản chi tiêu nào trong ngày này.'
+      };
+    }
+
+    if (activeHistoryModal.type === 'CATEGORY') {
+      const cat = categories.find((c) => c.id === activeHistoryModal.categoryId);
+      const catTxs = includedExpenseTransactions
+        .filter((tx) => tx.categoryId === activeHistoryModal.categoryId)
+        .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+
+      const catTotal = catTxs.reduce((sum, tx) => sum + tx.amount, 0);
+      const percentOfReport = reportTotalExpense > 0 ? Math.round((catTotal / reportTotalExpense) * 100) : 0;
+      const isOverLimit = cat?.monthlyLimit && catTotal > cat.monthlyLimit;
+
+      return {
+        title: cat?.name || 'Nhóm chi tiêu',
+        badgeText: 'CƠ CẤU THEO NHÓM CHI',
+        badgeColor: (isOverLimit ? 'amber' : 'pine') as 'amber' | 'pine',
+        icon: renderCategoryIcon(cat?.icon || 'folder', 'w-5 h-5'),
+        iconBgColor: cat?.color || '#0F3D39',
+        summaryLeft: {
+          label: 'Tổng chi tiêu nhóm này',
+          amount: catTotal,
+          count: catTxs.length
+        },
+        summaryRight: cat?.monthlyLimit
+          ? {
+              label: 'Tình trạng hạn mức',
+              value: isOverLimit
+                ? 'Vượt hạn mức'
+                : `${Math.round((catTotal / cat.monthlyLimit) * 100)}% hạn mức`,
+              valueColor: isOverLimit ? 'text-[#E11D48]' : 'text-[#0F3D39]',
+              subtext: `Hạn mức: ${formatVND(cat.monthlyLimit)}`
+            }
+          : {
+              label: 'Tỷ trọng trong tháng',
+              value: `${percentOfReport}% tổng chi`,
+              valueColor: 'text-[#0F3D39]',
+              subtext: `Tổng chi tháng: ${formatVND(reportTotalExpense)}`
+            },
+        transactions: catTxs,
+        emptyMessage: `Chưa có giao dịch nào thuộc nhóm "${cat?.name || ''}".`
+      };
+    }
+
+    return null;
+  }, [
+    activeHistoryModal,
+    currentYearMonth,
+    transactionsForChart,
+    dailyBurnRate,
+    categories,
+    includedExpenseTransactions,
+    reportTotalExpense
+  ]);
 
   return (
     <div className="space-y-4 animate-in fade-in duration-200">
@@ -503,6 +607,9 @@ export const Dashboard: React.FC = () => {
       <DailySpendingChart
         transactions={transactionsForChart}
         currentYearMonth={currentYearMonth}
+        onViewDayDetail={(day, fullDate) => {
+          setActiveHistoryModal({ type: 'DATE', day, fullDate });
+        }}
       />
 
       {/* =========================================================================
@@ -512,6 +619,9 @@ export const Dashboard: React.FC = () => {
         transactions={includedExpenseTransactions}
         categories={categories}
         totalExpense={reportTotalExpense}
+        onSelectCategoryDetail={(categoryId) => {
+          setActiveHistoryModal({ type: 'CATEGORY', categoryId });
+        }}
       />
 
       {/* =========================================================================
@@ -539,13 +649,22 @@ export const Dashboard: React.FC = () => {
           ) : (
             <div className="divide-y divide-[#F5F3EF]">
               {topExpenses.map((tx, idx) => (
-                <div key={tx.id} className="py-2.5 flex items-center justify-between gap-3">
+                <div
+                  key={tx.id}
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(8);
+                    setEditingTransaction(tx);
+                  }}
+                  className="py-2.5 px-2 rounded-2xl -mx-2 flex items-center justify-between gap-3 hover:bg-[#FAF9F6] cursor-pointer transition-colors group"
+                  title="Bấm để xem hoặc chỉnh sửa khoản chi này"
+                >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span className="w-5 h-5 rounded-md bg-[#F5F3EF] text-[#78716C] flex items-center justify-center text-[10px] font-mono font-bold shrink-0">
                       0{idx + 1}
                     </span>
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-[#1C1917] truncate">
+                      <p className="text-xs font-semibold text-[#1C1917] group-hover:text-[#0F3D39] transition-colors truncate">
                         {tx.note || tx.categoryName}
                       </p>
                       <p className="text-[10px] text-[#78716C] font-mono">
@@ -623,6 +742,31 @@ export const Dashboard: React.FC = () => {
         onToggleCategory={handleToggleCategory}
         onSelectAll={handleSelectAll}
         onExcludeDebtAndSavings={handleExcludeDebtAndSavings}
+      />
+
+      {/* Modal Lịch sử chi tiêu theo Ngày hoặc theo Nhóm chi */}
+      {historyModalConfig && (
+        <SpendingHistoryModal
+          isOpen={!!activeHistoryModal}
+          onClose={() => setActiveHistoryModal(null)}
+          title={historyModalConfig.title}
+          badgeText={historyModalConfig.badgeText}
+          badgeColor={historyModalConfig.badgeColor}
+          icon={historyModalConfig.icon}
+          iconBgColor={historyModalConfig.iconBgColor}
+          summaryLeft={historyModalConfig.summaryLeft}
+          summaryRight={historyModalConfig.summaryRight}
+          transactions={historyModalConfig.transactions}
+          emptyMessage={historyModalConfig.emptyMessage}
+          onSelectTransaction={(tx) => setEditingTransaction(tx)}
+        />
+      )}
+
+      {/* Modal Chỉnh sửa giao dịch khi click vào 1 item trong modal lịch sử hoặc Top 5 */}
+      <EditTransactionModal
+        isOpen={!!editingTransaction}
+        onClose={() => setEditingTransaction(null)}
+        transaction={editingTransaction}
       />
     </div>
   );

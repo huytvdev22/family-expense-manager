@@ -1,13 +1,16 @@
 import React, { useMemo } from 'react';
-import { Layers } from 'lucide-react';
+import { Layers, ChevronRight } from 'lucide-react';
 import type { Category, Transaction } from '../types';
 import { formatVND } from '../utils/currency';
 import { renderCategoryIcon } from '../utils/categoryIcons';
+import { playActionClick } from '../utils/audio';
+import { triggerHaptic } from '../utils/haptics';
 
 interface CategoryBreakdownProps {
   transactions: Transaction[];
   categories: Category[];
   totalExpense: number;
+  onSelectCategoryDetail?: (categoryId: string) => void;
 }
 
 // Bảng màu mộc mạc chuẩn Harmony Ledger (Pine, Terracotta, Ochre, Sage, Slate)
@@ -25,7 +28,8 @@ const HARMONY_COLORS = [
 export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
   transactions,
   categories,
-  totalExpense
+  totalExpense,
+  onSelectCategoryDetail
 }) => {
   // Tính toán số tiền và lượt chi cho từng danh mục
   const categoryStats = useMemo(() => {
@@ -65,6 +69,14 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
     return list;
   }, [transactions, categories, totalExpense]);
 
+  const handleCategoryClick = (categoryId: string) => {
+    if (onSelectCategoryDetail) {
+      playActionClick();
+      triggerHaptic(8);
+      onSelectCategoryDetail(categoryId);
+    }
+  };
+
   return (
     <div className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-xs flex flex-col gap-4">
       {/* Tiêu đề khối */}
@@ -100,12 +112,15 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
               {categoryStats.map((cat) => (
                 <div
                   key={cat.id}
+                  onClick={() => handleCategoryClick(cat.id)}
                   style={{
                     width: `${cat.percent}%`,
                     backgroundColor: cat.color
                   }}
-                  className="h-full transition-all duration-300 first:rounded-l-full last:rounded-r-full"
-                  title={`${cat.name}: ${formatVND(cat.amount)} (${cat.percent}%)`}
+                  className={`h-full transition-all duration-300 first:rounded-l-full last:rounded-r-full ${
+                    onSelectCategoryDetail ? 'cursor-pointer hover:opacity-85' : ''
+                  }`}
+                  title={`${cat.name}: ${formatVND(cat.amount)} (${cat.percent}%)${onSelectCategoryDetail ? ' - Bấm để xem chi tiết' : ''}`}
                 />
               ))}
             </div>
@@ -113,7 +128,14 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
             {/* Chú thích nhanh 3 nhóm chi lớn nhất */}
             <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#78716C] pt-1">
               {categoryStats.slice(0, 3).map((cat) => (
-                <div key={cat.id} className="flex items-center gap-1.5">
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => handleCategoryClick(cat.id)}
+                  className={`flex items-center gap-1.5 text-left text-[11px] text-[#78716C] ${
+                    onSelectCategoryDetail ? 'cursor-pointer hover:text-[#1C1917]' : ''
+                  }`}
+                >
                   <span
                     className="w-2 h-2 rounded-full shrink-0"
                     style={{ backgroundColor: cat.color }}
@@ -122,7 +144,7 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
                   <span className="font-mono font-semibold text-[#1C1917]">
                     {cat.percent}%
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -133,15 +155,24 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
               const isOverLimit = cat.monthlyLimit && cat.amount > cat.monthlyLimit;
 
               return (
-                <div key={cat.id} className="py-2.5 flex items-center justify-between gap-3">
+                <div
+                  key={cat.id}
+                  onClick={() => handleCategoryClick(cat.id)}
+                  className={`py-2 px-2 rounded-2xl -mx-2 flex items-center justify-between gap-3 transition-all ${
+                    onSelectCategoryDetail
+                      ? 'cursor-pointer hover:bg-[#FAF9F6] active:scale-[0.99] group'
+                      : ''
+                  }`}
+                  title={onSelectCategoryDetail ? `Bấm để xem danh sách các khoản chi của nhóm ${cat.name}` : undefined}
+                >
                   {/* Nhóm & Tên */}
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border border-[#E6E2DA]/80 bg-[#FAF9F6] shadow-2xs">
+                    <span className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border border-[#E6E2DA]/80 bg-[#FAF9F6] shadow-2xs group-hover:bg-white transition-colors">
                       {renderCategoryIcon(cat.icon, "w-4 h-4", cat.color)}
                     </span>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-semibold text-[#1C1917] truncate">
+                        <span className="text-xs font-semibold text-[#1C1917] group-hover:text-[#0F3D39] transition-colors truncate">
                           {cat.name}
                         </span>
                         <span className="text-[10px] font-mono text-[#78716C] px-1.5 py-0.2 rounded-md bg-[#F5F3EF]">
@@ -165,20 +196,25 @@ export const CategoryBreakdown: React.FC<CategoryBreakdownProps> = ({
                     </div>
                   </div>
 
-                  {/* Số tiền & Tỷ lệ */}
-                  <div className="text-right shrink-0">
-                    <span className="text-xs font-bold font-mono text-[#1C1917] tabular-nums">
-                      {formatVND(cat.amount)}
-                    </span>
-                    <div className="w-16 bg-[#F5F3EF] h-1.5 rounded-full overflow-hidden mt-1 ml-auto">
-                      <div
-                        className="h-full rounded-full transition-all duration-300"
-                        style={{
-                          width: `${cat.percent}%`,
-                          backgroundColor: cat.color
-                        }}
-                      />
+                  {/* Số tiền & Tỷ lệ + Chevron */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="text-right">
+                      <span className="text-xs font-bold font-mono text-[#1C1917] tabular-nums">
+                        {formatVND(cat.amount)}
+                      </span>
+                      <div className="w-16 bg-[#F5F3EF] h-1.5 rounded-full overflow-hidden mt-1 ml-auto">
+                        <div
+                          className="h-full rounded-full transition-all duration-300"
+                          style={{
+                            width: `${cat.percent}%`,
+                            backgroundColor: cat.color
+                          }}
+                        />
+                      </div>
                     </div>
+                    {onSelectCategoryDetail && (
+                      <ChevronRight className="w-3.5 h-3.5 text-[#D3CDC2] group-hover:text-[#0F3D39] group-hover:translate-x-0.5 transition-all shrink-0" />
+                    )}
                   </div>
                 </div>
               );
