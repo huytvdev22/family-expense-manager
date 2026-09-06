@@ -57,7 +57,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       {/* Container hiển thị thông báo Toast cố định phía trên */}
       <div 
         aria-live="polite" 
-        className="fixed top-3 sm:top-5 left-1/2 -translate-x-1/2 z-70 max-w-sm sm:max-w-md w-[92%] flex flex-col items-center gap-2 pointer-events-none pt-safe"
+        className="fixed top-3 sm:top-5 left-1/2 -translate-x-1/2 z-100 max-w-sm sm:max-w-md w-[92%] flex flex-col items-center gap-2 pointer-events-none pt-safe"
       >
         {toasts.map((toast) => {
           let icon = <Info className="w-4 h-4 text-[#0F3D39] shrink-0" />;

@@ -267,12 +267,22 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-70 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          playActionClick();
+          onClose();
+        }
+      }}
+    >
       <div 
         role="dialog" 
         aria-modal="true" 
-        className="bg-white border border-[#E6E2DA] rounded-3xl w-full max-w-md p-5 sm:p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto"
+        className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl relative max-h-[90vh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-6 animate-in slide-in-from-bottom-3 duration-200"
       >
+        {/* Thanh trượt chỉ báo Bottom Sheet trên mobile */}
+        <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto mb-3 sm:hidden shrink-0" />
         {/* Header Modal */}
         <div className="flex items-center justify-between pb-3 border-b border-[#F5F3EF]">
           <h3 className="text-base font-bold text-[#1C1917]">
