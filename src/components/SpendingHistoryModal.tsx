@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Receipt, ChevronRight } from 'lucide-react';
+import { X, Receipt } from 'lucide-react';
 import type { Transaction } from '../types';
 import { formatVND, formatDateLabel } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
@@ -60,8 +60,8 @@ export const SpendingHistoryModal: React.FC<SpendingHistoryModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#1C1917]/40 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl border border-[#E6E2DA] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[88vh] sm:max-h-[85vh] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-3 duration-200">
         {/* Header Modal */}
         <div className="p-4 sm:p-5 border-b border-[#F5F3EF] flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
@@ -185,7 +185,7 @@ export const SpendingHistoryModal: React.FC<SpendingHistoryModalProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="text-right shrink-0">
                         <span
                           className={`text-xs sm:text-sm font-bold font-mono ${
                             isIncome ? 'text-[#059669]' : 'text-[#0F3D39]'
@@ -193,9 +193,6 @@ export const SpendingHistoryModal: React.FC<SpendingHistoryModalProps> = ({
                         >
                           {isIncome ? '+' : ''}{formatVND(tx.amount)}
                         </span>
-                        {onSelectTransaction && (
-                          <ChevronRight className="w-3.5 h-3.5 text-[#D3CDC2] group-hover:text-[#0F3D39] group-hover:translate-x-0.5 transition-all" />
-                        )}
                       </div>
                     </div>
                   );
@@ -206,7 +203,7 @@ export const SpendingHistoryModal: React.FC<SpendingHistoryModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-3 sm:p-4 bg-white border-t border-[#F5F3EF] flex items-center justify-end shrink-0">
+        <div className="p-3 sm:p-4 bg-white border-t border-[#F5F3EF] flex items-center justify-end shrink-0 pb-safe">
           <button
             type="button"
             onClick={handleClose}
