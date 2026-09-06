@@ -332,8 +332,18 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-3xl w-full max-w-lg shadow-2xl relative max-h-[92vh] flex flex-col overflow-hidden">
+    <div 
+      className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          playActionClick();
+          onClose();
+        }
+      }}
+    >
+      <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg shadow-2xl relative max-h-[90vh] sm:max-h-[88vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-3 duration-200">
+        {/* Thanh trượt chỉ báo Bottom Sheet trên mobile */}
+        <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto mt-2.5 sm:hidden shrink-0" />
         {/* Header Modal */}
         <div className="p-4 border-b border-[#E6E2DA] flex items-center justify-between bg-white shrink-0">
           <div className="flex items-center gap-2.5">
@@ -954,7 +964,7 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 bg-white border-t border-[#E6E2DA] flex items-center justify-between gap-2 shrink-0">
+        <div className="p-4 bg-white border-t border-[#E6E2DA] flex items-center justify-between gap-2 shrink-0 pb-safe sm:pb-4">
           <button
             type="button"
             onClick={handleOpenMailClient}

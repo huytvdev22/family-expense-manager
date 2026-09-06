@@ -81,8 +81,18 @@ export const MonthlyLetterModal: React.FC<MonthlyLetterModalProps> = ({ isOpen, 
   const isDeficit = hasIncome && netSavings < 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/45 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+    <div 
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          playActionClick();
+          onClose();
+        }
+      }}
+    >
+      <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl relative max-h-[90vh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-6 animate-in slide-in-from-bottom-3 duration-200">
+        {/* Thanh trượt chỉ báo Bottom Sheet trên mobile */}
+        <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto mb-3 sm:hidden shrink-0" />
         {/* Nút đóng */}
         <button
           onClick={() => {

@@ -615,8 +615,15 @@ export const FinancialFreedom: React.FC = () => {
           3. MODAL TẠO / SỬA MỤC TIÊU TỰ DO TÀI CHÍNH
           ========================================================================= */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+        <div 
+          className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsModalOpen(false);
+          }}
+        >
+          <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-3 duration-200">
+            {/* Thanh trượt chỉ báo Bottom Sheet trên mobile */}
+            <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto mt-2.5 sm:hidden shrink-0" />
             {/* Header Modal */}
             <div className="p-4 border-b border-[#E6E2DA] flex items-center justify-between bg-white shrink-0">
               <div className="flex items-center gap-2">
@@ -848,7 +855,7 @@ export const FinancialFreedom: React.FC = () => {
             </div>
 
             {/* Footer Modal */}
-            <div className="p-4 bg-white border-t border-[#E6E2DA] flex items-center justify-end gap-2 shrink-0">
+            <div className="p-4 bg-white border-t border-[#E6E2DA] flex items-center justify-end gap-2 shrink-0 pb-safe sm:pb-4">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
