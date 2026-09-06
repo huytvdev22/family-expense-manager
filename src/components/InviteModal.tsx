@@ -235,15 +235,15 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
 
         {/* Tab chuyển đổi: Chỉ hiển thị khi tổ ấm chưa đủ 2 người */}
         {!isHouseholdFull && (
-          <div className="flex items-center bg-[#F5F3EF] p-1 rounded-2xl my-3 border border-[#E6E2DA]">
+          <div className="flex items-center bg-[#F5F3EF] p-1 rounded-2xl my-3 border border-[#E6E2DA] shadow-2xs">
             <button
               onClick={() => {
                 playActionClick();
                 setActiveTab('create');
               }}
-              className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn cursor-pointer ${
                 activeTab === 'create'
-                  ? 'bg-white text-[#0F3D39] shadow-xs'
+                  ? 'bg-white text-[#0F3D39] shadow-2xs font-bold'
                   : 'text-[#78716C] hover:text-[#1C1917]'
               }`}
             >
@@ -254,9 +254,9 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
                 playActionClick();
                 setActiveTab('join');
               }}
-              className={`flex-1 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+              className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn cursor-pointer ${
                 activeTab === 'join'
-                  ? 'bg-white text-[#0F3D39] shadow-xs'
+                  ? 'bg-white text-[#0F3D39] shadow-2xs font-bold'
                   : 'text-[#78716C] hover:text-[#1C1917]'
               }`}
             >

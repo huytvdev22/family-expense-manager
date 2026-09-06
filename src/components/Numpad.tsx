@@ -291,7 +291,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
   return (
     <div className="bg-white border border-[#E6E2DA] rounded-3xl p-3.5 sm:p-4 shadow-sm flex flex-col gap-2.5 sm:gap-3">
       {/* 0. Bộ chuyển đổi loại giao dịch: Khoản chi vs Thu nhập */}
-      <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center">
+      <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs">
         <button
           type="button"
           onClick={() => {
@@ -299,9 +299,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
             triggerHaptic(10);
             setTxType('EXPENSE');
           }}
-          className={`flex-1 py-1.5 sm:py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all tactile-btn ${
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all tactile-btn ${
             txType === 'EXPENSE'
-              ? 'bg-[#0F3D39] text-white shadow-2xs'
+              ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
               : 'text-[#78716C] hover:text-[#1C1917]'
           }`}
         >
@@ -314,9 +314,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
             triggerHaptic(10);
             setTxType('INCOME');
           }}
-          className={`flex-1 py-1.5 sm:py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all tactile-btn ${
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all tactile-btn ${
             txType === 'INCOME'
-              ? 'bg-[#10B981] text-white shadow-2xs'
+              ? 'bg-[#10B981] text-white shadow-2xs font-bold'
               : 'text-[#78716C] hover:text-[#1C1917]'
           }`}
         >
@@ -364,7 +364,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
       {/* 3. Bộ chuyển đổi: Người chi / Người nhận & Ghi chú */}
       <div className="grid grid-cols-2 gap-2">
         {/* Toggle Người chi / nhận */}
-        <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-xl p-1 flex items-center">
+        <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs">
           <button
             type="button"
             onClick={() => {
@@ -372,9 +372,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
               triggerHaptic(10);
               setPaidBy('Chồng');
             }}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all tactile-btn ${
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
               paidBy === 'Chồng'
-                ? 'bg-[#0F3D39] text-white shadow-2xs'
+                ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
                 : 'text-[#78716C] hover:text-[#1C1917]'
             }`}
           >
@@ -387,9 +387,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
               triggerHaptic(10);
               setPaidBy('Vợ');
             }}
-            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all tactile-btn ${
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
               paidBy === 'Vợ'
-                ? 'bg-[#B45309] text-white shadow-2xs'
+                ? 'bg-[#B45309] text-white shadow-2xs font-bold'
                 : 'text-[#78716C] hover:text-[#1C1917]'
             }`}
           >
@@ -404,7 +404,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder={txType === 'EXPENSE' ? 'Ghi chú chi tiết...' : 'Nguồn thu (Lương, thưởng...)'}
-            className="w-full h-full bg-[#FAF9F6] border border-[#E6E2DA] rounded-xl px-3 py-1.5 text-xs text-[#1C1917] placeholder:text-[#A8A29E] outline-hidden focus:border-[#0F3D39]"
+            className="w-full h-full bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl px-3.5 py-2 text-xs text-[#1C1917] placeholder:text-[#A8A29E] outline-hidden focus:border-[#0F3D39]"
           />
         </div>
       </div>

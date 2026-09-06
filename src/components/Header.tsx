@@ -77,14 +77,14 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="hidden sm:flex items-center shrink-0">
             {/* Chuyển đổi 4 chế độ xem trên Desktop: Sổ cái / Tổng quan / Danh mục / Tổ ấm */}
             {onChangeDesktopView && (
-              <div className="flex items-center bg-[#F5F3EF] border border-[#E6E2DA] rounded-full p-1 shadow-2xs shrink-0">
+              <div className="flex items-center bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 shadow-2xs shrink-0">
                 <button
                   onClick={() => {
                     playActionClick();
                     triggerHaptic(10);
                     onChangeDesktopView('ledger');
                   }}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all tactile-btn ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all tactile-btn ${
                     desktopView === 'ledger'
                       ? 'bg-white text-[#0F3D39] shadow-2xs font-bold'
                       : 'text-[#78716C] hover:text-[#1C1917]'
@@ -100,7 +100,7 @@ export const Header: React.FC<HeaderProps> = ({
                     triggerHaptic(10);
                     onChangeDesktopView('dashboard');
                   }}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all tactile-btn ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all tactile-btn ${
                     desktopView === 'dashboard'
                       ? 'bg-white text-[#0F3D39] shadow-2xs font-bold'
                       : 'text-[#78716C] hover:text-[#1C1917]'
@@ -116,7 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
                     triggerHaptic(10);
                     onChangeDesktopView('goals');
                   }}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all tactile-btn ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all tactile-btn ${
                     desktopView === 'goals'
                       ? 'bg-white text-[#0F3D39] shadow-2xs font-bold'
                       : 'text-[#78716C] hover:text-[#1C1917]'
@@ -132,7 +132,7 @@ export const Header: React.FC<HeaderProps> = ({
                     triggerHaptic(10);
                     onChangeDesktopView('family');
                   }}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all tactile-btn ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all tactile-btn ${
                     desktopView === 'family'
                       ? 'bg-white text-[#0F3D39] shadow-2xs font-bold'
                       : 'text-[#78716C] hover:text-[#1C1917]'

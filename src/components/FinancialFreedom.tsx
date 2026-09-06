@@ -359,7 +359,7 @@ export const FinancialFreedom: React.FC = () => {
                 playActionClick();
                 setFilterType('ALL');
               }}
-              className={`flex-1 min-w-[76px] py-1.5 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer text-center whitespace-nowrap ${
+              className={`flex-1 min-w-[76px] py-2 px-3 rounded-xl text-xs font-semibold transition-all tactile-btn cursor-pointer text-center whitespace-nowrap ${
                 filterType === 'ALL'
                   ? 'bg-white text-[#1C1917] shadow-2xs font-bold'
                   : 'text-[#78716C] hover:text-[#1C1917]'
@@ -373,7 +373,7 @@ export const FinancialFreedom: React.FC = () => {
                 playActionClick();
                 setFilterType('DEBT_PAYOFF');
               }}
-              className={`flex-1 min-w-[96px] py-1.5 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
+              className={`flex-1 min-w-[96px] py-2 px-3 rounded-xl text-xs font-semibold transition-all tactile-btn cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
                 filterType === 'DEBT_PAYOFF'
                   ? 'bg-[#B45309] text-white shadow-2xs font-bold'
                   : 'text-[#78716C] hover:text-[#1C1917]'
@@ -388,7 +388,7 @@ export const FinancialFreedom: React.FC = () => {
                 playActionClick();
                 setFilterType('SAVINGS');
               }}
-              className={`flex-1 min-w-[88px] py-1.5 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
+              className={`flex-1 min-w-[88px] py-2 px-3 rounded-xl text-xs font-semibold transition-all tactile-btn cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
                 filterType === 'SAVINGS'
                   ? 'bg-[#10B981] text-white shadow-2xs font-bold'
                   : 'text-[#78716C] hover:text-[#1C1917]'
