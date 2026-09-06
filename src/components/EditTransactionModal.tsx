@@ -326,8 +326,8 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             <div className="relative">
               <input
                 type="number"
-                min="1000"
-                step="1000"
+                min="1"
+                step="any"
                 value={amountStr}
                 onChange={(e) => setAmountStr(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] font-mono text-lg font-bold text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-[#0F3D39]/20 focus:border-[#0F3D39]"
