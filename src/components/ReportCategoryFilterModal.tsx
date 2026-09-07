@@ -30,9 +30,9 @@ interface ReportCategoryFilterModalProps {
 export const ReportCategoryFilterModal: React.FC<ReportCategoryFilterModalProps> = ({
   isOpen,
   onClose,
-  categories,
-  transactions,
-  excludedCategoryIds,
+  categories = [],
+  transactions = [],
+  excludedCategoryIds = [],
   onToggleCategory,
   onSelectAll,
   onExcludeDebtAndSavings
@@ -40,17 +40,15 @@ export const ReportCategoryFilterModal: React.FC<ReportCategoryFilterModalProps>
   // Khóa cuộn trang nền trên iOS khi mở Modal lọc danh mục báo cáo
   useBodyScrollLock(isOpen);
 
-  if (!isOpen) return null;
-
   // Lọc chỉ lấy danh mục chi tiêu (EXPENSE)
   const expenseCategories = useMemo(() => {
-    return categories.filter((cat) => cat.type === 'EXPENSE' && !cat.isArchived);
+    return (categories || []).filter((cat) => cat.type === 'EXPENSE' && !cat.isArchived);
   }, [categories]);
 
   // Tính tổng chi tiêu trong tháng cho từng danh mục
   const categoryAmountMap = useMemo(() => {
     const map: Record<string, number> = {};
-    transactions.forEach((tx) => {
+    (transactions || []).forEach((tx) => {
       if (tx.type === 'EXPENSE') {
         map[tx.categoryId] = (map[tx.categoryId] || 0) + tx.amount;
       }
@@ -69,16 +67,19 @@ export const ReportCategoryFilterModal: React.FC<ReportCategoryFilterModalProps>
   }, [expenseCategories, categoryAmountMap]);
 
   // Số lượng danh mục đang bị loại trừ
-  const excludedCount = excludedCategoryIds.length;
+  const safeExcludedIds = excludedCategoryIds || [];
+  const excludedCount = safeExcludedIds.length;
   const totalExpenseCount = expenseCategories.length;
   const includedCount = totalExpenseCount - excludedCount;
 
   // Tổng tiền các danh mục đang bị loại trừ
   const excludedTotalAmount = useMemo(() => {
-    return transactions
-      .filter((tx) => tx.type === 'EXPENSE' && excludedCategoryIds.includes(tx.categoryId))
+    return (transactions || [])
+      .filter((tx) => tx.type === 'EXPENSE' && (excludedCategoryIds || []).includes(tx.categoryId))
       .reduce((sum, tx) => sum + tx.amount, 0);
   }, [transactions, excludedCategoryIds]);
+
+  if (!isOpen) return null;
 
   return (
     <div 
