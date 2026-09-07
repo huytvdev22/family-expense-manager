@@ -13,7 +13,9 @@ import {
   SlidersHorizontal,
   RotateCcw,
   Info,
-  Calendar
+  Calendar,
+  User,
+  ChevronRight
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND } from '../utils/currency';
@@ -49,12 +51,20 @@ export const Dashboard: React.FC = () => {
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const storageKey = `harmony_report_excluded_categories_${activeHousehold?.id || 'default'}`;
 
-  // Trạng thái modal xem lịch sử chi tiêu theo Ngày hoặc theo Nhóm chi
+  // Trạng thái modal xem lịch sử chi tiêu theo Ngày, theo Nhóm chi hoặc theo Người chi (Chồng / Vợ)
   const [activeHistoryModal, setActiveHistoryModal] = useState<
     | { type: 'DATE'; day: number; fullDate: string }
     | { type: 'CATEGORY'; categoryId: string }
+    | { type: 'PERSON'; person: 'Chồng' | 'Vợ' }
     | null
   >(null);
+
+  // Mở chi tiết các khoản chi theo người chi (Chồng hoặc Vợ) trong Bottom Sheet
+  const handleOpenPersonDetail = (person: 'Chồng' | 'Vợ') => {
+    playActionClick();
+    triggerHaptic(8);
+    setActiveHistoryModal({ type: 'PERSON', person });
+  };
 
   // Trạng thái modal chỉnh sửa giao dịch khi click vào 1 item trong modal lịch sử
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -321,6 +331,42 @@ export const Dashboard: React.FC = () => {
       };
     }
 
+    if (activeHistoryModal.type === 'PERSON') {
+      const { person } = activeHistoryModal;
+      const isHusband = person === 'Chồng';
+
+      // Lọc các giao dịch chi tiêu của người này trong tháng (thuộc phạm vi tính báo cáo)
+      const personTxs = includedExpenseTransactions
+        .filter((tx) => tx.paidBy === person)
+        .sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+
+      const personTotal = isHusband ? husbandReportExpense : wifeReportExpense;
+      const personRatio = isHusband ? husbandReportRatio : wifeReportRatio;
+      const personCount = isHusband ? husbandTxCount : wifeTxCount;
+      const personAvg = isHusband ? husbandAvgTx : wifeAvgTx;
+
+      return {
+        title: `Chi tiêu của ${person}`,
+        badgeText: 'CÁN CÂN VỢ — CHỒNG',
+        badgeColor: (isHusband ? 'pine' : 'amber') as 'pine' | 'amber',
+        icon: <User className="w-5 h-5" />,
+        iconBgColor: isHusband ? '#0F3D39' : '#B45309',
+        summaryLeft: {
+          label: `Tổng chi của ${person}`,
+          amount: personTotal,
+          count: personCount
+        },
+        summaryRight: {
+          label: 'Tỷ trọng chi trả',
+          value: `${personRatio}% tổng chi`,
+          valueColor: isHusband ? 'text-[#0F3D39]' : 'text-[#B45309]',
+          subtext: `TB: ${formatVND(personAvg)}/lần chi`
+        },
+        transactions: personTxs,
+        emptyMessage: `Chưa có khoản chi tiêu nào của ${person} trong tháng này.`
+      };
+    }
+
     return null;
   }, [
     activeHistoryModal,
@@ -329,7 +375,15 @@ export const Dashboard: React.FC = () => {
     dailyBurnRate,
     categories,
     includedExpenseTransactions,
-    reportTotalExpense
+    reportTotalExpense,
+    husbandReportExpense,
+    wifeReportExpense,
+    husbandReportRatio,
+    wifeReportRatio,
+    husbandTxCount,
+    wifeTxCount,
+    husbandAvgTx,
+    wifeAvgTx
   ]);
 
   return (
@@ -525,7 +579,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* =========================================================================
-          KHỐI 2: CÁN CÂN ĐỒNG HÀNH VỢ — CHỒNG (BILATERAL EXPENSES)
+          KHỐI 2: CÁN CÂN VỢ — CHỒNG (BILATERAL EXPENSES)
           ========================================================================= */}
       <div className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-xs">
         <div className="flex items-center justify-between border-b border-[#F5F3EF] pb-3 mb-4">
@@ -535,42 +589,70 @@ export const Dashboard: React.FC = () => {
             </div>
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wider text-[#1C1917]">
-                Cán cân đồng hành Vợ — Chồng
+                Cán cân Vợ — Chồng
               </h3>
               <p className="text-[11px] text-[#78716C]">
-                Tỷ trọng chi trả và tần suất giao dịch trong tháng {hasExcludedCategories && '(sau lọc)'}
+                Tỷ trọng chi trả trong tháng {hasExcludedCategories && '(sau lọc)'}
               </p>
             </div>
           </div>
-          <span className="text-xs font-mono font-bold text-[#1C1917]">
-            {husbandReportRatio}% / {wifeReportRatio}%
-          </span>
+          <div className="flex items-center gap-1 font-mono text-xs">
+            <button
+              type="button"
+              onClick={() => handleOpenPersonDetail('Chồng')}
+              className="font-bold text-[#0F3D39] hover:underline cursor-pointer py-0.5 px-1 rounded-md hover:bg-[#E7EFEF] transition-colors"
+              title="Bấm xem chi tiết các khoản chi của Chồng"
+            >
+              {husbandReportRatio}%
+            </button>
+            <span className="text-[#78716C]">/</span>
+            <button
+              type="button"
+              onClick={() => handleOpenPersonDetail('Vợ')}
+              className="font-bold text-[#B45309] hover:underline cursor-pointer py-0.5 px-1 rounded-md hover:bg-[#FEF3C7] transition-colors"
+              title="Bấm xem chi tiết các khoản chi của Vợ"
+            >
+              {wifeReportRatio}%
+            </button>
+          </div>
         </div>
 
-        {/* Thanh tỷ lệ song phương */}
-        <div className="h-3 w-full rounded-full overflow-hidden flex bg-[#F5F3EF] border border-[#E6E2DA]/60 mb-4">
-          <div
+        {/* Thanh tỷ lệ song phương (Bấm trực tiếp vào từng nửa để xem chi tiết) */}
+        <div className="h-3.5 w-full rounded-full overflow-hidden flex bg-[#F5F3EF] border border-[#E6E2DA]/60 mb-4 p-0.5 gap-0.5">
+          <button
+            type="button"
             style={{ width: `${husbandReportRatio}%` }}
-            className="h-full bg-[#0F3D39] transition-all duration-300"
-            title={`Chồng: ${husbandReportRatio}%`}
+            onClick={() => handleOpenPersonDetail('Chồng')}
+            className="h-full bg-[#0F3D39] hover:opacity-90 active:opacity-75 rounded-l-full transition-all cursor-pointer"
+            title={`Chồng: ${husbandReportRatio}% (Bấm để xem danh sách chi tiêu)`}
           />
-          <div
+          <button
+            type="button"
             style={{ width: `${wifeReportRatio}%` }}
-            className="h-full bg-[#B45309] transition-all duration-300"
-            title={`Vợ: ${wifeReportRatio}%`}
+            onClick={() => handleOpenPersonDetail('Vợ')}
+            className="h-full bg-[#B45309] hover:opacity-90 active:opacity-75 rounded-r-full transition-all cursor-pointer"
+            title={`Vợ: ${wifeReportRatio}% (Bấm để xem danh sách chi tiêu)`}
           />
         </div>
 
-        {/* Bảng so sánh chi tiết hai bên */}
+        {/* Bảng so sánh chi tiết hai bên (Click vào thẻ để mở Bottom Sheet xem chi tiết) */}
         <div className="grid grid-cols-2 gap-3 pt-1">
           {/* Cột Chồng */}
-          <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-3.5 space-y-1.5">
+          <button
+            type="button"
+            onClick={() => handleOpenPersonDetail('Chồng')}
+            className="w-full text-left bg-[#FAF9F6] border border-[#E6E2DA] hover:border-[#0F3D39]/40 hover:bg-white active:scale-[0.99] rounded-2xl p-3.5 space-y-1.5 transition-all tactile-btn cursor-pointer shadow-2xs group"
+            title="Bấm để xem chi tiết các khoản chi của Chồng"
+          >
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-[#0F3D39]" />
-              <span className="text-xs font-semibold text-[#1C1917]">Chồng</span>
+              <span className="text-xs font-semibold text-[#1C1917] group-hover:text-[#0F3D39] transition-colors">
+                Chồng
+              </span>
               <span className="text-[10px] font-mono text-[#0F3D39] ml-auto font-medium">
                 {husbandReportRatio}%
               </span>
+              <ChevronRight className="w-3.5 h-3.5 text-[#78716C] group-hover:text-[#0F3D39] group-hover:translate-x-0.5 transition-all" />
             </div>
             <div className="text-lg font-bold font-mono text-[#1C1917] tabular-nums">
               {formatVND(husbandReportExpense)}
@@ -579,16 +661,24 @@ export const Dashboard: React.FC = () => {
               <span>{husbandTxCount} lần chi</span>
               <span>TB: {formatVND(husbandAvgTx)}</span>
             </div>
-          </div>
+          </button>
 
           {/* Cột Vợ */}
-          <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-3.5 space-y-1.5">
+          <button
+            type="button"
+            onClick={() => handleOpenPersonDetail('Vợ')}
+            className="w-full text-left bg-[#FAF9F6] border border-[#E6E2DA] hover:border-[#B45309]/40 hover:bg-white active:scale-[0.99] rounded-2xl p-3.5 space-y-1.5 transition-all tactile-btn cursor-pointer shadow-2xs group"
+            title="Bấm để xem chi tiết các khoản chi của Vợ"
+          >
             <div className="flex items-center gap-1.5">
               <span className="w-2.5 h-2.5 rounded-full bg-[#B45309]" />
-              <span className="text-xs font-semibold text-[#1C1917]">Vợ</span>
+              <span className="text-xs font-semibold text-[#1C1917] group-hover:text-[#B45309] transition-colors">
+                Vợ
+              </span>
               <span className="text-[10px] font-mono text-[#B45309] ml-auto font-medium">
                 {wifeReportRatio}%
               </span>
+              <ChevronRight className="w-3.5 h-3.5 text-[#78716C] group-hover:text-[#B45309] group-hover:translate-x-0.5 transition-all" />
             </div>
             <div className="text-lg font-bold font-mono text-[#1C1917] tabular-nums">
               {formatVND(wifeReportExpense)}
@@ -597,7 +687,7 @@ export const Dashboard: React.FC = () => {
               <span>{wifeTxCount} lần chi</span>
               <span>TB: {formatVND(wifeAvgTx)}</span>
             </div>
-          </div>
+          </button>
         </div>
       </div>
 
