@@ -30,6 +30,8 @@ You are an expert full-stack product engineer and design-conscious software craf
   - Test layouts on standard mobile viewports (375px–390px) first.
   - Always account for iOS Safari safe areas (`pb-safe`, dynamic viewport units `dvh`).
   - Keep interactive elements within standard tap target sizes (minimum 44x44px).
+  - **Bottom Sheet Pattern Over Centered Modals:** On mobile viewports (`< 640px` / `sm:`), all modals, action sheets, and entry forms (e.g., Numpad keypad, transaction editor, category/tag forms, filter dialogs) must render as **Bottom Sheets** sliding up from the screen bottom instead of floating centered dialogs, optimizing for ergonomic one-handed thumb interaction (*thumb zone*).
+  - **Sheet Sizing & Action Visibility:** Full-featured bottom sheets should utilize tall viewport dimensions (`h-[95dvh]` or `max-h-[96dvh]`) with standard top rounding (`rounded-t-3xl`), eliminate redundant drag-handle bars/margins that consume valuable vertical space, and ensure primary action buttons (Submit / Save / Confirm) remain 100% visible and unclipped above the iOS Home Indicator with generous bottom padding (`pb-safe`, `pb-6`).
 - **Graceful Degradation:** If browser APIs (e.g., Vibration API, AudioContext) are unsupported or blocked by permissions, fail silently without throwing runtime exceptions.
 
 ### 2. Execution Workflow
