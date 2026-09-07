@@ -15,6 +15,7 @@ import {
   Receipt,
   Coins,
   Layers,
+  Scale,
   Bell,
   BellRing,
   Share2,
@@ -54,6 +55,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
     toggleCompactCurrency,
     defaultCollapseDays,
     toggleDefaultCollapseDays,
+    mobileShowBalanceDetails,
+    toggleMobileShowBalanceDetails,
     firebaseUser,
     isFirebaseActive,
     logout,
@@ -315,6 +318,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                 <div
                   className={`w-5 h-5 rounded-full bg-white transition-transform shadow-xs ${
                     defaultCollapseDays ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Mục 3: Mở rộng tiến độ & cán cân trên di động */}
+            <div className="flex items-center justify-between pt-2 border-t border-[#F5F3EF]">
+              <div className="flex items-center gap-3 pr-2">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors shrink-0 ${
+                  mobileShowBalanceDetails ? 'bg-[#E7EFEF] text-[#0F3D39]' : 'bg-[#F5F3EF] text-[#A8A29E]'
+                }`}>
+                  <Scale className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-[#1C1917]">Tiến độ & Cán cân trên mobile</p>
+                  <p className="text-[11px] text-[#78716C] mt-0.5">
+                    {mobileShowBalanceDetails
+                      ? 'Đang mở rộng: Hiển thị đầy đủ tiến độ & cán cân'
+                      : 'Đang thu gọn: Giao diện tối giản, tránh ngợp số liệu'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  toggleMobileShowBalanceDetails();
+                  playActionClick();
+                  triggerHaptic(10);
+                }}
+                className={`w-11 h-6 rounded-full transition-colors relative p-0.5 cursor-pointer shrink-0 ${
+                  mobileShowBalanceDetails ? 'bg-[#0F3D39]' : 'bg-[#E6E2DA]'
+                }`}
+                title={mobileShowBalanceDetails ? 'Đang hiển thị đầy đủ' : 'Đang thu gọn'}
+              >
+                <div
+                  className={`w-5 h-5 rounded-full bg-white transition-transform shadow-xs ${
+                    mobileShowBalanceDetails ? 'translate-x-5' : 'translate-x-0'
                   }`}
                 />
               </button>

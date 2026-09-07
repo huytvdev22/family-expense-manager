@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Target, Scale, Edit3, Check } from 'lucide-react';
+import { Target, Scale, Edit3, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
+import { triggerHaptic } from '../utils/haptics';
 
 export const BalanceCard: React.FC = () => {
   const {
@@ -15,7 +16,9 @@ export const BalanceCard: React.FC = () => {
     husbandRatio,
     wifeRatio,
     activeHousehold,
-    updateBudget
+    updateBudget,
+    mobileShowBalanceDetails,
+    toggleMobileShowBalanceDetails
   } = useApp();
 
   const [isEditingBudget, setIsEditingBudget] = useState(false);
@@ -27,7 +30,14 @@ export const BalanceCard: React.FC = () => {
       await updateBudget(val);
       setIsEditingBudget(false);
       playActionClick();
+      triggerHaptic(10);
     }
+  };
+
+  const handleToggleMobileDetails = () => {
+    toggleMobileShowBalanceDetails();
+    playActionClick();
+    triggerHaptic(10);
   };
 
   const monthlyBudget = activeHousehold?.monthlyBudget || 30000000;
@@ -38,10 +48,29 @@ export const BalanceCard: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr_auto_1fr] items-stretch gap-y-4 sm:gap-y-0">
         {/* Phân khu 1: Tổng chi tiêu & Ngân sách mục tiêu */}
         <div className="flex flex-col justify-between sm:pr-6">
-          <span className="text-[11px] uppercase tracking-wider font-semibold text-[#78716C] flex items-center gap-1.5">
-            <Target className="w-3.5 h-3.5 text-[#B45309]" />
-            Tổng chi tiêu tháng này
-          </span>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] uppercase tracking-wider font-semibold text-[#78716C] flex items-center gap-1.5">
+              <Target className="w-3.5 h-3.5 text-[#B45309]" />
+              Tổng chi tiêu tháng này
+            </span>
+
+            {/* Nút bật/tắt hiển thị tiến độ và cán cân vợ chồng trên mobile */}
+            <button
+              type="button"
+              onClick={handleToggleMobileDetails}
+              className="sm:hidden flex items-center gap-1 text-[11px] font-medium text-[#78716C] hover:text-[#1C1917] bg-[#FAF9F6] active:bg-[#F5F3EF] px-2.5 py-1 rounded-full border border-[#E6E2DA] transition-all active:scale-95 shadow-2xs select-none cursor-pointer"
+              aria-expanded={mobileShowBalanceDetails}
+              title={mobileShowBalanceDetails ? 'Thu gọn tiến độ & cán cân' : 'Xem tiến độ & cán cân vợ chồng'}
+            >
+              <span>{mobileShowBalanceDetails ? 'Thu gọn' : 'Tiến độ & Cán cân'}</span>
+              {mobileShowBalanceDetails ? (
+                <ChevronUp className="w-3 h-3 text-[#78716C]" />
+              ) : (
+                <ChevronDown className="w-3 h-3 text-[#78716C]" />
+              )}
+            </button>
+          </div>
+
           <div className="my-1.5 flex items-baseline gap-2">
             <span className="text-2xl sm:text-3xl font-bold font-mono tracking-tight text-[#1C1917] tabular-nums">
               {formatVND(totalExpense)}
@@ -63,7 +92,7 @@ export const BalanceCard: React.FC = () => {
                   />
                   <button
                     onClick={handleSaveBudget}
-                    className="p-1 rounded-md bg-[#0F3D39] text-white hover:bg-[#174E4A] active:scale-95"
+                    className="p-1 rounded-md bg-[#0F3D39] text-white hover:bg-[#174E4A] active:scale-95 cursor-pointer"
                     title="Lưu hạn mức"
                   >
                     <Check className="w-3 h-3" />
@@ -75,7 +104,7 @@ export const BalanceCard: React.FC = () => {
                     setBudgetInput(String(monthlyBudget));
                     setIsEditingBudget(true);
                   }}
-                  className="font-mono font-medium text-[#0F3D39] hover:underline flex items-center gap-1"
+                  className="font-mono font-medium text-[#0F3D39] hover:underline flex items-center gap-1 cursor-pointer"
                   title="Sửa ngân sách mục tiêu"
                 >
                   <span>{formatVND(monthlyBudget)}</span>
@@ -99,10 +128,10 @@ export const BalanceCard: React.FC = () => {
 
         {/* Gạch phân cách dọc 1 (Desktop) / ngang (Mobile) */}
         <div className="hidden sm:block w-px bg-[#E6E2DA] my-0.5 self-stretch" />
-        <div className="sm:hidden h-px bg-[#F5F3EF] w-full" />
+        {mobileShowBalanceDetails && <div className="sm:hidden h-px bg-[#F5F3EF] w-full" />}
 
         {/* Phân khu 2: Tiến độ ngân sách (Cân đối chính giữa) */}
-        <div className="flex flex-col justify-between sm:px-6">
+        <div className={`${mobileShowBalanceDetails ? 'flex' : 'hidden sm:flex'} flex-col justify-between sm:px-6 animate-in fade-in duration-150`}>
           <div className="flex items-center justify-between text-[11px] font-mono mb-1.5">
             <span className="uppercase tracking-wider font-semibold text-[#78716C]">
               Tiến độ chi tiêu
@@ -135,10 +164,10 @@ export const BalanceCard: React.FC = () => {
 
         {/* Gạch phân cách dọc 2 (Desktop) / ngang (Mobile) */}
         <div className="hidden sm:block w-px bg-[#E6E2DA] my-0.5 self-stretch" />
-        <div className="sm:hidden h-px bg-[#F5F3EF] w-full" />
+        {mobileShowBalanceDetails && <div className="sm:hidden h-px bg-[#F5F3EF] w-full" />}
 
         {/* Phân khu 3: Cán cân chi tiêu Vợ - Chồng */}
-        <div className="flex flex-col justify-between sm:pl-6">
+        <div className={`${mobileShowBalanceDetails ? 'flex' : 'hidden sm:flex'} flex-col justify-between sm:pl-6 animate-in fade-in duration-150`}>
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] uppercase tracking-wider font-semibold text-[#78716C] flex items-center gap-1.5">
               <Scale className="w-3.5 h-3.5 text-[#4A6B68]" />

@@ -120,6 +120,8 @@ interface AppContextType {
   toggleCompactCurrency: () => void;
   defaultCollapseDays: boolean;
   toggleDefaultCollapseDays: () => void;
+  mobileShowBalanceDetails: boolean;
+  toggleMobileShowBalanceDetails: () => void;
   
   // Hành động tài chính & tổ ấm
   logTransaction: (tx: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'>) => Promise<void>;
@@ -173,6 +175,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   });
   const [defaultCollapseDays, setDefaultCollapseDays] = useState<boolean>(() => {
     return localStorage.getItem('setting_default_collapse_days') === 'true';
+  });
+  const [mobileShowBalanceDetails, setMobileShowBalanceDetails] = useState<boolean>(() => {
+    return localStorage.getItem('setting_mobile_balance_details') === 'true';
   });
   const [userRole, setUserRole] = useState<'Chồng' | 'Vợ'>(() => {
     return (localStorage.getItem('user_role') as 'Chồng' | 'Vợ') || 'Chồng';
@@ -299,6 +304,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const next = !defaultCollapseDays;
     setDefaultCollapseDays(next);
     localStorage.setItem('setting_default_collapse_days', String(next));
+  };
+
+  // Chuyển đổi ẩn/hiện tiến độ & cán cân vợ chồng trên di động
+  const toggleMobileShowBalanceDetails = () => {
+    const next = !mobileShowBalanceDetails;
+    setMobileShowBalanceDetails(next);
+    localStorage.setItem('setting_mobile_balance_details', String(next));
   };
 
   // Điều hướng tháng
@@ -1370,6 +1382,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         toggleCompactCurrency,
         defaultCollapseDays,
         toggleDefaultCollapseDays,
+        mobileShowBalanceDetails,
+        toggleMobileShowBalanceDetails,
         logTransaction,
         editTransaction,
         removeTransaction,
