@@ -14,6 +14,7 @@ import { formatVND } from '../utils/currency';
 import { renderCategoryIcon } from '../utils/categoryIcons';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
+import { useBodyScrollLock } from '../utils/scrollLock';
 
 interface ReportCategoryFilterModalProps {
   isOpen: boolean;
@@ -36,6 +37,9 @@ export const ReportCategoryFilterModal: React.FC<ReportCategoryFilterModalProps>
   onSelectAll,
   onExcludeDebtAndSavings
 }) => {
+  // Khóa cuộn trang nền trên iOS khi mở Modal lọc danh mục báo cáo
+  useBodyScrollLock(isOpen);
+
   if (!isOpen) return null;
 
   // Lọc chỉ lấy danh mục chi tiêu (EXPENSE)
@@ -77,7 +81,18 @@ export const ReportCategoryFilterModal: React.FC<ReportCategoryFilterModalProps>
   }, [transactions, excludedCategoryIds]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+    <div 
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          playActionClick();
+          onClose();
+        }
+      }}
+    >
       <div 
         className="bg-[#FAF9F6] border border-[#E6E2DA] w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-xl flex flex-col max-h-[90vh] sm:max-h-[85vh] overflow-hidden animate-in slide-in-from-bottom duration-200"
         role="dialog"
@@ -163,7 +178,7 @@ export const ReportCategoryFilterModal: React.FC<ReportCategoryFilterModalProps>
         </div>
 
         {/* Danh sách danh mục chi tiêu */}
-        <div className="flex-1 overflow-y-auto px-5 py-3 divide-y divide-[#F5F3EF] bg-white">
+        <div className="flex-1 overflow-y-auto overscroll-contain touch-pan-y px-5 py-3 divide-y divide-[#F5F3EF] bg-white">
           {sortedCategories.map((cat) => {
             const isExcluded = excludedCategoryIds.includes(cat.id);
             const isIncluded = !isExcluded;

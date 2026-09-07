@@ -34,6 +34,7 @@ import {
 import { formatVND, formatYearMonthLabel } from '../utils/currency';
 import { playActionClick, playSuccessChime } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
+import { useBodyScrollLock } from '../utils/scrollLock';
 
 interface SendReportEmailModalProps {
   isOpen: boolean;
@@ -48,6 +49,9 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
   onClose,
   reportData
 }) => {
+  // Khóa cuộn trang nền trên iOS khi mở Modal gửi email báo cáo
+  useBodyScrollLock(isOpen);
+
   const { activeHousehold, updateMemberEmail } = useApp();
   const { showToast } = useToast();
 
@@ -333,7 +337,10 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           playActionClick();
@@ -398,7 +405,7 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
             MÀN HÌNH CÀI ĐẶT EMAILJS (KHI BẤM NÚT BÁNH RĂNG ⚙️)
             ========================================================================= */}
         {isSettingsOpen ? (
-          <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 text-xs">
+          <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain touch-pan-y space-y-4 flex-1 text-xs">
             <div className="flex items-center justify-between pb-2 border-b border-[#E6E2DA]">
               <button
                 onClick={() => setIsSettingsOpen(false)}
@@ -544,7 +551,7 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
             </div>
 
             {/* Nội dung theo Tab */}
-            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+            <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain touch-pan-y space-y-4 flex-1">
               {activeTab === 'compose' ? (
                 <div className="space-y-4 text-xs">
                   {/* Trạng thái kết nối EmailJS */}

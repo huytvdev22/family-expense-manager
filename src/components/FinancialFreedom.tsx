@@ -30,6 +30,7 @@ import { renderGoalIcon } from '../utils/categoryIcons';
 import type { FinancialGoal, GoalType } from '../types';
 import { sortFinancialGoals, type GoalSortOption } from '../utils/goalSorting';
 import { useToast } from './Toast';
+import { useBodyScrollLock } from '../utils/scrollLock';
 
 const GOAL_COLORS = [
   { label: 'Terracotta', hex: '#B45309' },
@@ -63,6 +64,9 @@ export const FinancialFreedom: React.FC = () => {
 
   // Modal xem lịch sử tích lũy / trả nợ của mục tiêu
   const [selectedHistoryGoal, setSelectedHistoryGoal] = useState<FinancialGoal | null>(null);
+
+  // Khóa cuộn trang nền trên iOS khi mở Modal / Bottom Sheet mục tiêu tài chính
+  useBodyScrollLock(isModalOpen || Boolean(selectedHistoryGoal));
 
   // Thống kê số lượng giao dịch đã gắn với từng mục tiêu
   const goalTxCounts = useMemo(() => {
@@ -616,7 +620,10 @@ export const FinancialFreedom: React.FC = () => {
           ========================================================================= */}
       {isModalOpen && (
         <div 
-          className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150"
+          className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsModalOpen(false);
           }}
@@ -644,7 +651,7 @@ export const FinancialFreedom: React.FC = () => {
             </div>
 
             {/* Nội dung form */}
-            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 text-xs flex-1">
+            <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain touch-pan-y space-y-4 text-xs flex-1">
               {/* Chọn loại mục tiêu: Khoản nợ vs Tích lũy */}
               <div>
                 <label className="block font-bold text-[#0F3D39] uppercase tracking-wider text-[10px] font-mono mb-1.5">
@@ -880,7 +887,18 @@ export const FinancialFreedom: React.FC = () => {
           4. MODAL XEM LỊCH SỬ TÍCH LŨY / TRẢ NỢ CỦA MỤC TIÊU
           ========================================================================= */}
       {selectedHistoryGoal && (
-        <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150">
+        <div 
+          className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              playActionClick();
+              setSelectedHistoryGoal(null);
+            }
+          }}
+        >
           <div className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[88vh] sm:max-h-[85vh] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-3 duration-200">
             {/* Modal Header */}
             <div className="p-4 sm:p-5 border-b border-[#F5F3EF] flex items-center justify-between gap-3 shrink-0">
@@ -962,7 +980,7 @@ export const FinancialFreedom: React.FC = () => {
             </div>
 
             {/* Danh sách các lần ghi nhận */}
-            <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-2.5">
+            <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain touch-pan-y flex-1 space-y-2.5">
               {historyTransactions.length === 0 ? (
                 <div className="text-center py-8 px-4 bg-[#FAF9F6] rounded-2xl border border-dashed border-[#E6E2DA]">
                   <div className="w-10 h-10 mx-auto rounded-xl bg-white border border-[#E6E2DA] flex items-center justify-center text-[#78716C] mb-2.5 shadow-2xs">

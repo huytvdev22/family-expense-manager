@@ -7,6 +7,7 @@ import { triggerHaptic } from '../utils/haptics';
 import type { Category, CategoryKey, QuickTagItem } from '../types';
 import { renderCategoryIcon } from '../utils/categoryIcons';
 import { useToast } from './Toast';
+import { useBodyScrollLock } from '../utils/scrollLock';
 
 const CATEGORY_ICON_OPTIONS = [
   { key: 'home', label: 'Tổ ấm' },
@@ -95,6 +96,9 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
 
   // Trạng thái hiển thị danh mục đã ẩn
   const [showArchived, setShowArchived] = useState(false);
+
+  // Khóa cuộn trang nền trên iOS khi mở bất kỳ Bottom Sheet / Modal nào
+  useBodyScrollLock(isAdding || Boolean(editingCat) || isAddingTag || Boolean(editingTag));
 
   // Lọc danh mục đang hoạt động
   const activeCategories = useMemo(() => {
@@ -655,7 +659,10 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
           ========================================================================= */}
       {(isAdding || editingCat) && (
         <div 
-          className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150"
+          className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               playActionClick();
@@ -705,7 +712,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
             </div>
 
             {/* Thân cuộn Bottom Sheet */}
-            <div className="p-5 overflow-y-auto space-y-4 flex-1">
+            <div className="p-5 overflow-y-auto overscroll-contain touch-pan-y space-y-4 flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
@@ -835,7 +842,10 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
           ========================================================================= */}
       {(isAddingTag || editingTag) && (
         <div 
-          className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150"
+          className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               playActionClick();
@@ -879,7 +889,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
             </div>
 
             {/* Thân cuộn Bottom Sheet */}
-            <div className="p-5 overflow-y-auto space-y-4 flex-1">
+            <div className="p-5 overflow-y-auto overscroll-contain touch-pan-y space-y-4 flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Tên nhãn */}
                 <div>

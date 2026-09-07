@@ -41,6 +41,7 @@ import {
   isStandaloneMode
 } from '../services/notificationService';
 import { useToast } from './Toast';
+import { useBodyScrollLock } from '../utils/scrollLock';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -48,6 +49,8 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
+  // Khóa cuộn trang nền trên iOS khi mở Modal Cài đặt
+  useBodyScrollLock(isOpen);
   const {
     soundEnabled,
     toggleSound,
@@ -163,7 +166,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
   return (
     <div 
-      className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           playActionClick();
@@ -200,7 +206,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
         </div>
 
         {/* Thân Modal */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 pb-safe sm:pb-5">
+        <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain touch-pan-y space-y-4 flex-1 pb-safe sm:pb-5">
           {/* =========================================================================
               1. ÂM THANH XÚC GIÁC CƠ HỌC
               ========================================================================= */}

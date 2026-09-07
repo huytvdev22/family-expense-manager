@@ -6,6 +6,7 @@ import type { Invitation } from '../types';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { useToast } from './Toast';
+import { useBodyScrollLock } from '../utils/scrollLock';
 
 interface InviteModalProps {
   isOpen: boolean;
@@ -14,6 +15,9 @@ interface InviteModalProps {
 }
 
 export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initialCode }) => {
+  // Khóa cuộn trang nền trên iOS khi mở Modal mời thành viên
+  useBodyScrollLock(isOpen);
+
   const { 
     activeHousehold, 
     currentUser,
@@ -182,7 +186,10 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
 
   return (
     <div 
-      className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           playActionClick();
@@ -190,7 +197,7 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
         }
       }}
     >
-      <div className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl relative max-h-[90vh] sm:max-h-[85vh] overflow-y-auto pb-safe sm:pb-5 animate-in slide-in-from-bottom-3 duration-200">
+      <div className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl relative max-h-[90vh] sm:max-h-[85vh] overflow-y-auto overscroll-contain touch-pan-y pb-safe sm:pb-5 animate-in slide-in-from-bottom-3 duration-200">
         {/* Thanh trượt chỉ báo Bottom Sheet trên mobile */}
         <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto mb-3 sm:hidden shrink-0" />
         {/* Header Modal */}

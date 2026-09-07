@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { playActionClick } from './utils/audio';
+import { useBodyScrollLock } from './utils/scrollLock';
 import { Header, type DesktopView } from './components/Header';
 import { BalanceCard } from './components/BalanceCard';
 import { Numpad } from './components/Numpad';
@@ -31,6 +32,9 @@ export const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isNumpadSheetOpen, setIsNumpadSheetOpen] = useState(false);
   const [joinCodeParam, setJoinCodeParam] = useState<string>('');
+
+  // Tự động khóa cuộn trang nền khi mở Numpad Bottom Sheet trên di động
+  useBodyScrollLock(isNumpadSheetOpen);
 
   // Kiểm tra link mời tham gia từ URL (?join=CODE) hoặc từ localStorage
   useEffect(() => {
@@ -233,7 +237,10 @@ export const App: React.FC = () => {
           ========================================================================= */}
       {isNumpadSheetOpen && (
         <div
-          className="fixed inset-0 z-60 flex items-end justify-center p-0 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 sm:hidden"
+          className="fixed inset-0 z-60 flex items-end justify-center p-0 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 sm:hidden touch-none"
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) e.preventDefault();
+          }}
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               playActionClick();
@@ -272,7 +279,7 @@ export const App: React.FC = () => {
             </div>
 
             {/* Thân cuộn Bottom Sheet */}
-            <div className="p-2.5 sm:p-3 overflow-y-auto flex-1 overscroll-contain pb-6">
+            <div className="p-2.5 sm:p-3 overflow-y-auto flex-1 overscroll-contain touch-pan-y pb-6">
               <Numpad
                 isBottomSheet
                 onSuccess={() => {
