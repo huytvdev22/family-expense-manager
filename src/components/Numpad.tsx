@@ -12,9 +12,11 @@ import { useToast } from './Toast';
 
 interface NumpadProps {
   onSuccess?: () => void;
+  className?: string;
+  isBottomSheet?: boolean;
 }
 
-export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
+export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBottomSheet = false }) => {
   const { categories, logTransaction, currentUser, userRole, financialGoals, quickTags } = useApp();
   const { showToast } = useToast();
 
@@ -289,7 +291,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
   }, [amountStr, selectedCategoryId, note, paidBy, txType, isSubmitting]);
 
   return (
-    <div className="bg-white border border-[#E6E2DA] rounded-3xl p-3.5 sm:p-4 shadow-sm flex flex-col gap-2.5 sm:gap-3">
+    <div className={`bg-white border border-[#E6E2DA] ${isBottomSheet ? 'rounded-2xl p-2.5 sm:p-3 shadow-2xs gap-2 sm:gap-2.5' : 'rounded-3xl p-3.5 sm:p-4 shadow-sm gap-2.5 sm:gap-3'} flex flex-col ${className}`}>
       {/* 0. Bộ chuyển đổi loại giao dịch: Khoản chi vs Thu nhập */}
       <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs">
         <button

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { X } from 'lucide-react';
+import { playActionClick } from './utils/audio';
 import { Header, type DesktopView } from './components/Header';
 import { BalanceCard } from './components/BalanceCard';
 import { Numpad } from './components/Numpad';
@@ -23,10 +25,11 @@ export const App: React.FC = () => {
   // Chế độ xem Desktop ('ledger' | 'dashboard' | 'categories' | 'family')
   const [desktopView, setDesktopView] = useState<DesktopView>('ledger');
 
-  // Trạng thái mở các Modal
+  // Trạng thái mở các Modal & Bottom Sheets
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [isLetterOpen, setIsLetterOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isNumpadSheetOpen, setIsNumpadSheetOpen] = useState(false);
   const [joinCodeParam, setJoinCodeParam] = useState<string>('');
 
   // Kiểm tra link mời tham gia từ URL (?join=CODE) hoặc từ localStorage
@@ -95,8 +98,10 @@ export const App: React.FC = () => {
           )}
 
           {mobileTab === 'numpad' && (
-            <div className="animate-in fade-in duration-150">
-              <Numpad onSuccess={() => setMobileTab('ledger')} />
+            <div className="space-y-4 animate-in fade-in duration-150">
+              <MonthPicker className="w-full justify-between" />
+              <BalanceCard />
+              <TransactionList />
             </div>
           )}
 
@@ -191,7 +196,11 @@ export const App: React.FC = () => {
       </main>
 
       {/* Thanh điều hướng đáy trên di động */}
-      <BottomNav currentTab={mobileTab} onChangeTab={setMobileTab} />
+      <BottomNav 
+        currentTab={mobileTab} 
+        onChangeTab={setMobileTab} 
+        onOpenNumpad={() => setIsNumpadSheetOpen(true)}
+      />
 
       {/* Modal Mời thành viên */}
       <InviteModal
@@ -218,6 +227,65 @@ export const App: React.FC = () => {
 
       {/* Thông báo cập nhật phiên bản mới tự động */}
       <UpdateNotification />
+
+      {/* =========================================================================
+          BOTTOM SHEET GHI NHẬN THU CHI TRÊN DI ĐỘNG (NUMPAD BOTTOM SHEET)
+          ========================================================================= */}
+      {isNumpadSheetOpen && (
+        <div
+          className="fixed inset-0 z-60 flex items-end justify-center p-0 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 sm:hidden"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              playActionClick();
+              setIsNumpadSheetOpen(false);
+            }
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] animate-in slide-in-from-bottom-3 duration-200 pb-safe"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag Handle Indicator */}
+            <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto my-2.5 shrink-0" />
+
+            {/* Header Bottom Sheet */}
+            <div className="px-4 py-2 border-b border-[#E6E2DA] flex items-center justify-between bg-white shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-[#0F3D39] text-[#FAF9F6] flex items-center justify-center shadow-2xs text-xs font-bold font-mono">
+                  ₫
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-[#1C1917]">Ghi nhận thu chi</h3>
+                  <p className="text-[10px] text-[#78716C]">Nhập số tiền hoặc chạm gợi ý nhanh</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  playActionClick();
+                  setIsNumpadSheetOpen(false);
+                }}
+                className="w-7 h-7 rounded-xl text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF] flex items-center justify-center transition-colors cursor-pointer"
+                title="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Thân cuộn Bottom Sheet */}
+            <div className="p-3 overflow-y-auto flex-1">
+              <Numpad
+                isBottomSheet
+                onSuccess={() => {
+                  setIsNumpadSheetOpen(false);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

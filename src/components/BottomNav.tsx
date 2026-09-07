@@ -8,9 +8,10 @@ export type MobileTab = 'ledger' | 'dashboard' | 'numpad' | 'goals' | 'family';
 interface BottomNavProps {
   currentTab: MobileTab;
   onChangeTab: (tab: MobileTab) => void;
+  onOpenNumpad?: () => void;
 }
 
-export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onChangeTab }) => {
+export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onChangeTab, onOpenNumpad }) => {
   const handleTabClick = (tab: MobileTab) => {
     playActionClick();
     triggerHaptic(10);
@@ -44,11 +45,19 @@ export const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onChangeTab })
           <span className={`text-[10px] mt-0.5 ${currentTab === 'dashboard' ? 'font-bold' : 'font-medium'}`}>Tổng quan</span>
         </button>
 
-        {/* Tab 3 (Nút tròn tâm điểm): Nhập chi tiêu nhanh */}
+        {/* Tab 3 (Nút tròn tâm điểm): Nhập chi tiêu nhanh (Action Trigger mở Bottom Sheet) */}
         <div className="flex items-center justify-center px-1">
           <button
-            onClick={() => handleTabClick('numpad')}
-            className="relative -top-2.5 w-12 h-12 rounded-full bg-[#0F3D39] text-[#FAF9F6] flex items-center justify-center shadow-md active:scale-95 transition-transform border-[3px] border-[#FAF9F6] tactile-btn shrink-0"
+            onClick={() => {
+              playActionClick();
+              triggerHaptic(15);
+              if (onOpenNumpad) {
+                onOpenNumpad();
+              } else {
+                handleTabClick('numpad');
+              }
+            }}
+            className="relative -top-2.5 w-12 h-12 rounded-full bg-[#0F3D39] text-[#FAF9F6] flex items-center justify-center shadow-md active:scale-95 transition-transform border-[3px] border-[#FAF9F6] tactile-btn shrink-0 cursor-pointer"
             aria-label="Nhập chi tiêu mới"
           >
             <Plus className="w-6 h-6 stroke-[2.5]" />
