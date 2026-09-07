@@ -244,14 +244,11 @@ export const App: React.FC = () => {
           <div
             role="dialog"
             aria-modal="true"
-            className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] animate-in slide-in-from-bottom-3 duration-200 pb-safe"
+            className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col h-[95dvh] max-h-[96dvh] animate-in slide-in-from-bottom-3 duration-200 pb-safe"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Drag Handle Indicator */}
-            <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto my-2.5 shrink-0" />
-
-            {/* Header Bottom Sheet */}
-            <div className="px-4 py-2 border-b border-[#E6E2DA] flex items-center justify-between bg-white shrink-0">
+            {/* Header Bottom Sheet - Sát mép trên, bo góc đồng bộ */}
+            <div className="px-4 py-3 border-b border-[#E6E2DA] flex items-center justify-between bg-white rounded-t-3xl shrink-0">
               <div className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-xl bg-[#0F3D39] text-[#FAF9F6] flex items-center justify-center shadow-2xs text-xs font-bold font-mono">
                   ₫
@@ -275,7 +272,7 @@ export const App: React.FC = () => {
             </div>
 
             {/* Thân cuộn Bottom Sheet */}
-            <div className="p-3 overflow-y-auto flex-1">
+            <div className="p-2.5 sm:p-3 overflow-y-auto flex-1 overscroll-contain pb-6">
               <Numpad
                 isBottomSheet
                 onSuccess={() => {

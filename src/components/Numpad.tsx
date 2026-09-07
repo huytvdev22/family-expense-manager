@@ -291,7 +291,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
   }, [amountStr, selectedCategoryId, note, paidBy, txType, isSubmitting]);
 
   return (
-    <div className={`bg-white border border-[#E6E2DA] ${isBottomSheet ? 'rounded-2xl p-2.5 sm:p-3 shadow-2xs gap-2 sm:gap-2.5' : 'rounded-3xl p-3.5 sm:p-4 shadow-sm gap-2.5 sm:gap-3'} flex flex-col ${className}`}>
+    <div className={`bg-white border border-[#E6E2DA] ${isBottomSheet ? 'rounded-2xl p-2 sm:p-2.5 shadow-2xs gap-1.5 sm:gap-2' : 'rounded-3xl p-3.5 sm:p-4 shadow-sm gap-2.5 sm:gap-3'} flex flex-col ${className}`}>
       {/* 0. Bộ chuyển đổi loại giao dịch: Khoản chi vs Thu nhập */}
       <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs">
         <button
@@ -327,7 +327,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
       </div>
 
       {/* 1. Màn hình hiển thị số tiền (Display) */}
-      <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-2.5 sm:p-3 flex flex-col items-center justify-center min-h-[68px] sm:min-h-[74px] relative">
+      <div className={`bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl ${isBottomSheet ? 'p-2 min-h-[58px] sm:min-h-[72px]' : 'p-2.5 sm:p-3 min-h-[68px] sm:min-h-[74px]'} flex flex-col items-center justify-center relative`}>
         <span className="text-[10px] uppercase font-mono text-[#78716C] tracking-wider mb-0.5">
           {txType === 'EXPENSE' ? 'Số tiền chi tiêu' : 'Số tiền thu nhập'}
         </span>
@@ -561,7 +561,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
             key={digit}
             type="button"
             onClick={() => handleDigit(digit)}
-            className="h-11 sm:h-12 rounded-2xl bg-white border border-[#E6E2DA] hover:border-[#D3CDC2] text-lg sm:text-xl font-bold font-mono text-[#1C1917] flex items-center justify-center transition-all tactile-btn shadow-2xs"
+            className={`${isBottomSheet ? 'h-10 sm:h-12 text-lg' : 'h-11 sm:h-12 text-lg sm:text-xl'} rounded-2xl bg-white border border-[#E6E2DA] hover:border-[#D3CDC2] font-bold font-mono text-[#1C1917] flex items-center justify-center transition-all tactile-btn shadow-2xs`}
           >
             {digit}
           </button>
@@ -571,7 +571,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         <button
           type="button"
           onClick={() => handleDigit('000')}
-          className="h-11 sm:h-12 rounded-2xl bg-white border border-[#E6E2DA] hover:border-[#D3CDC2] text-xs sm:text-sm font-semibold font-mono text-[#78716C] flex items-center justify-center transition-all tactile-btn shadow-2xs"
+          className={`${isBottomSheet ? 'h-10 sm:h-12' : 'h-11 sm:h-12'} rounded-2xl bg-white border border-[#E6E2DA] hover:border-[#D3CDC2] text-xs sm:text-sm font-semibold font-mono text-[#78716C] flex items-center justify-center transition-all tactile-btn shadow-2xs`}
         >
           000
         </button>
@@ -580,7 +580,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         <button
           type="button"
           onClick={() => handleDigit('0')}
-          className="h-11 sm:h-12 rounded-2xl bg-white border border-[#E6E2DA] hover:border-[#D3CDC2] text-lg sm:text-xl font-bold font-mono text-[#1C1917] flex items-center justify-center transition-all tactile-btn shadow-2xs"
+          className={`${isBottomSheet ? 'h-10 sm:h-12 text-lg' : 'h-11 sm:h-12 text-lg sm:text-xl'} rounded-2xl bg-white border border-[#E6E2DA] hover:border-[#D3CDC2] font-bold font-mono text-[#1C1917] flex items-center justify-center transition-all tactile-btn shadow-2xs`}
         >
           0
         </button>
@@ -589,7 +589,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         <button
           type="button"
           onClick={handleDelete}
-          className="h-11 sm:h-12 rounded-2xl bg-[#F5F3EF] border border-[#E6E2DA] text-[#78716C] hover:text-[#E11D48] flex items-center justify-center transition-all tactile-btn shadow-2xs"
+          className={`${isBottomSheet ? 'h-10 sm:h-12' : 'h-11 sm:h-12'} rounded-2xl bg-[#F5F3EF] border border-[#E6E2DA] text-[#78716C] hover:text-[#E11D48] flex items-center justify-center transition-all tactile-btn shadow-2xs`}
           title="Xóa ký tự cuối (Phím Backspace)"
         >
           <Delete className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -601,7 +601,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         type="button"
         disabled={isSubmitting || amountStr === '0'}
         onClick={handleSubmit}
-        className={`w-full py-3 sm:py-3.5 rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 transition-all tactile-btn shadow-xs ${
+        className={`w-full ${isBottomSheet ? 'py-2.5 sm:py-3.5' : 'py-3 sm:py-3.5'} rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 transition-all tactile-btn shadow-xs ${
           amountStr === '0' || isSubmitting
             ? 'bg-[#E6E2DA] text-[#A8A29E] cursor-not-allowed'
             : txType === 'INCOME'
