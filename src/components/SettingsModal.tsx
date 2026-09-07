@@ -159,7 +159,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   };
 
   return (
-    <div className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150">
+    <div 
+      className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          playActionClick();
+          onClose();
+        }
+      }}
+    >
       <div 
         className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in slide-in-from-bottom-3 duration-200"
         onClick={(e) => e.stopPropagation()}
@@ -177,16 +185,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           </div>
           <button
             type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-xl text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF] flex items-center justify-center transition-colors cursor-pointer"
-            title="Đóng"
+            onClick={() => {
+              playActionClick();
+              onClose();
+            }}
+            className="px-3.5 py-1.5 rounded-xl bg-[#0F3D39] text-white text-xs font-bold hover:bg-[#174E4A] active:scale-95 transition-all shadow-xs cursor-pointer flex items-center gap-1"
+            title="Hoàn tất và đóng cài đặt"
           >
-            <X className="w-4 h-4" />
+            <span>Hoàn tất</span>
           </button>
         </div>
 
         {/* Thân Modal */}
-        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1">
+        <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 pb-safe sm:pb-5">
           {/* =========================================================================
               1. ÂM THANH XÚC GIÁC CƠ HỌC
               ========================================================================= */}
@@ -582,16 +593,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           </div>
         </div>
 
-        {/* Footer Modal */}
-        <div className="p-3 sm:p-4 bg-white border-t border-[#E6E2DA] flex items-center justify-end shrink-0">
-          <button
-            type="button"
-            onClick={onClose}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0F3D39] text-white text-xs font-bold hover:bg-[#174E4A] transition-colors cursor-pointer text-center"
-          >
-            Hoàn tất
-          </button>
-        </div>
       </div>
     </div>
   );

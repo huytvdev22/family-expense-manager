@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Delete, Check, Tag, Target, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { formatVND } from '../utils/currency';
+import { formatVND, getLocalDateString } from '../utils/currency';
 import { playKeyClick, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { renderGoalIcon, renderCategoryIcon } from '../utils/categoryIcons';
@@ -215,7 +215,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess }) => {
     }
 
     const currentCat = categories.find((c) => c.id === selectedCategoryId) || currentCategories[0] || categories[0];
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
     const selectedGoal = financialGoals.find((g) => g.id === selectedGoalId);
 
     try {

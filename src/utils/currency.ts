@@ -30,11 +30,28 @@ export function formatCompactVND(amount: number): string {
   return `${sign}${abs} ₫`;
 }
 
-export function getCurrentYearMonth(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
+/**
+ * Lấy chuỗi ngày YYYY-MM-DD theo giờ địa phương của thiết bị.
+ * Tránh triệt để lỗi múi giờ UTC (khi ở GMT+7 lúc 00:00 - 06:59 sáng, UTC vẫn thuộc về ngày hôm trước).
+ */
+export function getLocalDateString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Lấy chuỗi tháng YYYY-MM theo giờ địa phương của thiết bị.
+ */
+export function getLocalYearMonthString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
   return `${year}-${month}`;
+}
+
+export function getCurrentYearMonth(): string {
+  return getLocalYearMonthString(new Date());
 }
 
 export function formatYearMonthLabel(yearMonth?: string): string {
@@ -48,12 +65,12 @@ export function formatYearMonthLabel(yearMonth?: string): string {
 }
 
 export function formatDateLabel(dateString: string): string {
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
+  if (!dateString) return '';
+  const todayStr = getLocalDateString(new Date());
 
-  const yesterday = new Date(today);
+  const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  const yesterdayStr = getLocalDateString(yesterday);
 
   if (dateString === todayStr) {
     return 'Hôm nay';
@@ -62,6 +79,10 @@ export function formatDateLabel(dateString: string): string {
     return 'Hôm qua';
   }
 
-  const [y, m, d] = dateString.split('-');
-  return `${d}/${m}/${y}`;
+  const parts = dateString.split('-');
+  if (parts.length === 3) {
+    const [y, m, d] = parts;
+    return `${d}/${m}/${y}`;
+  }
+  return dateString;
 }

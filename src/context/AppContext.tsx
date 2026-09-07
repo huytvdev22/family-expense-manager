@@ -56,7 +56,7 @@ import {
   MOCK_GOALS
 } from '../services/mockData';
 import type { Household, Category, Transaction, MonthlySummary, UserProfile, FinancialGoal, QuickTagItem } from '../types';
-import { getCurrentYearMonth, formatVND } from '../utils/currency';
+import { getCurrentYearMonth, getLocalDateString, getLocalYearMonthString, formatVND } from '../utils/currency';
 import { isSoundEnabled, setSoundEnabled, playSuccessChime, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { useToast } from '../components/Toast';
@@ -636,7 +636,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (txData.type === 'EXPENSE') {
       const cat = categories.find((c) => c.id === txData.categoryId);
       if (cat && cat.monthlyLimit && cat.monthlyLimit > 0) {
-        const currentMonthStr = new Date().toISOString().slice(0, 7);
+        const currentMonthStr = getLocalYearMonthString();
         const currentMonthSpent = transactions
           .filter((t) => t.type === 'EXPENSE' && t.categoryId === cat.id && t.date.startsWith(currentMonthStr))
           .reduce((sum, t) => sum + t.amount, 0) + txData.amount;
@@ -653,7 +653,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   // Kiểm tra kích hoạt nhắc nhở ghi chép hàng ngày lúc 20:30 tối
   useEffect(() => {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = getLocalDateString();
     const hasTransactionsToday = transactions.some((t) => t.date === todayStr);
     checkAndTriggerDailyReminder(hasTransactionsToday);
   }, [transactions]);

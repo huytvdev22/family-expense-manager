@@ -497,221 +497,23 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
         </div>
       )}
 
-      {/* Form Chỉnh sửa Danh mục Inline */}
-      {editingCat && (
-        <div className="p-4 rounded-2xl border-2 border-[#0F3D39]/30 bg-white space-y-3 shadow-md animate-in fade-in duration-150">
-          <div className="flex items-center justify-between pb-2 border-b border-[#F5F3EF]">
-            <div className="flex items-center gap-2">
-              <Edit3 className="w-4 h-4 text-[#0F3D39]" />
-              <h4 className="text-xs font-bold text-[#1C1917]">
-                Chỉnh sửa danh mục: <span className="text-[#0F3D39]">{editingCat.name}</span>
-              </h4>
-            </div>
-            <button
-              type="button"
-              onClick={() => setEditingCat(null)}
-              className="text-[#78716C] hover:text-[#1C1917] p-1 rounded-md hover:bg-[#F5F3EF]"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-[11px] text-[#78716C] block mb-1">Tên danh mục:</label>
-              <input
-                type="text"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-                placeholder="Nhập tên danh mục..."
-                className="w-full text-xs p-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] outline-hidden focus:border-[#0F3D39]"
-                autoFocus
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] text-[#78716C] block mb-1">Hạn mức tháng (VNĐ - tùy chọn):</label>
-              <input
-                type="number"
-                value={editLimit}
-                onChange={(e) => setEditLimit(e.target.value)}
-                placeholder="VD: 5000000 (để trống = không giới hạn)"
-                className="w-full text-xs p-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] outline-hidden focus:border-[#0F3D39] font-mono"
-              />
-            </div>
-          </div>
-
-          {/* Chọn màu sắc */}
-          <div className="flex items-center gap-2 pt-1">
-            <span className="text-xs text-[#78716C]">Màu sắc nhận diện:</span>
-            <div className="flex items-center gap-2">
-              {COLOR_OPTIONS.map((c) => (
-                <button
-                  key={c.hex}
-                  type="button"
-                  onClick={() => setEditColor(c.hex)}
-                  className={`w-6 h-6 rounded-full transition-transform cursor-pointer ${
-                    editColor === c.hex ? 'scale-110 ring-2 ring-[#0F3D39] ring-offset-2' : 'hover:scale-105'
-                  }`}
-                  style={{ backgroundColor: c.hex }}
-                  title={c.label}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Chọn Icon */}
-          <div className="space-y-1.5 pt-1">
-            <span className="text-xs text-[#78716C]">Biểu tượng (Icon):</span>
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-              {CATEGORY_ICON_OPTIONS.map((ic) => (
-                <button
-                  key={ic.key}
-                  type="button"
-                  onClick={() => setEditIcon(ic.key)}
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border transition-all cursor-pointer ${
-                    editIcon === ic.key
-                      ? 'border-[#0F3D39] bg-[#E7EFEF] ring-2 ring-[#0F3D39]/20 shadow-xs'
-                      : 'border-[#E6E2DA] bg-[#FAF9F6] hover:bg-white'
-                  }`}
-                  title={ic.label}
-                >
-                  {renderCategoryIcon(ic.key, "w-4 h-4", editIcon === ic.key ? editColor : '#78716C')}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Nút hành động sửa */}
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E6E2DA]">
-            <button
-              type="button"
-              onClick={() => setEditingCat(null)}
-              className="px-3.5 py-2 rounded-xl text-xs text-[#78716C] hover:bg-[#F5F3EF] transition-all cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveEdit}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#0F3D39] text-white hover:bg-[#174E4A] flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
-            >
-              <Check className="w-3.5 h-3.5" />
-              <span>Lưu thay đổi</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Form thêm mới danh mục inline */}
-      {isAdding ? (
-        <div className="p-4 rounded-2xl border border-[#0F3D39]/30 bg-[#FAF9F6] space-y-3 animate-in fade-in duration-150">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-bold text-[#1C1917]">
-              Thêm nhóm {activeType === 'EXPENSE' ? 'chi tiêu' : 'thu nhập'} mới
-            </h4>
-            <span className="text-[10px] text-[#78716C]">Điền thông tin và bấm lưu</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="text-[11px] text-[#78716C] block mb-1">Tên nhóm danh mục:</label>
-              <input
-                type="text"
-                value={newCatName}
-                onChange={(e) => setNewCatName(e.target.value)}
-                placeholder={activeType === 'EXPENSE' ? 'Ví dụ: Trả nợ ngân hàng, Thú cưng...' : 'Ví dụ: Tiền thưởng, Cổ tức...'}
-                className="w-full text-xs p-2.5 rounded-xl border border-[#E6E2DA] bg-white outline-hidden focus:border-[#0F3D39]"
-                autoFocus
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] text-[#78716C] block mb-1">Hạn mức tháng (VND - tùy chọn):</label>
-              <input
-                type="number"
-                value={newCatLimit}
-                onChange={(e) => setNewCatLimit(e.target.value)}
-                placeholder="Ví dụ: 8000000"
-                className="w-full text-xs p-2.5 rounded-xl border border-[#E6E2DA] bg-white outline-hidden focus:border-[#0F3D39] font-mono"
-              />
-            </div>
-          </div>
-
-          {/* Chọn màu sắc */}
-          <div className="flex items-center gap-2 pt-1">
-            <span className="text-xs text-[#78716C]">Màu sắc nhận diện:</span>
-            <div className="flex items-center gap-2">
-              {COLOR_OPTIONS.map((c) => (
-                <button
-                  key={c.hex}
-                  type="button"
-                  onClick={() => setNewCatColor(c.hex)}
-                  className={`w-6 h-6 rounded-full transition-transform cursor-pointer ${
-                    newCatColor === c.hex ? 'scale-110 ring-2 ring-[#0F3D39] ring-offset-2' : 'hover:scale-105'
-                  }`}
-                  style={{ backgroundColor: c.hex }}
-                  title={c.label}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Chọn Icon */}
-          <div className="space-y-1.5 pt-1">
-            <span className="text-xs text-[#78716C]">Biểu tượng (Icon):</span>
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-              {CATEGORY_ICON_OPTIONS.map((ic) => (
-                <button
-                  key={ic.key}
-                  type="button"
-                  onClick={() => setNewCatIcon(ic.key)}
-                  className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border transition-all cursor-pointer ${
-                    newCatIcon === ic.key
-                      ? 'border-[#0F3D39] bg-[#E7EFEF] ring-2 ring-[#0F3D39]/20 shadow-xs'
-                      : 'border-[#E6E2DA] bg-white hover:bg-[#FAF9F6]'
-                  }`}
-                  title={ic.label}
-                >
-                  {renderCategoryIcon(ic.key, "w-4 h-4", newCatIcon === ic.key ? newCatColor : '#78716C')}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Nút hành động thêm */}
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#E6E2DA]">
-            <button
-              type="button"
-              onClick={() => setIsAdding(false)}
-              className="px-3.5 py-2 rounded-xl text-xs text-[#78716C] hover:bg-[#E6E2DA]/50 transition-all cursor-pointer"
-            >
-              Hủy
-            </button>
-            <button
-              type="button"
-              onClick={handleAddCategory}
-              className="px-4 py-2 rounded-xl text-xs font-semibold bg-[#0F3D39] text-white hover:bg-[#174E4A] flex items-center gap-1.5 transition-all shadow-2xs active:scale-95 cursor-pointer"
-            >
-              <Check className="w-3.5 h-3.5" />
-              <span>Lưu nhóm mới</span>
-            </button>
-          </div>
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => {
-            playActionClick();
-            setIsAdding(true);
-            setEditingCat(null);
-          }}
-          className="w-full py-3 rounded-2xl border-2 border-dashed border-[#D3CDC2] hover:border-[#0F3D39] text-xs font-semibold text-[#0F3D39] hover:bg-[#E7EFEF]/50 flex items-center justify-center gap-1.5 transition-all tactile-btn cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Thêm nhóm {activeType === 'EXPENSE' ? 'chi tiêu' : 'thu nhập'} mới</span>
-        </button>
-      )}
+      {/* Nút kích hoạt Bottom Sheet thêm nhóm danh mục mới */}
+      <button
+        type="button"
+        onClick={() => {
+          playActionClick();
+          setEditingCat(null);
+          setNewCatName('');
+          setNewCatLimit('');
+          setNewCatColor(COLOR_OPTIONS[0].hex);
+          setNewCatIcon(activeType === 'INCOME' ? 'briefcase' : 'folder');
+          setIsAdding(true);
+        }}
+        className="w-full py-3 rounded-2xl border-2 border-dashed border-[#D3CDC2] hover:border-[#0F3D39] text-xs font-semibold text-[#0F3D39] hover:bg-[#E7EFEF]/50 flex items-center justify-center gap-1.5 transition-all tactile-btn cursor-pointer"
+      >
+        <Plus className="w-4 h-4" />
+        <span>Thêm nhóm {activeType === 'EXPENSE' ? 'chi tiêu' : 'thu nhập'} mới</span>
+      </button>
 
       {/* Khu vực danh mục đã ẩn (Lưu trữ) */}
       {archivedCategories.length > 0 && (
@@ -836,29 +638,248 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
             </div>
           )}
 
-          {/* Form Thêm / Sửa Quick Tag Inline */}
-          {(isAddingTag || editingTag) ? (
-            <div className="p-4 rounded-2xl border-2 border-[#0F3D39]/30 bg-white space-y-3 shadow-md animate-in fade-in duration-150">
-              <div className="flex items-center justify-between pb-2 border-b border-[#F5F3EF]">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-[#0F3D39] fill-[#0F3D39]" />
-                  <h4 className="text-xs font-bold text-[#1C1917]">
-                    {editingTag ? (
-                      <>Chỉnh sửa phím tắt: <span className="text-[#0F3D39]">{editingTag.label}</span></>
-                    ) : (
-                      `Thêm phím tắt ${activeType === 'INCOME' ? 'thu nhập' : 'chi tiêu'} mới`
-                    )}
-                  </h4>
+          {/* Nút kích hoạt Bottom Sheet thêm phím tắt mới */}
+          <button
+            type="button"
+            onClick={handleStartAddTag}
+            className="w-full py-3 rounded-2xl border-2 border-dashed border-[#D3CDC2] hover:border-[#0F3D39] text-xs font-semibold text-[#0F3D39] hover:bg-[#E7EFEF]/50 flex items-center justify-center gap-1.5 transition-all tactile-btn cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Thêm phím tắt {activeType === 'EXPENSE' ? 'chi tiêu' : 'thu nhập'} mới</span>
+          </button>
+        </div>
+      )}
+
+      {/* =========================================================================
+          BOTTOM SHEET: THÊM / CHỈNH SỬA NHÓM DANH MỤC
+          ========================================================================= */}
+      {(isAdding || editingCat) && (
+        <div 
+          className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              playActionClick();
+              setIsAdding(false);
+              setEditingCat(null);
+            }
+          }}
+        >
+          <div 
+            role="dialog"
+            aria-modal="true"
+            className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-3 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Thanh kéo chỉ báo trên mobile */}
+            <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto my-2.5 sm:hidden shrink-0" />
+
+            {/* Header Bottom Sheet */}
+            <div className="px-5 py-3.5 border-b border-[#F5F3EF] flex items-center justify-between bg-white shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center shadow-2xs shrink-0">
+                  <FolderTree className="w-4 h-4" />
                 </div>
-                <button
-                  type="button"
-                  onClick={resetTagForm}
-                  className="text-[#78716C] hover:text-[#1C1917] p-1 rounded-md hover:bg-[#F5F3EF] cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-[#1C1917] truncate">
+                    {editingCat 
+                      ? `Chỉnh sửa: ${editingCat.name}` 
+                      : `Thêm nhóm ${activeType === 'EXPENSE' ? 'chi tiêu' : 'thu nhập'} mới`}
+                  </h3>
+                  <p className="text-[11px] text-[#78716C] truncate">
+                    {editingCat ? 'Cập nhật thông tin nhận diện & hạn mức' : 'Điền thông tin và bấm lưu nhóm'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  playActionClick();
+                  setIsAdding(false);
+                  setEditingCat(null);
+                }}
+                className="w-8 h-8 rounded-xl text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                title="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Thân cuộn Bottom Sheet */}
+            <div className="p-5 overflow-y-auto space-y-4 flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
+                    Tên nhóm danh mục <span className="text-[#E11D48]">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editingCat ? editName : newCatName}
+                    onChange={(e) => {
+                      if (editingCat) setEditName(e.target.value);
+                      else setNewCatName(e.target.value);
+                    }}
+                    placeholder={activeType === 'EXPENSE' ? 'Ví dụ: Trả nợ ngân hàng, Thú cưng...' : 'Ví dụ: Tiền thưởng, Cổ tức...'}
+                    className="w-full text-xs p-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] outline-hidden focus:border-[#0F3D39] focus:bg-white transition-all"
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
+                    Hạn mức tháng (VND - tùy chọn):
+                  </label>
+                  <input
+                    type="number"
+                    value={editingCat ? editLimit : newCatLimit}
+                    onChange={(e) => {
+                      if (editingCat) setEditLimit(e.target.value);
+                      else setNewCatLimit(e.target.value);
+                    }}
+                    placeholder="Ví dụ: 8000000"
+                    className="w-full text-xs p-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] outline-hidden focus:border-[#0F3D39] focus:bg-white font-mono transition-all"
+                  />
+                </div>
               </div>
 
+              {/* Chọn màu sắc */}
+              <div className="space-y-1.5 pt-1">
+                <span className="text-xs font-semibold text-[#78716C]">Màu sắc nhận diện:</span>
+                <div className="flex items-center gap-2.5 flex-wrap">
+                  {COLOR_OPTIONS.map((c) => {
+                    const currentColor = editingCat ? editColor : newCatColor;
+                    const isSelected = currentColor === c.hex;
+                    return (
+                      <button
+                        key={c.hex}
+                        type="button"
+                        onClick={() => {
+                          playActionClick();
+                          triggerHaptic(5);
+                          if (editingCat) setEditColor(c.hex);
+                          else setNewCatColor(c.hex);
+                        }}
+                        className={`w-7 h-7 rounded-full transition-all cursor-pointer flex items-center justify-center ${
+                          isSelected ? 'scale-110 ring-2 ring-[#0F3D39] ring-offset-2' : 'hover:scale-105 opacity-80 hover:opacity-100'
+                        }`}
+                        style={{ backgroundColor: c.hex }}
+                        title={c.label}
+                      >
+                        {isSelected && <Check className="w-3.5 h-3.5 text-white stroke-[2.5]" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Chọn Icon */}
+              <div className="space-y-1.5 pt-1">
+                <span className="text-xs font-semibold text-[#78716C]">Biểu tượng (Icon):</span>
+                <div className="grid grid-cols-6 sm:grid-cols-7 gap-2 max-h-48 overflow-y-auto p-1.5 bg-[#FAF9F6] rounded-2xl border border-[#E6E2DA]">
+                  {CATEGORY_ICON_OPTIONS.map((ic) => {
+                    const currentIcon = editingCat ? editIcon : newCatIcon;
+                    const currentColor = editingCat ? editColor : newCatColor;
+                    const isSelected = currentIcon === ic.key;
+                    return (
+                      <button
+                        key={ic.key}
+                        type="button"
+                        onClick={() => {
+                          playActionClick();
+                          triggerHaptic(5);
+                          if (editingCat) setEditIcon(ic.key);
+                          else setNewCatIcon(ic.key);
+                        }}
+                        className={`h-10 rounded-xl flex items-center justify-center border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'border-[#0F3D39] bg-white ring-2 ring-[#0F3D39]/20 shadow-xs scale-105'
+                            : 'border-transparent bg-transparent hover:bg-white hover:border-[#E6E2DA]'
+                        }`}
+                        title={ic.label}
+                      >
+                        {renderCategoryIcon(ic.key, "w-4 h-4", isSelected ? currentColor : '#78716C')}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Bottom Sheet */}
+            <div className="px-5 py-3.5 bg-[#FAF9F6] border-t border-[#E6E2DA] flex items-center justify-end gap-2.5 shrink-0 pb-safe sm:pb-3.5">
+              <button
+                type="button"
+                onClick={() => {
+                  playActionClick();
+                  setIsAdding(false);
+                  setEditingCat(null);
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#78716C] hover:bg-[#E6E2DA]/50 transition-all cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={editingCat ? handleSaveEdit : handleAddCategory}
+                className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#0F3D39] text-white hover:bg-[#174E4A] flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{editingCat ? 'Lưu thay đổi' : 'Lưu nhóm mới'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          BOTTOM SHEET: THÊM / CHỈNH SỬA PHÍM TẮT (QUICK TAGS)
+          ========================================================================= */}
+      {(isAddingTag || editingTag) && (
+        <div 
+          className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              playActionClick();
+              resetTagForm();
+            }
+          }}
+        >
+          <div 
+            role="dialog"
+            aria-modal="true"
+            className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-3 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Thanh kéo chỉ báo trên mobile */}
+            <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto my-2.5 sm:hidden shrink-0" />
+
+            {/* Header Bottom Sheet */}
+            <div className="px-5 py-3.5 border-b border-[#F5F3EF] flex items-center justify-between bg-white shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center shadow-2xs shrink-0">
+                  <Zap className="w-4 h-4 fill-[#0F3D39]" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold text-[#1C1917] truncate">
+                    {editingTag ? `Chỉnh sửa phím tắt: ${editingTag.label}` : `Thêm phím tắt ${activeType === 'INCOME' ? 'thu nhập' : 'chi tiêu'} mới`}
+                  </h3>
+                  <p className="text-[11px] text-[#78716C] truncate">Gợi ý 1-chạm khi nhập liệu bàn phím số</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  playActionClick();
+                  resetTagForm();
+                }}
+                className="w-8 h-8 rounded-xl text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                title="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Thân cuộn Bottom Sheet */}
+            <div className="p-5 overflow-y-auto space-y-4 flex-1">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Tên nhãn */}
                 <div>
@@ -869,13 +890,13 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
                     type="text"
                     value={tagLabel}
                     onChange={(e) => setTagLabel(e.target.value)}
-                    placeholder={activeType === 'INCOME' ? 'vd: Lương chính, Thưởng dự án, Cổ tức...' : 'vd: Cà phê sáng, Cơm trưa, Xăng xe, Bỉm sữa...'}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] outline-hidden focus:border-[#0F3D39] transition-all"
+                    placeholder={activeType === 'INCOME' ? 'vd: Lương chính, Cổ tức...' : 'vd: Cà phê sáng, Cơm trưa, Xăng xe...'}
+                    className="w-full px-3 py-2.5 text-xs rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] outline-hidden focus:border-[#0F3D39] focus:bg-white transition-all"
                     autoFocus
                   />
                 </div>
 
-                {/* Danh mục liên kết - Droplist có Icon và Màu sắc */}
+                {/* Danh mục liên kết */}
                 <div className="relative" ref={tagCatDropdownRef}>
                   <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
                     Gắn vào Danh mục <span className="text-[#E11D48]">*</span>
@@ -887,7 +908,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
                       triggerHaptic(5);
                       setIsTagCatDropdownOpen((prev) => !prev);
                     }}
-                    className={`w-full px-3 py-2 rounded-xl border bg-[#FAF9F6] text-xs flex items-center justify-between transition-all cursor-pointer ${
+                    className={`w-full px-3 py-2.5 rounded-xl border bg-[#FAF9F6] text-xs flex items-center justify-between transition-all cursor-pointer ${
                       isTagCatDropdownOpen
                         ? 'border-[#0F3D39] ring-2 ring-[#0F3D39]/20 bg-white'
                         : 'border-[#E6E2DA] hover:border-[#0F3D39]/50'
@@ -959,7 +980,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
                       value={tagEmoji}
                       onChange={(e) => setTagEmoji(e.target.value)}
                       maxLength={4}
-                      className="w-12 px-2 py-1.5 text-center text-base rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] outline-hidden focus:border-[#0F3D39]"
+                      className="w-12 px-2 py-2 text-center text-base rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] outline-hidden focus:border-[#0F3D39]"
                     />
                     <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar flex-1">
                       {(activeType === 'INCOME' ? QUICK_TAG_EMOJIS_INCOME : QUICK_TAG_EMOJIS_EXPENSE).map((em) => (
@@ -970,7 +991,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
                             setTagEmoji(em);
                             playActionClick();
                           }}
-                          className={`w-7 h-7 shrink-0 rounded-lg text-sm flex items-center justify-center transition-all cursor-pointer ${
+                          className={`w-8 h-8 shrink-0 rounded-lg text-sm flex items-center justify-center transition-all cursor-pointer ${
                             tagEmoji === em
                               ? 'bg-[#0F3D39] text-white shadow-2xs scale-105'
                               : 'bg-white border border-[#E6E2DA] hover:bg-[#F5F3EF]'
@@ -997,7 +1018,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
                         setTagDefaultAmount(raw);
                       }}
                       placeholder="Không bắt buộc (vd: 35.000)"
-                      className="w-full px-3 py-2 text-xs font-mono rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] outline-hidden focus:border-[#0F3D39] focus:ring-1 focus:ring-[#0F3D39] transition-all pr-10"
+                      className="w-full px-3 py-2.5 text-xs font-mono rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] outline-hidden focus:border-[#0F3D39] focus:ring-1 focus:ring-[#0F3D39] transition-all pr-10"
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[#A8A29E] font-medium pointer-events-none">
                       VND
@@ -1005,36 +1026,27 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
                   </div>
                 </div>
               </div>
-
-              {/* Nút hành động */}
-              <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#F5F3EF]">
-                <button
-                  type="button"
-                  onClick={resetTagForm}
-                  className="px-4 py-2 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] text-xs font-semibold text-[#78716C] hover:text-[#1C1917] hover:bg-white transition-all cursor-pointer"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveQuickTag}
-                  className="px-4 py-2 rounded-xl bg-[#0F3D39] text-white text-xs font-semibold hover:bg-[#174E4A] transition-all shadow-2xs cursor-pointer flex items-center gap-1.5 active:scale-95"
-                >
-                  <Check className="w-3.5 h-3.5" />
-                  <span>{editingTag ? 'Lưu cập nhật' : 'Tạo phím tắt'}</span>
-                </button>
-              </div>
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={handleStartAddTag}
-              className="w-full py-3 rounded-2xl border-2 border-dashed border-[#D3CDC2] hover:border-[#0F3D39] text-xs font-semibold text-[#0F3D39] hover:bg-[#E7EFEF]/50 flex items-center justify-center gap-1.5 transition-all tactile-btn cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Thêm phím tắt {activeType === 'EXPENSE' ? 'chi tiêu' : 'thu nhập'} mới</span>
-            </button>
-          )}
+
+            {/* Footer Bottom Sheet */}
+            <div className="px-5 py-3.5 bg-[#FAF9F6] border-t border-[#E6E2DA] flex items-center justify-end gap-2.5 shrink-0 pb-safe sm:pb-3.5">
+              <button
+                type="button"
+                onClick={resetTagForm}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#78716C] hover:bg-[#E6E2DA]/50 transition-all cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveQuickTag}
+                className="px-5 py-2.5 rounded-xl bg-[#0F3D39] text-white text-xs font-semibold hover:bg-[#174E4A] transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>{editingTag ? 'Lưu cập nhật' : 'Tạo phím tắt'}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
   </div>

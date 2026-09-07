@@ -20,6 +20,12 @@ body {
   font-family: var(--font-mono);
 }
 
+/* Chuẩn hóa ô Date Picker trên thiết bị di động (Safari/iOS) tránh tràn viền */
+input[type="date"] {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
 /* Safe Area Padding cho thiết bị iOS */
 .pb-safe {
   padding-bottom: max(8px, env(safe-area-inset-bottom, 8px));

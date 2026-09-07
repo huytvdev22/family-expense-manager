@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Check, Trash2, Calendar, Tag, User, DollarSign, FileText, Target, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from './Toast';
-import { formatVND } from '../utils/currency';
+import { formatVND, getLocalDateString } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { renderGoalIcon, renderCategoryIcon } from '../utils/categoryIcons';
@@ -48,7 +48,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       setAmountStr(String(transaction.amount));
       setSelectedCategoryId(transaction.categoryId);
       setPaidBy(transaction.paidBy as 'Chồng' | 'Vợ');
-      setDate(transaction.date || new Date().toISOString().split('T')[0]);
+      setDate(transaction.date || getLocalDateString());
       setNote(transaction.note || '');
       setSelectedGoalId(transaction.goalId || null);
       setIsCategoryOpen(false);
@@ -526,9 +526,10 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] text-xs font-mono text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-[#0F3D39]/20 focus:border-[#0F3D39]"
+                className="w-full box-border block max-w-full min-h-[42px] px-3.5 py-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] text-xs font-mono text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-[#0F3D39]/20 focus:border-[#0F3D39] appearance-none [-webkit-appearance:none]"
                 required
               />
+              <Calendar className="w-4 h-4 text-[#78716C] absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
 

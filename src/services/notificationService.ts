@@ -5,6 +5,7 @@
 
 import { getFirebaseMessaging } from './firebase';
 import { triggerHaptic } from '../utils/haptics';
+import { getLocalDateString } from '../utils/currency';
 
 const STORAGE_KEY_NOTIFICATION_ENABLED = 'harmony_push_notification_enabled';
 const STORAGE_KEY_DAILY_REMINDER = 'harmony_daily_reminder_enabled';
@@ -192,7 +193,7 @@ export function checkAndTriggerDailyReminder(hasTransactionsToday: boolean): voi
 
   // Chỉ nhắc sau 20:30 tối
   if (currentHour > 20 || (currentHour === 20 && currentMinute >= 30)) {
-    const todayStr = now.toISOString().slice(0, 10);
+    const todayStr = getLocalDateString(now);
     const lastReminderDate = localStorage.getItem('harmony_last_reminder_date');
 
     if (lastReminderDate !== todayStr && !hasTransactionsToday) {
