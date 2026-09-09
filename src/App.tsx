@@ -37,6 +37,9 @@ export const App: React.FC = () => {
   // Tự động khóa cuộn trang nền khi mở Numpad Bottom Sheet trên di động
   useBodyScrollLock(isNumpadSheetOpen);
 
+  // Tự động khóa cuộn toàn bộ trang khi đang ở màn hình loading tải dữ liệu ban đầu
+  useBodyScrollLock(isLoading);
+
   // Kiểm tra link mời tham gia từ URL (?join=CODE) hoặc từ localStorage
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -58,7 +61,7 @@ export const App: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#FAF9F6] flex flex-col items-center justify-center p-4">
+      <div className="fixed inset-0 w-full h-[100dvh] bg-[#FAF9F6] flex flex-col items-center justify-center p-4 overflow-hidden overscroll-none touch-none select-none z-50">
         <div className="w-10 h-10 rounded-2xl bg-[#0F3D39] text-[#FAF9F6] flex items-center justify-center animate-pulse mb-3 shadow-md">
           <span className="font-mono font-bold text-sm">🏡</span>
         </div>
