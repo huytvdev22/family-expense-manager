@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Check, Trash2, Calendar, Target, ChevronDown, Clock } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from './Toast';
-import { formatVND, getLocalDateString, formatDueDateBadge } from '../utils/currency';
+import { formatVND, getLocalDateString, formatDueDateBadge, formatDisplayDate } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
 import { renderGoalIcon, renderCategoryIcon } from '../utils/categoryIcons';
 import { useBodyScrollLock } from '../utils/scrollLock';
@@ -345,15 +345,36 @@ export const EditPendingExpenseModal: React.FC<EditPendingExpenseModalProps> = (
               <label className="block text-xs font-medium text-[#78716C] mb-1.5">
                 Hạn chót thanh toán (Due Date)
               </label>
-              <div className="relative">
+              <div className="relative w-full min-w-0 flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] text-xs font-mono text-[#1C1917] shadow-2xs hover:border-[#B45309] transition-colors">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Calendar className="w-4 h-4 text-[#B45309] shrink-0" />
+                  <span className="font-bold text-[#1C1917] tabular-nums tracking-tight">
+                    {formatDisplayDate(dueDate)}
+                  </span>
+                  {dueDate && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-md font-sans font-medium shrink-0 ${
+                        formatDueDateBadge(dueDate).status === 'OVERDUE'
+                          ? 'bg-[#FEE2E2] text-[#E11D48]'
+                          : formatDueDateBadge(dueDate).status === 'DUE_SOON'
+                          ? 'bg-[#FEF3C7] text-[#B45309]'
+                          : 'bg-[#ECFDF5] text-[#10B981]'
+                      }`}
+                    >
+                      {formatDueDateBadge(dueDate).label}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] text-[#A8A29E] font-sans shrink-0">
+                  Đổi ngày ▾
+                </span>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] text-xs font-mono text-[#1C1917] focus:outline-none focus:border-[#B45309]"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                   required
                 />
-                <Calendar className="w-4 h-4 text-[#78716C] absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </div>
             </div>
 

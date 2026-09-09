@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { X, Check, Trash2, Calendar, Tag, User, DollarSign, FileText, Target, ChevronDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from './Toast';
-import { formatVND, getLocalDateString } from '../utils/currency';
+import { formatVND, getLocalDateString, formatDisplayDate } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { renderGoalIcon, renderCategoryIcon } from '../utils/categoryIcons';
@@ -528,15 +528,23 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             <label className="block text-xs font-medium text-[#78716C] mb-1.5">
               Ngày ghi nhận
             </label>
-            <div className="relative">
+            <div className="relative w-full min-w-0 flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] text-xs font-mono text-[#1C1917] shadow-2xs hover:border-[#0F3D39] transition-colors">
+              <div className="flex items-center gap-2 min-w-0">
+                <Calendar className="w-4 h-4 text-[#0F3D39] shrink-0" />
+                <span className="font-bold text-[#1C1917] tabular-nums tracking-tight">
+                  {formatDisplayDate(date)}
+                </span>
+              </div>
+              <span className="text-[10px] text-[#A8A29E] font-sans shrink-0">
+                Đổi ngày ▾
+              </span>
               <input
                 type="date"
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full box-border block max-w-full min-h-[42px] px-3.5 py-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] text-xs font-mono text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-[#0F3D39]/20 focus:border-[#0F3D39] appearance-none [-webkit-appearance:none]"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                 required
               />
-              <Calendar className="w-4 h-4 text-[#78716C] absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
 

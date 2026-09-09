@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Delete, Check, Tag, Target, ChevronDown, Clock, Calendar } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { formatVND, getLocalDateString } from '../utils/currency';
+import { formatVND, getLocalDateString, formatDisplayDate, formatDueDateBadge } from '../utils/currency';
 import { playKeyClick, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { renderGoalIcon, renderCategoryIcon } from '../utils/categoryIcons';
@@ -452,13 +452,13 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
       <div className="flex flex-col gap-2">
         {/* Khối chọn Hạn thanh toán (chỉ hiển thị khi bật chế độ Khoản chờ) */}
         {isPending && (
-          <div className="bg-[#FEF3C7]/40 border border-[#FDE68A] rounded-2xl p-2 sm:p-2.5 flex flex-col gap-1.5 shadow-2xs animate-in fade-in slide-in-from-top-1 duration-150">
-            <div className="flex items-center justify-between px-0.5">
-              <span className="text-[11px] font-bold text-[#B45309] uppercase tracking-wider flex items-center gap-1">
+          <div className="bg-[#FEF3C7]/40 border border-[#FDE68A] rounded-2xl p-2 sm:p-2.5 flex flex-col gap-1.5 shadow-2xs animate-in fade-in slide-in-from-top-1 duration-150 min-w-0 overflow-hidden">
+            <div className="flex items-center justify-between gap-1 min-w-0 px-0.5">
+              <span className="text-[11px] font-bold text-[#B45309] uppercase tracking-wider flex items-center gap-1 shrink-0">
                 <Clock className="w-3 h-3" />
                 Hạn thanh toán:
               </span>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 shrink-0">
                 {[
                   { label: '+3 ngày', days: 3 },
                   { label: '+7 ngày', days: 7 },
@@ -498,15 +498,41 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
                 </button>
               </div>
             </div>
-            <div className="relative">
+
+            {/* Ô hiển thị và chọn Ngày đến hạn (100% chuẩn responsive, không bao giờ tràn viền) */}
+            <div className="relative w-full min-w-0 flex items-center justify-between px-3 py-1.5 sm:py-2 rounded-xl border border-[#E6E2DA] bg-white text-xs font-mono text-[#1C1917] shadow-2xs hover:border-[#B45309] transition-colors">
+              <div className="flex items-center gap-2 min-w-0">
+                <Calendar className="w-3.5 h-3.5 text-[#B45309] shrink-0" />
+                <span className="font-bold text-[#1C1917] tabular-nums tracking-tight">
+                  {formatDisplayDate(dueDate)}
+                </span>
+                {dueDate && (
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded-md font-sans font-medium shrink-0 ${
+                      formatDueDateBadge(dueDate).status === 'OVERDUE'
+                        ? 'bg-[#FEE2E2] text-[#E11D48]'
+                        : formatDueDateBadge(dueDate).status === 'DUE_SOON'
+                        ? 'bg-[#FEF3C7] text-[#B45309]'
+                        : 'bg-[#ECFDF5] text-[#10B981]'
+                    }`}
+                  >
+                    {formatDueDateBadge(dueDate).label}
+                  </span>
+                )}
+              </div>
+
+              <span className="text-[10px] text-[#A8A29E] font-sans shrink-0 ml-1">
+                Đổi ngày ▾
+              </span>
+
+              {/* Native Date Input ẩn phủ lên trên để hứng tương tác tap/click chuẩn xác trên mọi thiết bị */}
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full box-border block px-3 py-1.5 sm:py-2 rounded-xl border border-[#E6E2DA] bg-white text-xs font-mono text-[#1C1917] focus:outline-none focus:border-[#B45309]"
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                 required
               />
-              <Calendar className="w-3.5 h-3.5 text-[#78716C] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
         )}
