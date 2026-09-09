@@ -373,6 +373,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
       if (user) {
+        // Dọn sạch mock data ngay lập tức khi đăng nhập tài khoản thực
+        setPendingExpenses([]);
+        setTransactions([]);
         try {
           const profile = await getOrCreateUserProfile({
             uid: user.uid,
@@ -1484,6 +1487,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       const h = await getHousehold(householdId);
       if (h) {
         localStorage.setItem('active_household_id', householdId);
+        // Dọn dẹp danh sách cũ trước khi nạp dữ liệu của tổ ấm mới
+        setPendingExpenses([]);
+        setTransactions([]);
         setActiveHousehold(h);
         setCurrentUser((prev) => prev ? { ...prev, activeHouseholdId: householdId } : null);
         if (db && currentUser) {
@@ -1510,6 +1516,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setActiveHousehold(MOCK_HOUSEHOLD);
     setUserHouseholds([MOCK_HOUSEHOLD]);
     setTransactions(MOCK_TRANSACTIONS);
+    setPendingExpenses(MOCK_PENDING_EXPENSES);
   };
 
   return (

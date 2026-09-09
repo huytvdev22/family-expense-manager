@@ -71,6 +71,11 @@ service cloud.firestore {
       match /quick_tags/{tagId} {
         allow read, write: if isHouseholdMember(householdId);
       }
+
+      // 2.6. Sub-collection: Khoản chờ thanh toán (pending_expenses)
+      match /pending_expenses/{expenseId} {
+        allow read, write: if isHouseholdMember(householdId);
+      }
     }
 
     // 3. Hệ thống mã mời (invitations)

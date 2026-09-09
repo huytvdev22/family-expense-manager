@@ -968,21 +968,23 @@ export function subscribePendingExpenses(
 ): Unsubscribe {
   if (!db) return () => {};
 
-  const q = query(
-    collection(db, `households/${householdId}/pending_expenses`),
-    where('status', '==', 'PENDING'),
-    orderBy('dueDate', 'asc')
-  );
+  const colRef = collection(db, `households/${householdId}/pending_expenses`);
 
-  return onSnapshot(q, (snapshot) => {
-    const list: PendingExpense[] = [];
-    snapshot.forEach((docSnap) => {
-      list.push({ id: docSnap.id, ...docSnap.data() } as PendingExpense);
-    });
-    onData(list);
-  }, (err) => {
-    console.warn('Lỗi subscribePendingExpenses:', err);
-  });
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: PendingExpense[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() } as PendingExpense);
+      });
+      onData(list);
+    },
+    (err) => {
+      console.warn('Lỗi subscribePendingExpenses:', err);
+      // Fallback về mảng rỗng để không bị kẹt mock data khi gặp lỗi mạng / permissions
+      onData([]);
+    }
+  );
 }
 
 /**
