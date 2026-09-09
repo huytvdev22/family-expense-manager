@@ -35,16 +35,11 @@ export const PendingExpensesSection: React.FC = () => {
   if (activePendingExpenses.length === 0) {
     return (
       <section className="bg-white border border-[#E6E2DA] rounded-3xl p-4 sm:p-5 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-[#B45309]" />
-            <h2 className="text-xs uppercase tracking-wider font-semibold text-[#78716C]">
-              Khoản chờ thanh toán
-            </h2>
-          </div>
-          <span className="text-[11px] font-mono text-[#10B981] font-semibold bg-[#ECFDF5] px-2 py-0.5 rounded-full">
-            Đã sạch nợ & hóa đơn 🎉
-          </span>
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-[#B45309]" />
+          <h2 className="text-xs uppercase tracking-wider font-semibold text-[#78716C]">
+            Khoản chờ thanh toán
+          </h2>
         </div>
         <p className="text-xs text-[#A8A29E] mt-2 text-center py-2">
           Không có hóa đơn hay khoản chi nào đang chờ đến hạn.
