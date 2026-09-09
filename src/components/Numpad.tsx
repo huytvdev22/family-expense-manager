@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Delete, Check, Tag, Target, ChevronDown } from 'lucide-react';
+import { Delete, Check, Tag, Target, ChevronDown, Clock, Calendar } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND, getLocalDateString } from '../utils/currency';
 import { playKeyClick, playActionClick } from '../utils/audio';
@@ -7,7 +7,7 @@ import { triggerHaptic } from '../utils/haptics';
 import { renderGoalIcon, renderCategoryIcon } from '../utils/categoryIcons';
 import { QuickTags } from './QuickTags';
 import { DEFAULT_CATEGORIES } from '../services/mockData';
-import type { QuickTagItem, CategoryKey, Transaction } from '../types';
+import type { QuickTagItem, CategoryKey, Transaction, PendingExpense } from '../types';
 import { useToast } from './Toast';
 
 interface NumpadProps {
@@ -17,11 +17,31 @@ interface NumpadProps {
 }
 
 export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBottomSheet = false }) => {
-  const { categories, logTransaction, currentUser, userRole, financialGoals, quickTags } = useApp();
+  const { categories, logTransaction, logPendingExpense, currentUser, userRole, financialGoals, quickTags } = useApp();
   const { showToast } = useToast();
+
+  // Helper tính ngày trong tương lai cho hạn thanh toán
+  const getFutureDate = (days: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return getLocalDateString(d);
+  };
+
+  const getEndOfMonthDate = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = d.getMonth() + 1;
+    const lastDay = new Date(y, m, 0).getDate();
+    return `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+  };
 
   // Loại giao dịch: 'EXPENSE' (Khoản chi) hoặc 'INCOME' (Thu nhập)
   const [txType, setTxType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
+
+  // Cờ rẽ nhánh Khoản chờ (chưa chi ngay, hẹn ngày thanh toán)
+  const [isPending, setIsPending] = useState<boolean>(false);
+  const [dueDate, setDueDate] = useState<string>(() => getFutureDate(7));
+  const [assignedTo, setAssignedTo] = useState<'Chồng' | 'Vợ' | 'Cả hai'>(userRole || 'Chồng');
 
   // Giá trị số tiền đang nhập dạng chuỗi
   const [amountStr, setAmountStr] = useState<string>('0');
@@ -29,10 +49,11 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
   // Người chi / Người nhận: Tự động chọn theo vai trò của người dùng ("Chồng" hoặc "Vợ")
   const [paidBy, setPaidBy] = useState<'Chồng' | 'Vợ'>(userRole || 'Chồng');
 
-  // Tự động cập nhật paidBy khi vai trò người dùng thay đổi
+  // Tự động cập nhật paidBy và assignedTo khi vai trò người dùng thay đổi
   useEffect(() => {
     if (userRole) {
       setPaidBy(userRole);
+      setAssignedTo(userRole);
     }
   }, [userRole]);
 
@@ -208,7 +229,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
     }
   };
 
-  // Ghi nhận giao dịch (Chi tiêu hoặc Thu nhập)
+  // Ghi nhận giao dịch (Chi tiêu hoặc Thu nhập) hoặc Khoản chờ
   const handleSubmit = async () => {
     const amount = Number(amountStr);
     if (amount <= 0) {
@@ -222,6 +243,44 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
 
     try {
       setIsSubmitting(true);
+
+      // Nhánh rẽ: Ghi nhận Khoản chờ thanh toán (chưa trừ số dư ngay)
+      if (isPending && txType === 'EXPENSE') {
+        const pendingPayload: Omit<PendingExpense, 'id' | 'createdAt' | 'updatedAt' | 'householdId'> = {
+          amount,
+          type: 'EXPENSE',
+          categoryId: currentCat.id,
+          categoryName: currentCat.name,
+          categoryKey: currentCat.categoryKey as CategoryKey,
+          assignedTo,
+          createdByUid: currentUser?.uid || 'anonymous',
+          createdByName: currentUser?.displayName || userRole || 'Thành viên',
+          note: note.trim() || currentCat.name,
+          dueDate: dueDate || getFutureDate(7),
+          status: 'PENDING'
+        };
+
+        if (selectedGoalId) {
+          pendingPayload.goalId = selectedGoalId;
+          pendingPayload.goalName = selectedGoal?.title || '';
+        }
+
+        await logPendingExpense(pendingPayload);
+
+        // Reset màn hình
+        setAmountStr('0');
+        setNote('');
+        setSelectedTagId(null);
+        setSelectedGoalId(null);
+        setIsPending(false);
+
+        if (onSuccess) {
+          onSuccess();
+        }
+        return;
+      }
+
+      // Nhánh thông thường: Ghi nhận giao dịch đã chi/thu vào sổ cái
       const txPayload: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'> = {
         amount,
         type: txType,
@@ -315,6 +374,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
             playActionClick();
             triggerHaptic(10);
             setTxType('INCOME');
+            setIsPending(false);
           }}
           className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all tactile-btn ${
             txType === 'INCOME'
@@ -326,10 +386,61 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         </button>
       </div>
 
+      {/* 0.5. Cờ rẽ nhánh Khoản chờ (chỉ áp dụng khi chọn Khoản chi) */}
+      {txType === 'EXPENSE' && (
+        <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-1.5 flex items-center justify-between shadow-2xs animate-in fade-in duration-150">
+          <div className="flex items-center gap-2 pl-1.5 min-w-0">
+            <div className={`w-5 h-5 rounded-lg flex items-center justify-center text-xs shrink-0 ${isPending ? 'bg-[#B45309] text-white' : 'bg-[#E6E2DA] text-[#78716C]'}`}>
+              <Clock className="w-3 h-3 stroke-[2.5]" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-semibold text-[#1C1917]">Lưu thành Khoản chờ</span>
+              <span className="text-[10px] text-[#78716C] ml-1.5 hidden sm:inline">(Chưa trừ số dư ngay)</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                playActionClick();
+                triggerHaptic(8);
+                setIsPending(false);
+              }}
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-all cursor-pointer ${
+                !isPending
+                  ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
+                  : 'text-[#78716C] hover:text-[#1C1917] bg-white border border-[#E6E2DA]'
+              }`}
+            >
+              Chi ngay
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                playActionClick();
+                triggerHaptic(8);
+                setIsPending(true);
+              }}
+              className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
+                isPending
+                  ? 'bg-[#B45309] text-white shadow-2xs font-bold'
+                  : 'text-[#78716C] hover:text-[#1C1917] bg-white border border-[#E6E2DA]'
+              }`}
+            >
+              <span>⏳ Hẹn ngày trả</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 1. Màn hình hiển thị số tiền (Display) */}
       <div className={`bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl ${isBottomSheet ? 'p-2 min-h-[58px] sm:min-h-[72px]' : 'p-2.5 sm:p-3 min-h-[68px] sm:min-h-[74px]'} flex flex-col items-center justify-center relative`}>
         <span className="text-[10px] uppercase font-mono text-[#78716C] tracking-wider mb-0.5">
-          {txType === 'EXPENSE' ? 'Số tiền chi tiêu' : 'Số tiền thu nhập'}
+          {isPending
+            ? 'Số tiền khoản chờ (chưa trừ ví)'
+            : txType === 'EXPENSE'
+            ? 'Số tiền chi tiêu'
+            : 'Số tiền thu nhập'}
         </span>
         <div className="flex items-baseline gap-1 text-[#1C1917]">
           {txType === 'INCOME' && amountStr !== '0' && (
@@ -337,7 +448,11 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
           )}
           <span
             className={`text-3xl sm:text-4xl font-bold font-mono tracking-tight tabular-nums ${
-              txType === 'INCOME' && amountStr !== '0' ? 'text-[#0F3D39]' : 'text-[#1C1917]'
+              isPending && amountStr !== '0'
+                ? 'text-[#B45309]'
+                : txType === 'INCOME' && amountStr !== '0'
+                ? 'text-[#0F3D39]'
+                : 'text-[#1C1917]'
             }`}
           >
             {formatVND(Number(amountStr), false)}
@@ -363,51 +478,137 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         tags={currentQuickTags}
       />
 
-      {/* 3. Bộ chuyển đổi: Người chi / Người nhận & Ghi chú */}
-      <div className="grid grid-cols-2 gap-2">
-        {/* Toggle Người chi / nhận */}
-        <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs">
-          <button
-            type="button"
-            onClick={() => {
-              playActionClick();
-              triggerHaptic(10);
-              setPaidBy('Chồng');
-            }}
-            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
-              paidBy === 'Chồng'
-                ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
-                : 'text-[#78716C] hover:text-[#1C1917]'
-            }`}
-          >
-            {txType === 'EXPENSE' ? 'Chồng chi' : 'Chồng nhận'}
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              playActionClick();
-              triggerHaptic(10);
-              setPaidBy('Vợ');
-            }}
-            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
-              paidBy === 'Vợ'
-                ? 'bg-[#B45309] text-white shadow-2xs font-bold'
-                : 'text-[#78716C] hover:text-[#1C1917]'
-            }`}
-          >
-            {txType === 'EXPENSE' ? 'Vợ chi' : 'Vợ nhận'}
-          </button>
-        </div>
+      {/* 3. Người phụ trách hoặc Người chi / nhận & Ghi chú */}
+      <div className="flex flex-col gap-2">
+        {/* Khối chọn Hạn thanh toán (chỉ hiển thị khi bật chế độ Khoản chờ) */}
+        {isPending && (
+          <div className="bg-[#FEF3C7]/40 border border-[#FDE68A] rounded-2xl p-2 sm:p-2.5 flex flex-col gap-1.5 shadow-2xs animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="flex items-center justify-between px-0.5">
+              <span className="text-[11px] font-bold text-[#B45309] uppercase tracking-wider flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                Hạn thanh toán:
+              </span>
+              <div className="flex items-center gap-1">
+                {[
+                  { label: '+3 ngày', days: 3 },
+                  { label: '+7 ngày', days: 7 },
+                  { label: '+14 ngày', days: 14 }
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => {
+                      playActionClick();
+                      triggerHaptic(8);
+                      setDueDate(getFutureDate(item.days));
+                    }}
+                    className={`text-[10px] px-1.5 py-0.5 rounded-lg border font-mono transition-colors cursor-pointer ${
+                      dueDate === getFutureDate(item.days)
+                        ? 'bg-[#B45309] text-white border-[#B45309] font-bold'
+                        : 'bg-white border-[#E6E2DA] text-[#78716C] hover:text-[#B45309]'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(8);
+                    setDueDate(getEndOfMonthDate());
+                  }}
+                  className={`text-[10px] px-1.5 py-0.5 rounded-lg border font-mono transition-colors cursor-pointer ${
+                    dueDate === getEndOfMonthDate()
+                      ? 'bg-[#B45309] text-white border-[#B45309] font-bold'
+                      : 'bg-white border-[#E6E2DA] text-[#78716C] hover:text-[#B45309]'
+                  }`}
+                >
+                  Cuối tháng
+                </button>
+              </div>
+            </div>
+            <div className="relative">
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-full box-border block px-3 py-1.5 sm:py-2 rounded-xl border border-[#E6E2DA] bg-white text-xs font-mono text-[#1C1917] focus:outline-none focus:border-[#B45309]"
+                required
+              />
+              <Calendar className="w-3.5 h-3.5 text-[#78716C] absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+        )}
 
-        {/* Ô nhập ghi chú nhanh */}
-        <div className="relative flex items-center">
-          <input
-            type="text"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-            placeholder={txType === 'EXPENSE' ? 'Ghi chú chi tiết...' : 'Nguồn thu (Lương, thưởng...)'}
-            className="w-full h-full bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl px-3.5 py-2 text-xs text-[#1C1917] placeholder:text-[#A8A29E] outline-hidden focus:border-[#0F3D39]"
-          />
+        <div className="grid grid-cols-2 gap-2">
+          {/* Toggle Người phụ trách (nếu isPending) hoặc Người chi (nếu !isPending) */}
+          {isPending ? (
+            <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs">
+              {(['Chồng', 'Vợ', 'Cả hai'] as const).map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(10);
+                    setAssignedTo(role);
+                  }}
+                  className={`flex-1 py-2 rounded-xl text-[11px] font-semibold transition-all tactile-btn ${
+                    assignedTo === role
+                      ? 'bg-[#B45309] text-white shadow-2xs font-bold'
+                      : 'text-[#78716C] hover:text-[#1C1917]'
+                  }`}
+                >
+                  {role === 'Cả hai' ? 'Cả hai' : `${role} trả`}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs">
+              <button
+                type="button"
+                onClick={() => {
+                  playActionClick();
+                  triggerHaptic(10);
+                  setPaidBy('Chồng');
+                }}
+                className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
+                  paidBy === 'Chồng'
+                    ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
+                    : 'text-[#78716C] hover:text-[#1C1917]'
+                }`}
+              >
+                {txType === 'EXPENSE' ? 'Chồng chi' : 'Chồng nhận'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  playActionClick();
+                  triggerHaptic(10);
+                  setPaidBy('Vợ');
+                }}
+                className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
+                  paidBy === 'Vợ'
+                    ? 'bg-[#B45309] text-white shadow-2xs font-bold'
+                    : 'text-[#78716C] hover:text-[#1C1917]'
+                }`}
+              >
+                {txType === 'EXPENSE' ? 'Vợ chi' : 'Vợ nhận'}
+              </button>
+            </div>
+          )}
+
+          {/* Ô nhập ghi chú nhanh */}
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={isPending ? 'Tên hóa đơn (Điện nước, tiền nhà...)' : txType === 'EXPENSE' ? 'Ghi chú chi tiết...' : 'Nguồn thu (Lương, thưởng...)'}
+              className="w-full h-full bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl px-3.5 py-2 text-xs text-[#1C1917] placeholder:text-[#A8A29E] outline-hidden focus:border-[#0F3D39]"
+            />
+          </div>
         </div>
       </div>
 
@@ -604,17 +805,28 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         className={`w-full ${isBottomSheet ? 'py-2.5 sm:py-3.5' : 'py-3 sm:py-3.5'} rounded-2xl text-sm font-semibold flex items-center justify-center gap-2 transition-all tactile-btn shadow-xs ${
           amountStr === '0' || isSubmitting
             ? 'bg-[#E6E2DA] text-[#A8A29E] cursor-not-allowed'
+            : isPending
+            ? 'bg-[#B45309] text-white hover:bg-[#9A3412] active:scale-98'
             : txType === 'INCOME'
             ? 'bg-[#10B981] text-white hover:bg-[#059669] active:scale-98'
             : 'bg-[#0F3D39] text-[#FAF9F6] hover:bg-[#174E4A] active:scale-98'
         }`}
       >
-        <Check className="w-4 h-4 stroke-[2.5]" />
-        <span>
-          {txType === 'INCOME'
-            ? `Ghi nhận thu nhập (+${formatVND(Number(amountStr))})`
-            : `Ghi nhận khoản chi (${formatVND(Number(amountStr))})`}
-        </span>
+        {isPending ? (
+          <>
+            <Clock className="w-4 h-4 stroke-[2.5]" />
+            <span>Lưu khoản chờ thanh toán ({formatVND(Number(amountStr))})</span>
+          </>
+        ) : (
+          <>
+            <Check className="w-4 h-4 stroke-[2.5]" />
+            <span>
+              {txType === 'INCOME'
+                ? `Ghi nhận thu nhập (+${formatVND(Number(amountStr))})`
+                : `Ghi nhận khoản chi (${formatVND(Number(amountStr))})`}
+            </span>
+          </>
+        )}
       </button>
 
       {/* Gợi ý phím tắt trên Desktop */}

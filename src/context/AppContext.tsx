@@ -42,7 +42,12 @@ import {
   createQuickTag as firestoreCreateQuickTag,
   updateQuickTag as firestoreUpdateQuickTag,
   deleteQuickTag as firestoreDeleteQuickTag,
-  seedMissingQuickTags
+  seedMissingQuickTags,
+  subscribePendingExpenses,
+  addPendingExpense,
+  updatePendingExpense,
+  deletePendingExpense,
+  convertPendingToTransaction
 } from '../services/firestoreService';
 import { 
   DEFAULT_CATEGORIES,
@@ -53,9 +58,10 @@ import {
   MOCK_CATEGORIES, 
   MOCK_TRANSACTIONS, 
   MOCK_SUMMARY,
-  MOCK_GOALS
+  MOCK_GOALS,
+  MOCK_PENDING_EXPENSES
 } from '../services/mockData';
-import type { Household, Category, Transaction, MonthlySummary, UserProfile, FinancialGoal, QuickTagItem } from '../types';
+import type { Household, Category, Transaction, MonthlySummary, UserProfile, FinancialGoal, QuickTagItem, PendingExpense } from '../types';
 import { getCurrentYearMonth, getLocalDateString, getLocalYearMonthString, formatVND } from '../utils/currency';
 import { isSoundEnabled, setSoundEnabled, playSuccessChime, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
@@ -143,6 +149,15 @@ interface AppContextType {
   editGoal: (goalId: string, updates: Partial<FinancialGoal>) => Promise<void>;
   removeGoal: (goalId: string) => Promise<void>;
   updateGoalAmount: (goalId: string, newAmount: number) => Promise<void>;
+
+  // Khoản chờ thanh toán (Pending Expenses)
+  pendingExpenses: PendingExpense[];
+  activePendingExpenses: PendingExpense[];
+  totalPendingAmount: number;
+  logPendingExpense: (data: Omit<PendingExpense, 'id' | 'createdAt' | 'updatedAt' | 'householdId'>) => Promise<string>;
+  editPendingExpense: (id: string, updates: Partial<PendingExpense>) => Promise<void>;
+  removePendingExpense: (id: string) => Promise<void>;
+  confirmPaidPendingExpense: (pendingItem: PendingExpense, paidBy: 'Chồng' | 'Vợ', date?: string) => Promise<void>;
   
   // Xác thực Google
   isAuthenticating: boolean;
@@ -162,6 +177,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(MOCK_SUMMARY);
   const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>(() => sortFinancialGoals(MOCK_GOALS));
+  const [pendingExpenses, setPendingExpenses] = useState<PendingExpense[]>(MOCK_PENDING_EXPENSES);
   const [quickTags, setQuickTags] = useState<QuickTagItem[]>(() => [
     ...DEFAULT_QUICK_TAGS,
     ...DEFAULT_INCOME_QUICK_TAGS
@@ -453,6 +469,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setTransactions(MOCK_TRANSACTIONS);
         setMonthlySummary(MOCK_SUMMARY);
         setFinancialGoals(sortFinancialGoals(MOCK_GOALS));
+        setPendingExpenses(MOCK_PENDING_EXPENSES);
       }
       setIsLoading(false);
     });
@@ -510,6 +527,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setFinancialGoals(sortFinancialGoals(goals));
     });
 
+    const unsubPending = subscribePendingExpenses(activeHousehold.id, (items) => {
+      setPendingExpenses(items);
+    });
+
     const unsubQuickTags = subscribeQuickTags(activeHousehold.id, (tags) => {
       if (tags.length > 0) {
         setQuickTags(tags);
@@ -529,6 +550,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       unsubTx();
       unsubSum();
       unsubGoals();
+      unsubPending();
       unsubQuickTags();
     };
   }, [isFirebaseActive, activeHousehold?.id, currentYearMonth, firebaseUser]);
@@ -613,6 +635,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       wifeIncomeRatio: wIncRatio
     };
   }, [transactions, monthlySummary, activeHousehold?.monthlyBudget]);
+
+  // TÍNH TOÁN CÁC CHỈ SỐ KHOẢN CHỜ THANH TOÁN (Derived Pending Metrics)
+  const activePendingExpenses = useMemo(() => {
+    return pendingExpenses
+      .filter((item) => item.status === 'PENDING')
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  }, [pendingExpenses]);
+
+  const totalPendingAmount = useMemo(() => {
+    return activePendingExpenses.reduce((sum, item) => sum + item.amount, 0);
+  }, [activePendingExpenses]);
 
   // HÀNH ĐỘNG GHI SỔ GIAO DỊCH
   const logTransaction = async (txData: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'>) => {
@@ -778,6 +811,150 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     } else {
       setTransactions((prev) => prev.filter((item) => item.id !== tx.id));
+    }
+  };
+
+  // HÀNH ĐỘNG GHI NHẬN KHOẢN CHỜ MỚI
+  const logPendingExpense = async (
+    data: Omit<PendingExpense, 'id' | 'createdAt' | 'updatedAt' | 'householdId'>
+  ): Promise<string> => {
+    playActionClick();
+    triggerHaptic(10);
+
+    const householdId = activeHousehold?.id || 'mock_household_01';
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      try {
+        const newId = await addPendingExpense(householdId, {
+          ...data,
+          householdId
+        });
+        showToast(`Đã lưu khoản chờ: ${data.note || data.categoryName}`, 'success');
+        return newId;
+      } catch (err) {
+        console.error('Lỗi khi lưu khoản chờ lên Firestore:', err);
+        showToast('Không thể lưu khoản chờ. Vui lòng thử lại!', 'error');
+        throw err;
+      }
+    } else {
+      const newId = `pending_${Date.now()}`;
+      const newPending: PendingExpense = {
+        ...data,
+        id: newId,
+        householdId,
+        createdAt: new Date().toISOString(),
+        updatedAt: Date.now()
+      };
+      setPendingExpenses((prev) => [newPending, ...prev]);
+      showToast(`Đã lưu khoản chờ: ${data.note || data.categoryName}`, 'success');
+      return newId;
+    }
+  };
+
+  // HÀNH ĐỘNG CẬP NHẬT KHOẢN CHỜ
+  const editPendingExpense = async (id: string, updates: Partial<PendingExpense>): Promise<void> => {
+    playActionClick();
+    triggerHaptic(10);
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      try {
+        await updatePendingExpense(activeHousehold.id, id, updates);
+        showToast('Đã cập nhật khoản chờ', 'success');
+      } catch (err) {
+        console.error('Lỗi khi cập nhật khoản chờ lên Firestore:', err);
+        showToast('Không thể cập nhật khoản chờ. Vui lòng thử lại!', 'error');
+        throw err;
+      }
+    } else {
+      setPendingExpenses((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, ...updates, updatedAt: Date.now() } : item))
+      );
+      showToast('Đã cập nhật khoản chờ', 'success');
+    }
+  };
+
+  // HÀNH ĐỘNG XÓA KHOẢN CHỜ
+  const removePendingExpense = async (id: string): Promise<void> => {
+    playActionClick();
+    triggerHaptic(15);
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      try {
+        await deletePendingExpense(activeHousehold.id, id);
+        showToast('Đã xóa khoản chờ', 'info');
+      } catch (err) {
+        console.error('Lỗi khi xóa khoản chờ trên Firestore:', err);
+        showToast('Không thể xóa khoản chờ. Vui lòng thử lại!', 'error');
+        throw err;
+      }
+    } else {
+      setPendingExpenses((prev) => prev.filter((item) => item.id !== id));
+      showToast('Đã xóa khoản chờ', 'info');
+    }
+  };
+
+  // HÀNH ĐỘNG XÁC NHẬN ĐÃ CHI (1-TAP CONFIRM PAID)
+  const confirmPaidPendingExpense = async (
+    pendingItem: PendingExpense,
+    paidByPerson: 'Chồng' | 'Vợ',
+    date?: string
+  ): Promise<void> => {
+    playSuccessChime();
+    triggerHaptic(15);
+
+    const actualDate = date || getLocalDateString();
+    const paidByUid = currentUser?.uid || 'anonymous';
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      try {
+        await convertPendingToTransaction(
+          activeHousehold.id,
+          pendingItem,
+          paidByPerson,
+          paidByUid,
+          actualDate
+        );
+        showToast(`Đã xác nhận chi ${formatVND(pendingItem.amount)}!`, 'success');
+      } catch (err) {
+        console.error('Lỗi khi chuyển khoản chờ sang giao dịch:', err);
+        showToast('Không thể xác nhận thanh toán. Vui lòng thử lại!', 'error');
+        throw err;
+      }
+    } else {
+      // Chế độ Mock Data:
+      const txPayload: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'> = {
+        amount: pendingItem.amount,
+        type: 'EXPENSE',
+        categoryId: pendingItem.categoryId,
+        categoryName: pendingItem.categoryName,
+        categoryKey: pendingItem.categoryKey,
+        paidBy: paidByPerson,
+        paidByUid,
+        note: pendingItem.note,
+        date: actualDate
+      };
+      if (pendingItem.goalId) {
+        txPayload.goalId = pendingItem.goalId;
+        txPayload.goalName = pendingItem.goalName || '';
+      }
+
+      await logTransaction(txPayload);
+
+      setPendingExpenses((prev) =>
+        prev.map((item) =>
+          item.id === pendingItem.id
+            ? {
+                ...item,
+                status: 'PAID',
+                paidAt: actualDate,
+                paidBy: paidByPerson,
+                paidByUid,
+                updatedAt: Date.now()
+              }
+            : item
+        )
+      );
+      showToast(`Đã xác nhận chi ${formatVND(pendingItem.amount)}!`, 'success');
     }
   };
 
@@ -1399,6 +1576,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         editGoal,
         removeGoal,
         updateGoalAmount,
+        pendingExpenses,
+        activePendingExpenses,
+        totalPendingAmount,
+        logPendingExpense,
+        editPendingExpense,
+        removePendingExpense,
+        confirmPaidPendingExpense,
         loginWithGoogle,
         logout
       }}

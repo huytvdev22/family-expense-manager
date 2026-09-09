@@ -6,6 +6,7 @@ import { Header, type DesktopView } from './components/Header';
 import { BalanceCard } from './components/BalanceCard';
 import { Numpad } from './components/Numpad';
 import { TransactionList } from './components/TransactionList';
+import { PendingExpensesSection } from './components/PendingExpensesSection';
 import { InviteModal } from './components/InviteModal';
 import { MonthlyLetterModal } from './components/MonthlyLetterModal';
 import { BottomNav, type MobileTab } from './components/BottomNav';
@@ -90,6 +91,7 @@ export const App: React.FC = () => {
             <div className="space-y-4 animate-in fade-in duration-150">
               <MonthPicker className="w-full justify-between" />
               <BalanceCard />
+              <PendingExpensesSection />
               <TransactionList />
             </div>
           )}
@@ -105,6 +107,7 @@ export const App: React.FC = () => {
             <div className="space-y-4 animate-in fade-in duration-150">
               <MonthPicker className="w-full justify-between" />
               <BalanceCard />
+              <PendingExpensesSection />
               <TransactionList />
             </div>
           )}
@@ -155,8 +158,9 @@ export const App: React.FC = () => {
                   <Numpad />
                 </div>
 
-                {/* Cột phải (7 cols): Sổ cái chi tiết các giao dịch theo ngày */}
-                <div className="col-span-7">
+                {/* Cột phải (7 cols): Khoản chờ thanh toán & Sổ cái chi tiết giao dịch */}
+                <div className="col-span-7 space-y-4">
+                  <PendingExpensesSection />
                   <TransactionList />
                 </div>
               </div>

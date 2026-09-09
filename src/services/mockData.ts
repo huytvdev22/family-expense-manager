@@ -1,4 +1,4 @@
-import type { Household, Category, Transaction, MonthlySummary, QuickTagItem, UserProfile, FinancialGoal } from '../types';
+import type { Household, Category, Transaction, MonthlySummary, QuickTagItem, UserProfile, FinancialGoal, PendingExpense } from '../types';
 
 /**
  * Các Danh mục chuẩn của hệ thống Tổ Ấm Nhỏ theo DESIGN.md & DATABASE_DESIGN.md
@@ -456,6 +456,65 @@ export const MOCK_GOALS: FinancialGoal[] = [
     note: 'Đảm bảo cuộc sống gia đình an tâm trước mọi biến cố',
     status: 'ACTIVE',
     createdAt: '2025-03-01T00:00:00Z',
+    updatedAt: Date.now()
+  }
+];
+
+/**
+ * Danh sách Khoản chờ thanh toán mẫu (Hóa đơn & Nhắc trả nợ)
+ */
+export const MOCK_PENDING_EXPENSES: PendingExpense[] = [
+  {
+    id: 'pending_evn_01',
+    householdId: 'mock_household_01',
+    amount: 1250000,
+    type: 'EXPENSE',
+    categoryId: 'cat_essential',
+    categoryName: 'Tổ ấm & Con cái',
+    categoryKey: 'ESSENTIAL',
+    assignedTo: 'Chồng',
+    createdByUid: 'mock_user_01',
+    createdByName: 'Huy (Chồng)',
+    note: 'Hóa đơn tiền điện EVN tháng này',
+    dueDate: '2026-09-15',
+    status: 'PENDING',
+    createdAt: '2026-09-08T08:00:00Z',
+    updatedAt: Date.now()
+  },
+  {
+    id: 'pending_water_02',
+    householdId: 'mock_household_01',
+    amount: 280000,
+    type: 'EXPENSE',
+    categoryId: 'cat_essential',
+    categoryName: 'Tổ ấm & Con cái',
+    categoryKey: 'ESSENTIAL',
+    assignedTo: 'Vợ',
+    createdByUid: 'mock_user_02',
+    createdByName: 'Vợ yêu',
+    note: 'Tiền nước sinh hoạt căn hộ',
+    dueDate: '2026-09-18',
+    status: 'PENDING',
+    createdAt: '2026-09-08T09:30:00Z',
+    updatedAt: Date.now()
+  },
+  {
+    id: 'pending_debt_loan_03',
+    householdId: 'mock_household_01',
+    amount: 15000000,
+    type: 'EXPENSE',
+    categoryId: 'cat_debt',
+    categoryName: 'Trả nợ ngân hàng',
+    categoryKey: 'ESSENTIAL',
+    assignedTo: 'Cả hai',
+    createdByUid: 'mock_user_01',
+    createdByName: 'Huy (Chồng)',
+    note: 'Trích trả gốc vay ngân hàng mua nhà',
+    dueDate: '2026-09-25',
+    goalId: 'goal_bank_loan_01',
+    goalName: 'Khoản vay ngân hàng mua nhà',
+    status: 'PENDING',
+    createdAt: '2026-09-07T10:00:00Z',
     updatedAt: Date.now()
   }
 ];

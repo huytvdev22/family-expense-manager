@@ -16,7 +16,7 @@ import {
   type Unsubscribe
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Household, Category, Transaction, MonthlySummary, Invitation, UserProfile, FinancialGoal, QuickTagItem } from '../types';
+import type { Household, Category, Transaction, MonthlySummary, Invitation, UserProfile, FinancialGoal, QuickTagItem, PendingExpense } from '../types';
 import { DEFAULT_CATEGORIES, DEFAULT_QUICK_TAGS, DEFAULT_INCOME_QUICK_TAGS } from './mockData';
 
 /**
@@ -957,6 +957,153 @@ export async function seedMissingQuickTags(
   const writePromises = initialTags.map((tag) => setDoc(doc(tagCol, tag.id), cleanFirestorePayload(tag)));
   await Promise.allSettled(writePromises);
   return initialTags;
+}
+
+/**
+ * LẮNG NGHE REALTIME DANH SÁCH KHOẢN CHỜ THANH TOÁN CỦA TỔ ẤM
+ */
+export function subscribePendingExpenses(
+  householdId: string,
+  onData: (items: PendingExpense[]) => void
+): Unsubscribe {
+  if (!db) return () => {};
+
+  const q = query(
+    collection(db, `households/${householdId}/pending_expenses`),
+    where('status', '==', 'PENDING'),
+    orderBy('dueDate', 'asc')
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const list: PendingExpense[] = [];
+    snapshot.forEach((docSnap) => {
+      list.push({ id: docSnap.id, ...docSnap.data() } as PendingExpense);
+    });
+    onData(list);
+  }, (err) => {
+    console.warn('Lỗi subscribePendingExpenses:', err);
+  });
+}
+
+/**
+ * TẠO KHOẢN CHỜ MỚI
+ */
+export async function addPendingExpense(
+  householdId: string,
+  item: Omit<PendingExpense, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const colRef = collection(db, `households/${householdId}/pending_expenses`);
+  const newRef = doc(colRef);
+  const now = new Date().toISOString();
+
+  const newPending: PendingExpense = {
+    ...item,
+    id: newRef.id,
+    createdAt: now,
+    updatedAt: Date.now()
+  };
+
+  await setDoc(newRef, cleanFirestorePayload(newPending));
+  return newRef.id;
+}
+
+/**
+ * CẬP NHẬT KHOẢN CHỜ
+ */
+export async function updatePendingExpense(
+  householdId: string,
+  id: string,
+  updates: Partial<PendingExpense>
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const itemRef = doc(db, `households/${householdId}/pending_expenses`, id);
+  const payload: Record<string, any> = {
+    ...updates,
+    updatedAt: Date.now()
+  };
+
+  if ('goalId' in updates && !updates.goalId) {
+    payload.goalId = deleteField();
+    payload.goalName = deleteField();
+  }
+
+  await updateDoc(itemRef, cleanFirestorePayload(payload));
+}
+
+/**
+ * XÓA KHOẢN CHỜ
+ */
+export async function deletePendingExpense(
+  householdId: string,
+  id: string
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const itemRef = doc(db, `households/${householdId}/pending_expenses`, id);
+  await deleteDoc(itemRef);
+}
+
+/**
+ * CHUYỂN KHOẢN CHỜ THÀNH GIAO DỊCH THỰC TẾ (1-TAP CONFIRM PAID)
+ * Ghi vào sổ cái với addTransactionWithSummary, cập nhật goal nếu có, và đổi status = 'PAID'
+ */
+export async function convertPendingToTransaction(
+  householdId: string,
+  pendingItem: PendingExpense,
+  paidBy: 'Chồng' | 'Vợ',
+  paidByUid: string,
+  paidDate?: string
+): Promise<string> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const actualDate = paidDate || new Date().toISOString().substring(0, 10);
+
+  // 1. Ghi giao dịch nguyên tử vào sổ cái
+  const txPayload: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'> = {
+    amount: pendingItem.amount,
+    type: 'EXPENSE',
+    categoryId: pendingItem.categoryId,
+    categoryName: pendingItem.categoryName,
+    categoryKey: pendingItem.categoryKey,
+    paidBy,
+    paidByUid,
+    note: pendingItem.note,
+    date: actualDate
+  };
+
+  if (pendingItem.goalId) {
+    txPayload.goalId = pendingItem.goalId;
+    txPayload.goalName = pendingItem.goalName || '';
+  }
+
+  const newTxId = await addTransactionWithSummary(householdId, txPayload);
+
+  // 2. Cập nhật tiến độ Mục tiêu Tài chính nếu có
+  if (pendingItem.goalId) {
+    const isDebt = pendingItem.categoryId === 'cat_debt' || pendingItem.categoryName.toLowerCase().includes('nợ');
+    await updateGoalProgress(
+      householdId,
+      pendingItem.goalId,
+      pendingItem.amount,
+      isDebt ? 'DEBT_PAYOFF' : 'SAVINGS'
+    );
+  }
+
+  // 3. Đánh dấu hoàn tất khoản chờ
+  const itemRef = doc(db, `households/${householdId}/pending_expenses`, pendingItem.id);
+  await updateDoc(itemRef, cleanFirestorePayload({
+    status: 'PAID',
+    paidAt: actualDate,
+    paidBy,
+    paidByUid,
+    transactionId: newTxId,
+    updatedAt: Date.now()
+  }));
+
+  return newTxId;
 }
 
 

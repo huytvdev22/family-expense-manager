@@ -123,3 +123,27 @@ export interface QuickTagItem {
   order?: number;
   createdAt?: string;
 }
+
+export interface PendingExpense {
+  id: string;
+  householdId: string;
+  amount: number;
+  type: 'EXPENSE';
+  categoryId: string;
+  categoryName: string;
+  categoryKey: CategoryKey;
+  assignedTo: 'Chồng' | 'Vợ' | 'Cả hai';
+  createdByUid: string;
+  createdByName: string;
+  note: string;
+  dueDate: string; // "YYYY-MM-DD"
+  goalId?: string;
+  goalName?: string;
+  status: 'PENDING' | 'PAID' | 'CANCELLED';
+  paidAt?: string; // "YYYY-MM-DD"
+  paidBy?: string; // "Chồng" | "Vợ"
+  paidByUid?: string;
+  transactionId?: string;
+  createdAt: string;
+  updatedAt: number;
+}

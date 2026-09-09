@@ -86,3 +86,67 @@ export function formatDateLabel(dateString: string): string {
   }
   return dateString;
 }
+
+/**
+ * Tính số ngày chênh lệch giữa ngày đến hạn và hôm nay.
+ * Trả về số âm nếu đã quá hạn, 0 nếu là hôm nay, số dương nếu trong tương lai.
+ */
+export function getDaysDiffFromToday(targetDateStr: string): number {
+  if (!targetDateStr) return 0;
+  const todayStr = getLocalDateString();
+  const [tY, tM, tD] = todayStr.split('-').map(Number);
+  const [targetY, targetM, targetD] = targetDateStr.split('-').map(Number);
+
+  const today = new Date(tY, tM - 1, tD);
+  const target = new Date(targetY, targetM - 1, targetD);
+
+  const diffMs = target.getTime() - today.getTime();
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+}
+
+/**
+ * Lấy nhãn thời hạn thanh toán trực quan kèm trạng thái cảnh báo
+ */
+export function formatDueDateBadge(dueDateStr: string): {
+  label: string;
+  status: 'OVERDUE' | 'DUE_SOON' | 'UPCOMING';
+  daysDiff: number;
+} {
+  const diff = getDaysDiffFromToday(dueDateStr);
+  const parts = dueDateStr.split('-');
+  const shortDate = parts.length === 3 ? `${parts[2]}/${parts[1]}` : dueDateStr;
+
+  if (diff < 0) {
+    return {
+      label: `Quá hạn ${Math.abs(diff)} ngày (${shortDate})`,
+      status: 'OVERDUE',
+      daysDiff: diff
+    };
+  }
+  if (diff === 0) {
+    return {
+      label: `Hôm nay là hạn chót (${shortDate})`,
+      status: 'DUE_SOON',
+      daysDiff: 0
+    };
+  }
+  if (diff === 1) {
+    return {
+      label: `Hạn ngày mai (${shortDate})`,
+      status: 'DUE_SOON',
+      daysDiff: 1
+    };
+  }
+  if (diff <= 3) {
+    return {
+      label: `Còn ${diff} ngày (trước ${shortDate})`,
+      status: 'DUE_SOON',
+      daysDiff: diff
+    };
+  }
+  return {
+    label: `Hạn: trước ngày ${shortDate} (còn ${diff} ngày)`,
+    status: 'UPCOMING',
+    daysDiff: diff
+  };
+}
