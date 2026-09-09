@@ -113,40 +113,31 @@ export function formatDueDateBadge(dueDateStr: string): {
   daysDiff: number;
 } {
   const diff = getDaysDiffFromToday(dueDateStr);
-  const parts = dueDateStr.split('-');
-  const shortDate = parts.length === 3 ? `${parts[2]}/${parts[1]}` : dueDateStr;
 
   if (diff < 0) {
     return {
-      label: `Quá hạn ${Math.abs(diff)} ngày (${shortDate})`,
+      label: `Quá hạn ${Math.abs(diff)} ngày`,
       status: 'OVERDUE',
       daysDiff: diff
     };
   }
   if (diff === 0) {
     return {
-      label: `Hôm nay là hạn chót (${shortDate})`,
+      label: `Hạn hôm nay`,
       status: 'DUE_SOON',
       daysDiff: 0
     };
   }
   if (diff === 1) {
     return {
-      label: `Hạn ngày mai (${shortDate})`,
+      label: `Hạn ngày mai`,
       status: 'DUE_SOON',
       daysDiff: 1
     };
   }
-  if (diff <= 3) {
-    return {
-      label: `Còn ${diff} ngày (trước ${shortDate})`,
-      status: 'DUE_SOON',
-      daysDiff: diff
-    };
-  }
   return {
-    label: `Hạn: trước ngày ${shortDate} (còn ${diff} ngày)`,
-    status: 'UPCOMING',
+    label: `Còn ${diff} ngày`,
+    status: diff <= 3 ? 'DUE_SOON' : 'UPCOMING',
     daysDiff: diff
   };
 }

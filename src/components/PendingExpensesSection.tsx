@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-import { Clock, Check, AlertCircle, Calendar, Pencil, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { Clock, Check, Calendar, Pencil } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND, formatCompactVND, formatDueDateBadge } from '../utils/currency';
-import { renderCategoryIcon, renderGoalIcon } from '../utils/categoryIcons';
+import { renderCategoryIcon } from '../utils/categoryIcons';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { EditPendingExpenseModal } from './EditPendingExpenseModal';
+import { ConfirmPaidBottomSheet } from './ConfirmPaidBottomSheet';
 import type { PendingExpense } from '../types';
 
 export const PendingExpensesSection: React.FC = () => {
-  const { activePendingExpenses, totalPendingAmount, compactCurrency } = useApp();
+  const { activePendingExpenses, totalPendingAmount, compactCurrency, categories } = useApp();
   const [selectedItem, setSelectedItem] = useState<PendingExpense | null>(null);
+  const [confirmingItem, setConfirmingItem] = useState<PendingExpense | null>(null);
 
   const displayAmount = (amount: number) => {
     return compactCurrency ? formatCompactVND(amount) : formatVND(amount);
@@ -20,6 +22,13 @@ export const PendingExpensesSection: React.FC = () => {
     playActionClick();
     triggerHaptic(8);
     setSelectedItem(item);
+  };
+
+  const handleQuickConfirmPaid = (e: React.MouseEvent, item: PendingExpense) => {
+    e.stopPropagation();
+    playActionClick();
+    triggerHaptic(10);
+    setConfirmingItem(item);
   };
 
   // Nếu không có khoản chờ nào
@@ -73,6 +82,7 @@ export const PendingExpensesSection: React.FC = () => {
             const dueBadge = formatDueDateBadge(item.dueDate);
             const isOverdue = dueBadge.status === 'OVERDUE';
             const isDueSoon = dueBadge.status === 'DUE_SOON';
+            const cat = categories.find((c) => c.id === item.categoryId);
 
             return (
               <div
@@ -80,10 +90,10 @@ export const PendingExpensesSection: React.FC = () => {
                 onClick={() => handleOpenItem(item)}
                 className="flex items-center justify-between gap-3 p-3 hover:bg-white transition-colors group cursor-pointer"
               >
-                {/* Cột trái: Icon danh mục, Tên khoản, Người phụ trách & Hạn chót */}
+                {/* Cột trái: Icon danh mục, Tên khoản & Badge Hạn chót gọn gàng */}
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 border border-[#E6E2DA]/80 bg-white shadow-2xs">
-                    {renderCategoryIcon(item.categoryId, "w-4 h-4", isOverdue ? '#DC2626' : '#B45309')}
+                    {renderCategoryIcon(cat?.icon, "w-4 h-4", cat?.color || (isOverdue ? '#DC2626' : '#B45309'))}
                   </span>
 
                   <div className="min-w-0">
@@ -92,7 +102,7 @@ export const PendingExpensesSection: React.FC = () => {
                     </p>
 
                     <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
-                      {/* Badge Hạn chót cảnh báo ("Cần thanh toán trước ngày...") */}
+                      {/* Badge Hạn chót ngắn gọn: "Còn X ngày" hoặc "Hạn hôm nay" */}
                       <span
                         className={`text-[10px] font-medium px-1.5 py-0.2 rounded-md font-mono flex items-center gap-1 ${
                           isOverdue
@@ -106,22 +116,9 @@ export const PendingExpensesSection: React.FC = () => {
                         <span>{dueBadge.label}</span>
                       </span>
 
-                      {/* Phân công ai phụ trách */}
-                      <span
-                        className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium ${
-                          item.assignedTo === 'Chồng'
-                            ? 'bg-[#E7EFEF] text-[#0F3D39]'
-                            : item.assignedTo === 'Vợ'
-                            ? 'bg-[#FEF3C7] text-[#B45309]'
-                            : 'bg-[#F3F4F6] text-[#4B5563]'
-                        }`}
-                      >
-                        {item.assignedTo === 'Cả hai' ? 'Cả hai trả' : `${item.assignedTo} trả`}
-                      </span>
-
                       {/* Mục tiêu tài chính nếu có */}
                       {item.goalName && (
-                        <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-[#ECFDF5] text-[#047857] flex items-center gap-0.5 max-w-[110px] truncate">
+                        <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-[#ECFDF5] text-[#047857] flex items-center gap-0.5 max-w-[120px] truncate">
                           🎯 {item.goalName}
                         </span>
                       )}
@@ -138,18 +135,14 @@ export const PendingExpensesSection: React.FC = () => {
                     {displayAmount(item.amount)}
                   </span>
 
-                  {/* Nút Xác nhận đã chi nhanh */}
+                  {/* Nút Xác nhận đã chi nhanh (Mở ngay Bottom Sheet) */}
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenItem(item);
-                    }}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-[#059669] hover:text-white bg-[#ECFDF5] hover:bg-[#059669] border border-[#A7F3D0] px-2 py-1 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+                    onClick={(e) => handleQuickConfirmPaid(e, item)}
+                    className="w-7 h-7 rounded-xl flex items-center justify-center text-[#059669] hover:text-white bg-[#ECFDF5] hover:bg-[#059669] border border-[#A7F3D0] transition-all shadow-2xs cursor-pointer active:scale-95"
                     title="Xác nhận đã thanh toán khoản này"
                   >
-                    <Check className="w-3 h-3 stroke-[2.5]" />
-                    <span className="hidden sm:inline">Đã chi</span>
+                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                   </button>
 
                   {/* Icon chỉnh sửa */}
@@ -160,7 +153,7 @@ export const PendingExpensesSection: React.FC = () => {
                       handleOpenItem(item);
                     }}
                     className="text-[#A8A29E] hover:text-[#0F3D39] p-1 rounded-lg hover:bg-[#F5F3EF] opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
-                    title="Chỉnh sửa chi tiết khoản chờ"
+                    title="Chỉnh sửa chi tiết"
                   >
                     <Pencil className="w-3.5 h-3.5" />
                   </button>
@@ -171,11 +164,18 @@ export const PendingExpensesSection: React.FC = () => {
         </div>
       </section>
 
-      {/* Modal Chỉnh sửa & Xác nhận đã chi */}
+      {/* Modal Chỉnh sửa chi tiết */}
       <EditPendingExpenseModal
         isOpen={Boolean(selectedItem)}
         onClose={() => setSelectedItem(null)}
         pendingExpense={selectedItem}
+      />
+
+      {/* Bottom Sheet Xác nhận khoản chi nhanh 1-chạm */}
+      <ConfirmPaidBottomSheet
+        isOpen={Boolean(confirmingItem)}
+        onClose={() => setConfirmingItem(null)}
+        pendingExpense={confirmingItem}
       />
     </>
   );

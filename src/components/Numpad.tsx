@@ -351,17 +351,18 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
 
   return (
     <div className={`bg-white border border-[#E6E2DA] ${isBottomSheet ? 'rounded-2xl p-2 sm:p-2.5 shadow-2xs gap-1.5 sm:gap-2' : 'rounded-3xl p-3.5 sm:p-4 shadow-sm gap-2.5 sm:gap-3'} flex flex-col ${className}`}>
-      {/* 0. Bộ chuyển đổi loại giao dịch: Khoản chi vs Thu nhập */}
-      <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs">
+      {/* 0. Bộ chuyển đổi 3 chế độ: Khoản chi vs Khoản chờ vs Thu nhập */}
+      <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs gap-1">
         <button
           type="button"
           onClick={() => {
             playActionClick();
             triggerHaptic(10);
             setTxType('EXPENSE');
+            setIsPending(false);
           }}
-          className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all tactile-btn ${
-            txType === 'EXPENSE'
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition-all tactile-btn ${
+            txType === 'EXPENSE' && !isPending
               ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
               : 'text-[#78716C] hover:text-[#1C1917]'
           }`}
@@ -373,10 +374,26 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
           onClick={() => {
             playActionClick();
             triggerHaptic(10);
+            setTxType('EXPENSE');
+            setIsPending(true);
+          }}
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition-all tactile-btn ${
+            txType === 'EXPENSE' && isPending
+              ? 'bg-[#B45309] text-white shadow-2xs font-bold'
+              : 'text-[#78716C] hover:text-[#1C1917]'
+          }`}
+        >
+          <span>⏳ Khoản chờ</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            playActionClick();
+            triggerHaptic(10);
             setTxType('INCOME');
             setIsPending(false);
           }}
-          className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all tactile-btn ${
+          className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition-all tactile-btn ${
             txType === 'INCOME'
               ? 'bg-[#10B981] text-white shadow-2xs font-bold'
               : 'text-[#78716C] hover:text-[#1C1917]'
@@ -385,53 +402,6 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
           <span>💰 Thu nhập</span>
         </button>
       </div>
-
-      {/* 0.5. Cờ rẽ nhánh Khoản chờ (chỉ áp dụng khi chọn Khoản chi) */}
-      {txType === 'EXPENSE' && (
-        <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-1.5 flex items-center justify-between shadow-2xs animate-in fade-in duration-150">
-          <div className="flex items-center gap-2 pl-1.5 min-w-0">
-            <div className={`w-5 h-5 rounded-lg flex items-center justify-center text-xs shrink-0 ${isPending ? 'bg-[#B45309] text-white' : 'bg-[#E6E2DA] text-[#78716C]'}`}>
-              <Clock className="w-3 h-3 stroke-[2.5]" />
-            </div>
-            <div className="min-w-0">
-              <span className="text-xs font-semibold text-[#1C1917]">Lưu thành Khoản chờ</span>
-              <span className="text-[10px] text-[#78716C] ml-1.5 hidden sm:inline">(Chưa trừ số dư ngay)</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              type="button"
-              onClick={() => {
-                playActionClick();
-                triggerHaptic(8);
-                setIsPending(false);
-              }}
-              className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-all cursor-pointer ${
-                !isPending
-                  ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
-                  : 'text-[#78716C] hover:text-[#1C1917] bg-white border border-[#E6E2DA]'
-              }`}
-            >
-              Chi ngay
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                playActionClick();
-                triggerHaptic(8);
-                setIsPending(true);
-              }}
-              className={`px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-all cursor-pointer flex items-center gap-1 ${
-                isPending
-                  ? 'bg-[#B45309] text-white shadow-2xs font-bold'
-                  : 'text-[#78716C] hover:text-[#1C1917] bg-white border border-[#E6E2DA]'
-              }`}
-            >
-              <span>⏳ Hẹn ngày trả</span>
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* 1. Màn hình hiển thị số tiền (Display) */}
       <div className={`bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl ${isBottomSheet ? 'p-2 min-h-[58px] sm:min-h-[72px]' : 'p-2.5 sm:p-3 min-h-[68px] sm:min-h-[74px]'} flex flex-col items-center justify-center relative`}>
@@ -478,7 +448,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         tags={currentQuickTags}
       />
 
-      {/* 3. Người phụ trách hoặc Người chi / nhận & Ghi chú */}
+      {/* 3. Người chi / nhận & Ghi chú (hoặc Hạn thanh toán & Ghi chú nếu là Khoản chờ) */}
       <div className="flex flex-col gap-2">
         {/* Khối chọn Hạn thanh toán (chỉ hiển thị khi bật chế độ Khoản chờ) */}
         {isPending && (
@@ -541,30 +511,20 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2">
-          {/* Toggle Người phụ trách (nếu isPending) hoặc Người chi (nếu !isPending) */}
-          {isPending ? (
-            <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs">
-              {(['Chồng', 'Vợ', 'Cả hai'] as const).map((role) => (
-                <button
-                  key={role}
-                  type="button"
-                  onClick={() => {
-                    playActionClick();
-                    triggerHaptic(10);
-                    setAssignedTo(role);
-                  }}
-                  className={`flex-1 py-2 rounded-xl text-[11px] font-semibold transition-all tactile-btn ${
-                    assignedTo === role
-                      ? 'bg-[#B45309] text-white shadow-2xs font-bold'
-                      : 'text-[#78716C] hover:text-[#1C1917]'
-                  }`}
-                >
-                  {role === 'Cả hai' ? 'Cả hai' : `${role} trả`}
-                </button>
-              ))}
-            </div>
-          ) : (
+        {isPending ? (
+          /* Khi là Khoản chờ: không cần chọn ai trả, ô ghi chú full width */
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Tên hóa đơn hoặc khoản cần chi (Điện nước, tiền nhà, học phí...)"
+              className="w-full h-10 bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl px-3.5 text-xs text-[#1C1917] placeholder:text-[#A8A29E] outline-hidden focus:border-[#B45309]"
+            />
+          </div>
+        ) : (
+          /* Khi là Khoản chi / Thu nhập thông thường: chọn Người chi / nhận và ô ghi chú */
+          <div className="grid grid-cols-2 gap-2">
             <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs">
               <button
                 type="button"
@@ -597,19 +557,18 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
                 {txType === 'EXPENSE' ? 'Vợ chi' : 'Vợ nhận'}
               </button>
             </div>
-          )}
 
-          {/* Ô nhập ghi chú nhanh */}
-          <div className="relative flex items-center">
-            <input
-              type="text"
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder={isPending ? 'Tên hóa đơn (Điện nước, tiền nhà...)' : txType === 'EXPENSE' ? 'Ghi chú chi tiết...' : 'Nguồn thu (Lương, thưởng...)'}
-              className="w-full h-full bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl px-3.5 py-2 text-xs text-[#1C1917] placeholder:text-[#A8A29E] outline-hidden focus:border-[#0F3D39]"
-            />
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder={txType === 'EXPENSE' ? 'Ghi chú chi tiết...' : 'Nguồn thu (Lương, thưởng...)'}
+                className="w-full h-full bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl px-3.5 py-2 text-xs text-[#1C1917] placeholder:text-[#A8A29E] outline-hidden focus:border-[#0F3D39]"
+              />
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* 4. Bộ chọn Nhóm chi tiêu / Nguồn thu dạng droplist */}
