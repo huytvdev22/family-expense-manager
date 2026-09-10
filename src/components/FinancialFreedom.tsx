@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Target, 
   Plus, 
@@ -20,7 +20,8 @@ import {
   AlertCircle,
   History,
   Receipt,
-  ArrowUpDown
+  ArrowUpDown,
+  ChevronDown
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND, formatDateLabel } from '../utils/currency';
@@ -98,6 +99,35 @@ export const FinancialFreedom: React.FC = () => {
 
   // Thứ tự sắp xếp mục tiêu: Mặc định ưu tiên sắp hoàn thành lên trước, theo số tiền
   const [sortBy, setSortBy] = useState<GoalSortOption>('COMPLETION_AND_AMOUNT');
+  const [isSortOpen, setIsSortOpen] = useState<boolean>(false);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Đóng dropdown khi bấm ra ngoài
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        setIsSortOpen(false);
+      }
+    };
+
+    if (isSortOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isSortOpen]);
+
+  const SORT_OPTIONS: { value: GoalSortOption; label: string }[] = [
+    { value: 'COMPLETION_AND_AMOUNT', label: 'Sắp hoàn thành nhất' },
+    { value: 'REMAINING_AMOUNT_ASC', label: 'Số tiền ít nhất (Snowball)' },
+    { value: 'REMAINING_AMOUNT_DESC', label: 'Số tiền nhiều nhất (Avalanche)' },
+    { value: 'NEWEST', label: 'Mới tạo gần đây' }
+  ];
+
+  const currentSortLabel = SORT_OPTIONS.find((o) => o.value === sortBy)?.label || 'Sắp xếp';
 
   // Lọc và sắp xếp danh sách mục tiêu
   const filteredGoals = useMemo(() => {
@@ -409,21 +439,58 @@ export const FinancialFreedom: React.FC = () => {
               Đang hiển thị <strong className="font-mono text-[#1C1917]">{filteredGoals.length}</strong> mục tiêu
             </span>
 
-            <div className="flex items-center gap-1 bg-white border border-[#E6E2DA] rounded-xl px-2.5 py-1 shadow-2xs">
-              <ArrowUpDown className="w-3 h-3 text-[#0F3D39] shrink-0" />
-              <select
-                value={sortBy}
-                onChange={(e) => {
+            {/* Custom Dropdown sắp xếp đồng nhất với hệ thống */}
+            <div className="relative" ref={sortDropdownRef}>
+              <button
+                type="button"
+                onClick={() => {
                   playActionClick();
-                  setSortBy(e.target.value as GoalSortOption);
+                  triggerHaptic(6);
+                  setIsSortOpen((prev) => !prev);
                 }}
-                className="bg-transparent border-0 text-[#1C1917] text-[11px] font-medium focus:outline-hidden cursor-pointer"
+                className={`flex items-center gap-1.5 bg-white border rounded-xl px-2.5 py-1.5 text-[11px] font-semibold transition-all cursor-pointer shadow-2xs ${
+                  isSortOpen
+                    ? 'border-[#0F3D39] ring-2 ring-[#0F3D39]/15 text-[#0F3D39]'
+                    : 'border-[#E6E2DA] text-[#1C1917] hover:border-[#0F3D39]/40 hover:bg-[#FAF9F6]'
+                }`}
               >
-                <option value="COMPLETION_AND_AMOUNT">Sắp hoàn thành nhất</option>
-                <option value="REMAINING_AMOUNT_ASC">Số tiền ít nhất (Snowball)</option>
-                <option value="REMAINING_AMOUNT_DESC">Số tiền nhiều nhất (Avalanche)</option>
-                <option value="NEWEST">Mới tạo gần đây</option>
-              </select>
+                <ArrowUpDown className="w-3 h-3 text-[#0F3D39] shrink-0" />
+                <span className="truncate max-w-[140px] sm:max-w-none">{currentSortLabel}</span>
+                <ChevronDown
+                  className={`w-3 h-3 text-[#78716C] transition-transform duration-200 shrink-0 ${
+                    isSortOpen ? 'rotate-180 text-[#0F3D39]' : ''
+                  }`}
+                />
+              </button>
+
+              {/* Menu thả xuống */}
+              {isSortOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-60 bg-white border border-[#E6E2DA] rounded-2xl shadow-xl p-1.5 z-40 space-y-0.5 animate-in fade-in slide-in-from-top-1 duration-150">
+                  {SORT_OPTIONS.map((option) => {
+                    const isSelected = sortBy === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          playActionClick();
+                          triggerHaptic(8);
+                          setSortBy(option.value);
+                          setIsSortOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#E7EFEF] text-[#0F3D39] font-bold'
+                            : 'text-[#1C1917] hover:bg-[#FAF9F6] font-medium'
+                        }`}
+                      >
+                        <span className="truncate">{option.label}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-[#0F3D39] shrink-0 stroke-[2.5]" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         </div>
