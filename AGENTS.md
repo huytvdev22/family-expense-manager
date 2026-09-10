@@ -30,9 +30,14 @@ You are an expert full-stack product engineer and design-conscious software craf
   - Test layouts on standard mobile viewports (375px–390px) first.
   - Always account for iOS Safari safe areas (`pb-safe`, dynamic viewport units `dvh`).
   - Keep interactive elements within standard tap target sizes (minimum 44x44px).
-  - **Bottom Sheet Pattern Over Centered Modals:** On mobile viewports (`< 640px` / `sm:`), all modals, action sheets, and entry forms (e.g., Numpad keypad, transaction editor, category/tag forms, filter dialogs) must render as **Bottom Sheets** sliding up from the screen bottom instead of floating centered dialogs, optimizing for ergonomic one-handed thumb interaction (*thumb zone*).
-  - **Sheet Sizing & Action Visibility:** Full-featured bottom sheets should utilize tall viewport dimensions (`h-[95dvh]` or `max-h-[96dvh]`) with standard top rounding (`rounded-t-3xl`), eliminate redundant drag-handle bars/margins that consume valuable vertical space, and ensure primary action buttons (Submit / Save / Confirm) remain 100% visible and unclipped above the iOS Home Indicator with generous bottom padding (`pb-safe`, `pb-6`).
-- **Graceful Degradation:** If browser APIs (e.g., Vibration API, AudioContext) are unsupported or blocked by permissions, fail silently without throwing runtime exceptions.
+  - **Mandatory Common BottomSheet Component:** All modals, action sheets, sub-screens, and entry forms (e.g., Numpad, transaction editors, category/tag managers, settings, filter dialogs, invite screens, reports) **MUST** use the common `src/components/BottomSheet.tsx` component (`import { BottomSheet } from './BottomSheet'`). Never create ad-hoc `fixed inset-0` modal wrappers or custom sheet containers.
+  - **Standardized BottomSheet Architectural Contract:**
+    1. **React Portal Rooting:** Always renders directly to `document.body` via `createPortal`, isolating it from local container stacking contexts and z-index pollution.
+    2. **Built-in Scroll Locking:** Automatically manages `useBodyScrollLock(isOpen)`—child components must not duplicate body scroll locking logic.
+    3. **Zero Bottom-Gap on iOS PWA:** Built with bottom overflow extension (`-bottom-12 sm:bottom-auto`, `pb-16 sm:pb-safe`, `dvh` units) to strictly eliminate white gap artifacts on iPhone home indicator / safe areas.
+    4. **Tactile Swipe-Down Dismiss:** Employs `useSwipeDownDismiss` with physics-based transform transitions, allowing users to effortlessly swipe down the drag handle or header to dismiss.
+    5. **Consistent Layout Slots:** Standardize on supported props (`title`, `subtitle`, `icon`, `headerRight`, `footer`, `maxHeight`, `bodyClassName`). Keep primary actions (Save, Submit, Confirm) inside the `footer` slot or well above the safe zone.
+  - **Graceful Degradation:** If browser APIs (e.g., Vibration API, AudioContext) are unsupported or blocked by permissions, fail silently without throwing runtime exceptions.
 
 ### 2. Execution Workflow
 1. **Understand:** Analyze user intent, context, and existing architectural patterns.
