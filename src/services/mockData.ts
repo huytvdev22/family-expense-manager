@@ -1,4 +1,4 @@
-import type { Household, Category, Transaction, MonthlySummary, QuickTagItem, UserProfile, FinancialGoal, PendingExpense } from '../types';
+import type { Household, Category, Transaction, MonthlySummary, QuickTagItem, UserProfile, FinancialGoal, PendingExpense, CreditCard } from '../types';
 
 /**
  * Các Danh mục chuẩn của hệ thống Tổ Ấm Nhỏ theo DESIGN.md & DATABASE_DESIGN.md
@@ -132,6 +132,51 @@ export const DEFAULT_CATEGORIES: Category[] = [
 ];
 
 export const MOCK_CATEGORIES = DEFAULT_CATEGORIES;
+
+/**
+ * Danh sách 3 Thẻ tín dụng mặc định của gia đình (HSBC, MSB, BIDV JCB)
+ */
+export const DEFAULT_CREDIT_CARDS: CreditCard[] = [
+  {
+    id: 'card_hsbc',
+    householdId: 'mock_household_01',
+    name: 'HSBC',
+    last4Digits: '8828',
+    color: '#DC2626', // Đỏ rượu đặc trưng HSBC
+    statementDay: 20, // Chốt ngày 20 hàng tháng
+    paymentDueDay: 5, // Hạn thanh toán ngày 05 tháng sau
+    creditLimit: 60000000,
+    isActive: true,
+    createdAt: '2026-09-01T00:00:00Z',
+    updatedAt: Date.now()
+  },
+  {
+    id: 'card_msb',
+    householdId: 'mock_household_01',
+    name: 'MSB',
+    last4Digits: '6512',
+    color: '#EA580C', // Cam cháy ấm áp MSB
+    statementDay: 15, // Chốt ngày 15 hàng tháng
+    paymentDueDay: 1, // Hạn thanh toán ngày 01 tháng sau
+    creditLimit: 50000000,
+    isActive: true,
+    createdAt: '2026-09-01T00:00:00Z',
+    updatedAt: Date.now()
+  },
+  {
+    id: 'card_bidv_jcb',
+    householdId: 'mock_household_01',
+    name: 'BIDV JCB',
+    last4Digits: '9366',
+    color: '#0F766E', // Xanh ngọc đậm BIDV
+    statementDay: 25, // Chốt ngày 25 hàng tháng
+    paymentDueDay: 10, // Hạn thanh toán ngày 10 tháng sau
+    creditLimit: 80000000,
+    isActive: true,
+    createdAt: '2026-09-01T00:00:00Z',
+    updatedAt: Date.now()
+  }
+];
 
 /**
  * Danh sách Quick Tags 1-chạm (Dải vuốt ngang)
@@ -326,6 +371,78 @@ export const MOCK_HOUSEHOLD: Household = {
 };
 
 export const MOCK_TRANSACTIONS: Transaction[] = [
+  {
+    id: 'tx_card_hsbc_01',
+    amount: 1850000,
+    type: 'EXPENSE',
+    categoryId: 'cat_living',
+    categoryName: 'Sinh hoạt & Hẹn hò',
+    categoryKey: 'LIVING',
+    paidBy: 'Chồng',
+    paidByUid: 'mock_user_chong_01',
+    note: 'Mua sắm Uniqlo Thu Đông',
+    date: '2026-09-08',
+    paymentMethod: 'CREDIT_CARD',
+    cardId: 'card_hsbc',
+    cardName: 'HSBC LiveFree / Cash Back',
+    isSettled: false,
+    timestamp: Date.now() - 1000 * 60 * 60 * 12,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'tx_card_hsbc_02',
+    amount: 890000,
+    type: 'EXPENSE',
+    categoryId: 'cat_living',
+    categoryName: 'Sinh hoạt & Hẹn hò',
+    categoryKey: 'LIVING',
+    paidBy: 'Chồng',
+    paidByUid: 'mock_user_chong_01',
+    note: 'Ăn tối Pizza 4Ps cuối tuần',
+    date: '2026-09-06',
+    paymentMethod: 'CREDIT_CARD',
+    cardId: 'card_hsbc',
+    cardName: 'HSBC LiveFree / Cash Back',
+    isSettled: false,
+    timestamp: Date.now() - 1000 * 60 * 60 * 60,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'tx_card_msb_01',
+    amount: 1250000,
+    type: 'EXPENSE',
+    categoryId: 'cat_unexpected',
+    categoryName: 'Sức khỏe & Đột xuất',
+    categoryKey: 'UNEXPECTED',
+    paidBy: 'Vợ',
+    paidByUid: 'mock_user_vo_02',
+    note: 'Đồ gia dụng & Nồi chiên Shopee',
+    date: '2026-09-07',
+    paymentMethod: 'CREDIT_CARD',
+    cardId: 'card_msb',
+    cardName: 'MSB Visa Online',
+    isSettled: false,
+    timestamp: Date.now() - 1000 * 60 * 60 * 36,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'tx_card_bidv_01',
+    amount: 2150000,
+    type: 'EXPENSE',
+    categoryId: 'cat_essential',
+    categoryName: 'Tổ ấm & Con cái',
+    categoryKey: 'ESSENTIAL',
+    paidBy: 'Vợ',
+    paidByUid: 'mock_user_vo_02',
+    note: 'Đại siêu thị Aeon Mall thực phẩm',
+    date: '2026-09-05',
+    paymentMethod: 'CREDIT_CARD',
+    cardId: 'card_bidv_jcb',
+    cardName: 'BIDV JCB Ultimate',
+    isSettled: false,
+    timestamp: Date.now() - 1000 * 60 * 60 * 84,
+    createdAt: new Date().toISOString()
+  },
   {
     id: 'tx_01',
     amount: 350000,

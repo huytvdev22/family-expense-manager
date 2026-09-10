@@ -76,6 +76,11 @@ service cloud.firestore {
       match /pending_expenses/{expenseId} {
         allow read, write: if isHouseholdMember(householdId);
       }
+
+      // 2.7. Sub-collection: Thẻ tín dụng gia đình (credit_cards)
+      match /credit_cards/{cardId} {
+        allow read, write: if isHouseholdMember(householdId);
+      }
     }
 
     // 3. Hệ thống mã mời (invitations)

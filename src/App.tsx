@@ -258,7 +258,7 @@ export const App: React.FC = () => {
           <div
             role="dialog"
             aria-modal="true"
-            className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col h-[95dvh] max-h-[96dvh] animate-in slide-in-from-bottom-3 duration-200 pb-safe"
+            className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[94dvh] animate-in slide-in-from-bottom-3 duration-200 pb-safe"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header Bottom Sheet - Sát mép trên, bo góc đồng bộ */}
@@ -285,8 +285,8 @@ export const App: React.FC = () => {
               </button>
             </div>
 
-            {/* Thân cuộn Bottom Sheet */}
-            <div className="p-2.5 sm:p-3 overflow-y-auto flex-1 overscroll-contain touch-pan-y pb-6">
+            {/* Thân cuộn Bottom Sheet - Tự động co giãn theo nội dung */}
+            <div className="p-2.5 sm:p-3 overflow-y-auto overscroll-contain touch-pan-y pb-4">
               <Numpad
                 isBottomSheet
                 onSuccess={() => {

@@ -46,6 +46,8 @@ export interface Category {
   createdAt: string;
 }
 
+export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CREDIT_CARD';
+
 export interface Transaction {
   id: string;
   amount: number;
@@ -61,6 +63,13 @@ export interface Transaction {
   createdAt: string;
   goalId?: string; // ID mục tiêu tài chính liên kết (nếu có)
   goalName?: string;
+  // Các trường bổ sung cho phương thức thanh toán & Thẻ tín dụng
+  paymentMethod?: PaymentMethod;
+  cardId?: string; // ID thẻ tín dụng liên kết nếu thanh toán qua thẻ
+  cardName?: string; // Tên thẻ (VD: "HSBC Cash Back", "MSB Visa Online", "BIDV JCB")
+  isSettled?: boolean; // Đối với giao dịch quẹt thẻ tín dụng: true = đã thanh toán sao kê, false = đang chờ quyết toán
+  settledAt?: string; // Ngày thanh toán sao kê ("YYYY-MM-DD")
+  settledBy?: 'Chồng' | 'Vợ'; // Ai là người chi tiền thanh toán sao kê thẻ
 }
 
 export type GoalType = 'DEBT_PAYOFF' | 'SAVINGS';
@@ -124,6 +133,20 @@ export interface QuickTagItem {
   createdAt?: string;
 }
 
+export interface CreditCard {
+  id: string;
+  householdId: string;
+  name: string; // Tên thẻ hoặc ngân hàng (VD: "HSBC", "MSB", "BIDV JCB")
+  last4Digits: string; // 4 số cuối (VD: "8828", "6512", "9366")
+  color: string; // Mã màu hex đại diện thương hiệu
+  statementDay: number; // Ngày chốt sao kê hàng tháng (VD: 20)
+  paymentDueDay: number; // Ngày đến hạn thanh toán hàng tháng (VD: 05)
+  creditLimit?: number; // Hạn mức tín dụng (tùy chọn)
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: number;
+}
+
 export interface PendingExpense {
   id: string;
   householdId: string;
@@ -144,6 +167,10 @@ export interface PendingExpense {
   paidBy?: string; // "Chồng" | "Vợ"
   paidByUid?: string;
   transactionId?: string;
+  // Các trường phân loại khoản chờ
+  paymentType?: 'DIRECT' | 'CREDIT_CARD'; // 'DIRECT' = Hóa đơn trực tiếp, 'CREDIT_CARD' = Quẹt thẻ
+  cardId?: string;
+  cardName?: string;
   createdAt: string;
   updatedAt: number;
 }

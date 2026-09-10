@@ -16,8 +16,8 @@ import {
   type Unsubscribe
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Household, Category, Transaction, MonthlySummary, Invitation, UserProfile, FinancialGoal, QuickTagItem, PendingExpense } from '../types';
-import { DEFAULT_CATEGORIES, DEFAULT_QUICK_TAGS, DEFAULT_INCOME_QUICK_TAGS } from './mockData';
+import type { Household, Category, Transaction, MonthlySummary, Invitation, UserProfile, FinancialGoal, QuickTagItem, PendingExpense, CreditCard } from '../types';
+import { DEFAULT_CATEGORIES, DEFAULT_QUICK_TAGS, DEFAULT_INCOME_QUICK_TAGS, DEFAULT_CREDIT_CARDS } from './mockData';
 
 /**
  * Loại bỏ tất cả các field có giá trị undefined trước khi ghi vào Firestore
@@ -1106,6 +1106,138 @@ export async function convertPendingToTransaction(
   }));
 
   return newTxId;
+}
+
+/**
+ * ============================================================================
+ * QUẢN LÝ THẺ TÍN DỤNG GIA ĐÌNH (CREDIT CARDS MANAGEMENT)
+ * ============================================================================
+ */
+
+/**
+ * LẮNG NGHE REALTIME DANH SÁCH THẺ TÍN DỤNG CỦA TỔ ẤM
+ */
+export function subscribeCreditCards(
+  householdId: string,
+  onData: (items: CreditCard[]) => void
+): Unsubscribe {
+  if (!db) return () => {};
+
+  const colRef = collection(db, `households/${householdId}/credit_cards`);
+
+  return onSnapshot(
+    colRef,
+    (snapshot) => {
+      const list: CreditCard[] = [];
+      snapshot.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...docSnap.data() } as CreditCard);
+      });
+      // Sắp xếp theo ngày tạo
+      list.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
+      onData(list);
+    },
+    (err) => {
+      console.warn('Lỗi subscribeCreditCards:', err);
+      onData([]);
+    }
+  );
+}
+
+/**
+ * TỰ ĐỘNG KHỞI TẠO 3 THẺ MẪU (HSBC, MSB, BIDV JCB) NẾU TỔ ẤM CHƯA CÓ
+ */
+export async function seedMissingCreditCards(householdId: string): Promise<CreditCard[]> {
+  if (!db) return DEFAULT_CREDIT_CARDS;
+
+  const cardCol = collection(db, `households/${householdId}/credit_cards`);
+  const writePromises = DEFAULT_CREDIT_CARDS.map((card) =>
+    setDoc(doc(cardCol, card.id), cleanFirestorePayload({ ...card, householdId }))
+  );
+  await Promise.allSettled(writePromises);
+  return DEFAULT_CREDIT_CARDS;
+}
+
+/**
+ * TẠO THẺ TÍN DỤNG MỚI
+ */
+export async function addCreditCard(
+  householdId: string,
+  card: Omit<CreditCard, 'id' | 'createdAt' | 'updatedAt'>
+): Promise<string> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const colRef = collection(db, `households/${householdId}/credit_cards`);
+  const newRef = doc(colRef);
+  const now = new Date().toISOString();
+
+  const newCard: CreditCard = {
+    ...card,
+    id: newRef.id,
+    householdId,
+    createdAt: now,
+    updatedAt: Date.now()
+  };
+
+  await setDoc(newRef, cleanFirestorePayload(newCard));
+  return newRef.id;
+}
+
+/**
+ * CẬP NHẬT THÔNG TIN THẺ TÍN DỤNG
+ */
+export async function updateCreditCard(
+  householdId: string,
+  cardId: string,
+  updates: Partial<CreditCard>
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const cardRef = doc(db, `households/${householdId}/credit_cards`, cardId);
+  await updateDoc(cardRef, cleanFirestorePayload({
+    ...updates,
+    updatedAt: Date.now()
+  }));
+}
+
+/**
+ * XÓA THẺ TÍN DỤNG
+ */
+export async function deleteCreditCard(
+  householdId: string,
+  cardId: string
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+
+  const cardRef = doc(db, `households/${householdId}/credit_cards`, cardId);
+  await deleteDoc(cardRef);
+}
+
+/**
+ * QUYẾT TOÁN CÁC GIAO DỊCH QUẸT THẺ TÍN DỤNG (1-TAP SETTLE)
+ * Cập nhật isSettled = true cho toàn bộ các giao dịch quẹt thẻ được chọn
+ */
+export async function settleCreditCardTransactions(
+  householdId: string,
+  cardId: string,
+  txIds: string[],
+  settledBy: 'Chồng' | 'Vợ',
+  settledDate?: string
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+  const firestoreDb = db;
+
+  const actualDate = settledDate || new Date().toISOString().substring(0, 10);
+  const updatePromises = txIds.map((txId) => {
+    const txRef = doc(firestoreDb, `households/${householdId}/transactions`, txId);
+    return updateDoc(txRef, cleanFirestorePayload({
+      isSettled: true,
+      settledAt: actualDate,
+      settledBy,
+      updatedAt: Date.now()
+    }));
+  });
+
+  await Promise.allSettled(updatePromises);
 }
 
 

@@ -47,7 +47,12 @@ import {
   addPendingExpense,
   updatePendingExpense,
   deletePendingExpense,
-  convertPendingToTransaction
+  convertPendingToTransaction,
+  subscribeCreditCards,
+  addCreditCard as firestoreAddCreditCard,
+  updateCreditCard as firestoreUpdateCreditCard,
+  deleteCreditCard as firestoreDeleteCreditCard,
+  settleCreditCardTransactions
 } from '../services/firestoreService';
 import { 
   DEFAULT_CATEGORIES,
@@ -59,10 +64,11 @@ import {
   MOCK_TRANSACTIONS, 
   MOCK_SUMMARY,
   MOCK_GOALS,
-  MOCK_PENDING_EXPENSES
+  MOCK_PENDING_EXPENSES,
+  DEFAULT_CREDIT_CARDS
 } from '../services/mockData';
-import type { Household, Category, Transaction, MonthlySummary, UserProfile, FinancialGoal, QuickTagItem, PendingExpense } from '../types';
-import { getCurrentYearMonth, getLocalDateString, getLocalYearMonthString, formatVND } from '../utils/currency';
+import type { Household, Category, Transaction, MonthlySummary, UserProfile, FinancialGoal, QuickTagItem, PendingExpense, CreditCard } from '../types';
+import { getCurrentYearMonth, getLocalDateString, getLocalYearMonthString, formatVND, calculateCardNextDueDate } from '../utils/currency';
 import { isSoundEnabled, setSoundEnabled, playSuccessChime, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { useToast } from '../components/Toast';
@@ -159,6 +165,21 @@ interface AppContextType {
   removePendingExpense: (id: string) => Promise<void>;
   confirmPaidPendingExpense: (pendingItem: PendingExpense, paidBy: 'Chồng' | 'Vợ', date?: string) => Promise<void>;
   
+  // Quản lý Thẻ tín dụng & Dư nợ thẻ (Phương án 1)
+  creditCards: CreditCard[];
+  activeCreditCards: CreditCard[];
+  unsettledCardExpenses: {
+    card: CreditCard;
+    transactions: Transaction[];
+    totalAmount: number;
+    nextDueDate: string;
+  }[];
+  totalUnsettledCardAmount: number;
+  addCreditCard: (card: Omit<CreditCard, 'id' | 'createdAt' | 'updatedAt' | 'householdId'>) => Promise<string>;
+  editCreditCard: (id: string, updates: Partial<CreditCard>) => Promise<void>;
+  removeCreditCard: (id: string) => Promise<void>;
+  settleCard: (cardId: string, paidBy: 'Chồng' | 'Vợ', date?: string) => Promise<void>;
+
   // Xác thực Google
   isAuthenticating: boolean;
   loginWithGoogle: () => Promise<void>;
@@ -178,6 +199,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(MOCK_SUMMARY);
   const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>(() => sortFinancialGoals(MOCK_GOALS));
   const [pendingExpenses, setPendingExpenses] = useState<PendingExpense[]>(MOCK_PENDING_EXPENSES);
+  const [creditCards, setCreditCards] = useState<CreditCard[]>(DEFAULT_CREDIT_CARDS);
   const [quickTags, setQuickTags] = useState<QuickTagItem[]>(() => [
     ...DEFAULT_QUICK_TAGS,
     ...DEFAULT_INCOME_QUICK_TAGS
@@ -376,6 +398,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Dọn sạch mock data ngay lập tức khi đăng nhập tài khoản thực
         setPendingExpenses([]);
         setTransactions([]);
+        setCreditCards([]);
         try {
           const profile = await getOrCreateUserProfile({
             uid: user.uid,
@@ -548,6 +571,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     });
 
+    const unsubCreditCards = subscribeCreditCards(activeHousehold.id, (items) => {
+      setCreditCards(items);
+    });
+
     return () => {
       unsubCat();
       unsubTx();
@@ -555,6 +582,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       unsubGoals();
       unsubPending();
       unsubQuickTags();
+      unsubCreditCards();
     };
   }, [isFirebaseActive, activeHousehold?.id, currentYearMonth, firebaseUser]);
 
@@ -649,6 +677,46 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const totalPendingAmount = useMemo(() => {
     return activePendingExpenses.reduce((sum, item) => sum + item.amount, 0);
   }, [activePendingExpenses]);
+
+  // Danh sách thẻ tín dụng đang hoạt động
+  const activeCreditCards = useMemo(() => {
+    return creditCards.filter((c) => c.isActive);
+  }, [creditCards]);
+
+  // Gom nhóm các giao dịch quẹt thẻ tín dụng chưa quyết toán (Phương án 1)
+  const unsettledCardExpenses = useMemo(() => {
+    // Lấy tất cả giao dịch quẹt thẻ tín dụng chưa quyết toán
+    const unsettledTxs = transactions.filter(
+      (t) => t.type === 'EXPENSE' && t.paymentMethod === 'CREDIT_CARD' && t.isSettled !== true
+    );
+
+    const groups = activeCreditCards.map((card) => {
+      const cardTxs = unsettledTxs
+        .filter((t) => t.cardId === card.id)
+        .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+      const total = cardTxs.reduce((sum, t) => sum + t.amount, 0);
+      const nextDueDate = calculateCardNextDueDate(card.paymentDueDay);
+
+      return {
+        card,
+        transactions: cardTxs,
+        totalAmount: total,
+        nextDueDate
+      };
+    });
+
+    // Sắp xếp các nhóm thẻ: thẻ có dư nợ lên trước, rồi theo hạn thanh toán gần nhất
+    return groups.sort((a, b) => {
+      if (a.totalAmount > 0 && b.totalAmount === 0) return -1;
+      if (a.totalAmount === 0 && b.totalAmount > 0) return 1;
+      return a.nextDueDate.localeCompare(b.nextDueDate);
+    });
+  }, [transactions, activeCreditCards]);
+
+  const totalUnsettledCardAmount = useMemo(() => {
+    return unsettledCardExpenses.reduce((sum, g) => sum + g.totalAmount, 0);
+  }, [unsettledCardExpenses]);
 
   // HÀNH ĐỘNG GHI SỔ GIAO DỊCH
   const logTransaction = async (txData: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'>) => {
@@ -958,6 +1026,128 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         )
       );
       showToast(`Đã xác nhận chi ${formatVND(pendingItem.amount)}!`, 'success');
+    }
+  };
+
+  // ==========================================================================
+  // HÀNH ĐỘNG QUẢN LÝ THẺ TÍN DỤNG & QUYẾT TOÁN THẺ (CREDIT CARD ACTIONS)
+  // ==========================================================================
+
+  // Thêm thẻ tín dụng mới
+  const addCreditCard = async (
+    cardData: Omit<CreditCard, 'id' | 'createdAt' | 'updatedAt' | 'householdId'>
+  ): Promise<string> => {
+    playActionClick();
+    triggerHaptic(10);
+    const householdId = activeHousehold?.id || 'mock_household_01';
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      try {
+        const newId = await firestoreAddCreditCard(householdId, {
+          ...cardData,
+          householdId
+        });
+        showToast(`Đã thêm thẻ ${cardData.name}`, 'success');
+        return newId;
+      } catch (err) {
+        console.error('Lỗi khi thêm thẻ lên Firestore:', err);
+        showToast('Không thể thêm thẻ. Vui lòng thử lại!', 'error');
+        throw err;
+      }
+    } else {
+      const newId = `card_${Date.now()}`;
+      const newCard: CreditCard = {
+        ...cardData,
+        id: newId,
+        householdId,
+        createdAt: new Date().toISOString(),
+        updatedAt: Date.now()
+      };
+      setCreditCards((prev) => [...prev, newCard]);
+      showToast(`Đã thêm thẻ ${cardData.name}`, 'success');
+      return newId;
+    }
+  };
+
+  // Cập nhật thông tin thẻ tín dụng
+  const editCreditCard = async (id: string, updates: Partial<CreditCard>): Promise<void> => {
+    playActionClick();
+    triggerHaptic(10);
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      try {
+        await firestoreUpdateCreditCard(activeHousehold.id, id, updates);
+        showToast('Đã cập nhật thông tin thẻ', 'success');
+      } catch (err) {
+        console.error('Lỗi cập nhật thẻ trên Firestore:', err);
+        showToast('Không thể cập nhật thẻ!', 'error');
+        throw err;
+      }
+    } else {
+      setCreditCards((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...updates, updatedAt: Date.now() } : c))
+      );
+      showToast('Đã cập nhật thông tin thẻ', 'success');
+    }
+  };
+
+  // Xóa / Gỡ thẻ tín dụng
+  const removeCreditCard = async (id: string): Promise<void> => {
+    playActionClick();
+    triggerHaptic(15);
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      try {
+        await firestoreDeleteCreditCard(activeHousehold.id, id);
+        showToast('Đã gỡ thẻ tín dụng', 'info');
+      } catch (err) {
+        console.error('Lỗi xóa thẻ trên Firestore:', err);
+        showToast('Không thể xóa thẻ!', 'error');
+        throw err;
+      }
+    } else {
+      setCreditCards((prev) => prev.filter((c) => c.id !== id));
+      showToast('Đã gỡ thẻ tín dụng', 'info');
+    }
+  };
+
+  // QUYẾT TOÁN THẺ TÍN DỤNG 1-CHẠM (1-TAP CARD SETTLEMENT)
+  const settleCard = async (cardId: string, paidByPerson: 'Chồng' | 'Vợ', date?: string): Promise<void> => {
+    playSuccessChime();
+    triggerHaptic(15);
+
+    const actualDate = date || getLocalDateString();
+    const card = creditCards.find((c) => c.id === cardId);
+    const cardTxs = transactions.filter(
+      (t) => t.paymentMethod === 'CREDIT_CARD' && t.cardId === cardId && t.isSettled !== true
+    );
+
+    if (cardTxs.length === 0) {
+      showToast('Thẻ này hiện không có dư nợ cần quyết toán!', 'info');
+      return;
+    }
+
+    const txIds = cardTxs.map((t) => t.id);
+
+    if (isFirebaseActive && activeHousehold && firebaseUser) {
+      try {
+        await settleCreditCardTransactions(activeHousehold.id, cardId, txIds, paidByPerson, actualDate);
+        showToast(`Đã quyết toán sao kê thẻ ${card?.name || ''}!`, 'success');
+      } catch (err) {
+        console.error('Lỗi quyết toán thẻ trên Firestore:', err);
+        showToast('Không thể quyết toán thẻ. Vui lòng thử lại!', 'error');
+        throw err;
+      }
+    } else {
+      // Cập nhật state cục bộ
+      setTransactions((prev) =>
+        prev.map((t) =>
+          t.paymentMethod === 'CREDIT_CARD' && t.cardId === cardId && t.isSettled !== true
+            ? { ...t, isSettled: true, settledAt: actualDate, settledBy: paidByPerson }
+            : t
+        )
+      );
+      showToast(`Đã quyết toán sao kê thẻ ${card?.name || ''}!`, 'success');
     }
   };
 
@@ -1590,6 +1780,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         editPendingExpense,
         removePendingExpense,
         confirmPaidPendingExpense,
+        creditCards,
+        activeCreditCards,
+        unsettledCardExpenses,
+        totalUnsettledCardAmount,
+        addCreditCard,
+        editCreditCard,
+        removeCreditCard,
+        settleCard,
         loginWithGoogle,
         logout
       }}

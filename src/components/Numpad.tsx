@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Delete, Check, Tag, Target, ChevronDown, Clock, Calendar } from 'lucide-react';
+import { Delete, Check, Tag, Target, ChevronDown, Clock, Calendar, CreditCard as CreditCardIcon } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { formatVND, getLocalDateString, formatDisplayDate, formatDueDateBadge } from '../utils/currency';
+import { formatVND, getLocalDateString, formatDisplayDate, formatDueDateBadge, calculateCardNextDueDate } from '../utils/currency';
 import { playKeyClick, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { renderGoalIcon, renderCategoryIcon } from '../utils/categoryIcons';
@@ -17,7 +17,7 @@ interface NumpadProps {
 }
 
 export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBottomSheet = false }) => {
-  const { categories, logTransaction, logPendingExpense, currentUser, userRole, financialGoals, quickTags } = useApp();
+  const { categories, logTransaction, logPendingExpense, currentUser, userRole, financialGoals, quickTags, activeCreditCards } = useApp();
   const { showToast } = useToast();
 
   // Helper tính ngày trong tương lai cho hạn thanh toán
@@ -42,6 +42,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
   const [isPending, setIsPending] = useState<boolean>(false);
   const [dueDate, setDueDate] = useState<string>(() => getFutureDate(7));
   const [assignedTo, setAssignedTo] = useState<'Chồng' | 'Vợ' | 'Cả hai'>(userRole || 'Chồng');
+
+  // Thẻ tín dụng được chọn (nếu thanh toán qua thẻ)
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
   // Giá trị số tiền đang nhập dạng chuỗi
   const [amountStr, setAmountStr] = useState<string>('0');
@@ -265,6 +268,13 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
           pendingPayload.goalName = selectedGoal?.title || '';
         }
 
+        if (selectedCardId) {
+          const chosenCard = activeCreditCards.find((c) => c.id === selectedCardId);
+          pendingPayload.paymentType = 'CREDIT_CARD';
+          pendingPayload.cardId = chosenCard?.id;
+          pendingPayload.cardName = chosenCard?.name;
+        }
+
         await logPendingExpense(pendingPayload);
 
         // Reset màn hình
@@ -272,6 +282,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         setNote('');
         setSelectedTagId(null);
         setSelectedGoalId(null);
+        setSelectedCardId(null);
         setIsPending(false);
 
         if (onSuccess) {
@@ -280,7 +291,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         return;
       }
 
-      // Nhánh thông thường: Ghi nhận giao dịch đã chi/thu vào sổ cái
+      // Nhánh thông thường: Ghi nhận giao dịch đã chi/thu vào sổ cái (Phương án 1)
+      const chosenCard = selectedCardId ? activeCreditCards.find((c) => c.id === selectedCardId) : null;
+
       const txPayload: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'> = {
         amount,
         type: txType,
@@ -298,6 +311,16 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         txPayload.goalName = selectedGoal?.title || '';
       }
 
+      // Nếu quẹt thẻ tín dụng: ghi nhận phương thức thẻ và trạng thái chờ quyết toán
+      if (txType === 'EXPENSE' && chosenCard) {
+        txPayload.paymentMethod = 'CREDIT_CARD';
+        txPayload.cardId = chosenCard.id;
+        txPayload.cardName = chosenCard.name;
+        txPayload.isSettled = false;
+      } else {
+        txPayload.paymentMethod = 'CASH';
+      }
+
       await logTransaction(txPayload);
 
       // Reset màn hình
@@ -306,8 +329,12 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
       setSelectedTagId(null);
       setPaidBy(userRole || 'Chồng');
       setSelectedGoalId(null);
+      setSelectedCardId(null);
 
-      showToast(`Đã ghi nhận ${txType === 'EXPENSE' ? 'khoản chi' : 'thu nhập'} ${formatVND(amount)}`, 'success');
+      const successNotice = chosenCard
+        ? `Đã ghi nhận quẹt thẻ ${chosenCard.name} ••${chosenCard.last4Digits}: ${formatVND(amount)}`
+        : `Đã ghi nhận ${txType === 'EXPENSE' ? 'khoản chi' : 'thu nhập'} ${formatVND(amount)}`;
+      showToast(successNotice, 'success');
 
       if (onSuccess) {
         onSuccess();
@@ -447,6 +474,55 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         selectedTagId={selectedTagId}
         tags={currentQuickTags}
       />
+
+      {/* 2.1. Dải chọn Phương thức thanh toán / Thẻ tín dụng 1-chạm */}
+      {txType === 'EXPENSE' && activeCreditCards.length > 0 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 min-w-0">
+          <button
+            type="button"
+            onClick={() => {
+              playActionClick();
+              triggerHaptic(8);
+              setSelectedCardId(null);
+            }}
+            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-medium border flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
+              selectedCardId === null
+                ? 'bg-[#0F3D39] text-white border-[#0F3D39] font-bold shadow-2xs'
+                : 'bg-[#FAF9F6] text-[#78716C] border-[#E6E2DA] hover:bg-[#F5F3EF]'
+            }`}
+          >
+            <span>💵 Tiền mặt / CK</span>
+          </button>
+
+          {activeCreditCards.map((card) => {
+            const isSelected = selectedCardId === card.id;
+            return (
+              <button
+                key={card.id}
+                type="button"
+                onClick={() => {
+                  playActionClick();
+                  triggerHaptic(8);
+                  const nextId = isSelected ? null : card.id;
+                  setSelectedCardId(nextId);
+                  if (nextId && isPending) {
+                    setDueDate(calculateCardNextDueDate(card.paymentDueDay));
+                  }
+                }}
+                className={`px-2.5 py-1.5 rounded-xl text-[11px] font-medium border flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
+                  isSelected
+                    ? 'text-white border-transparent font-bold shadow-2xs'
+                    : 'bg-[#FAF9F6] text-[#1C1917] border-[#E6E2DA] hover:bg-[#F5F3EF]'
+                }`}
+                style={isSelected ? { backgroundColor: card.color || '#0F3D39' } : {}}
+              >
+                <CreditCardIcon className="w-3 h-3" />
+                <span>{card.name} ••{card.last4Digits}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* 3. Người chi / nhận & Ghi chú (hoặc Hạn thanh toán & Ghi chú nếu là Khoản chờ) */}
       <div className="flex flex-col gap-2">

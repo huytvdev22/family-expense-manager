@@ -154,3 +154,35 @@ export function formatDueDateBadge(dueDateStr: string): {
     daysDiff: diff
   };
 }
+
+/**
+ * Tự động tính ngày đến hạn thanh toán sao kê gần nhất cho thẻ tín dụng (YYYY-MM-DD)
+ * Dựa vào ngày đến hạn thanh toán hàng tháng (paymentDueDay).
+ */
+export function calculateCardNextDueDate(paymentDueDay: number): string {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth(); // 0-indexed
+  const currentDay = now.getDate();
+
+  let targetYear = currentYear;
+  let targetMonth = currentMonth;
+
+  if (currentDay > paymentDueDay) {
+    // Hạn tháng này đã qua, hạn tiếp theo rơi vào tháng sau
+    targetMonth += 1;
+    if (targetMonth > 11) {
+      targetMonth = 0;
+      targetYear += 1;
+    }
+  }
+
+  // Xử lý tháng có ít ngày hơn paymentDueDay (vd tháng 2)
+  const lastDayOfTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
+  const finalDay = Math.min(paymentDueDay, lastDayOfTargetMonth);
+
+  const y = targetYear;
+  const m = String(targetMonth + 1).padStart(2, '0');
+  const d = String(finalDay).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
