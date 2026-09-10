@@ -5,6 +5,7 @@ import { useBodyScrollLock } from './utils/scrollLock';
 import { Header, type DesktopView } from './components/Header';
 import { BalanceCard } from './components/BalanceCard';
 import { Numpad } from './components/Numpad';
+import { NumpadBottomSheet } from './components/NumpadBottomSheet';
 import { TransactionList } from './components/TransactionList';
 import { PendingExpensesSection } from './components/PendingExpensesSection';
 import { InviteModal } from './components/InviteModal';
@@ -240,63 +241,12 @@ export const App: React.FC = () => {
       <UpdateNotification />
 
       {/* =========================================================================
-          BOTTOM SHEET GHI NHẬN THU CHI TRÊN DI ĐỘNG (NUMPAD BOTTOM SHEET)
+          BOTTOM SHEET GHI NHẬN THU CHI TRÊN DI ĐỘNG (NUMPAD BOTTOM SHEET CÓ VUỐT ĐÓNG)
           ========================================================================= */}
-      {isNumpadSheetOpen && (
-        <div
-          className="fixed inset-0 z-60 flex items-end justify-center p-0 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 sm:hidden touch-none"
-          onTouchMove={(e) => {
-            if (e.target === e.currentTarget) e.preventDefault();
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              playActionClick();
-              setIsNumpadSheetOpen(false);
-            }
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[94dvh] animate-in slide-in-from-bottom-3 duration-200 pb-safe"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Header Bottom Sheet - Sát mép trên, bo góc đồng bộ */}
-            <div className="px-4 py-3 border-b border-[#E6E2DA] flex items-center justify-between bg-white rounded-t-3xl shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-xl bg-[#0F3D39] text-[#FAF9F6] flex items-center justify-center shadow-2xs text-xs font-bold font-mono">
-                  ₫
-                </div>
-                <div>
-                  <h3 className="text-xs font-bold text-[#1C1917]">Ghi nhận thu chi</h3>
-                  <p className="text-[10px] text-[#78716C]">Nhập số tiền hoặc chạm gợi ý nhanh</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  playActionClick();
-                  setIsNumpadSheetOpen(false);
-                }}
-                className="w-7 h-7 rounded-xl text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF] flex items-center justify-center transition-colors cursor-pointer"
-                title="Đóng"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Thân cuộn Bottom Sheet - Tự động co giãn theo nội dung */}
-            <div className="p-2.5 sm:p-3 overflow-y-auto overscroll-contain touch-pan-y pb-4">
-              <Numpad
-                isBottomSheet
-                onSuccess={() => {
-                  setIsNumpadSheetOpen(false);
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      <NumpadBottomSheet
+        isOpen={isNumpadSheetOpen}
+        onClose={() => setIsNumpadSheetOpen(false)}
+      />
     </div>
   );
 };

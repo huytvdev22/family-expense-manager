@@ -5,6 +5,7 @@ import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { useBodyScrollLock } from '../utils/scrollLock';
 import { useToast } from './Toast';
+import { useSwipeDownDismiss } from '../utils/useSwipeDownDismiss';
 import type { CreditCard } from '../types';
 
 interface CardManagerModalProps {
@@ -48,6 +49,15 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
     setEditingCardId(null);
     setViewMode('LIST');
   };
+
+  // Cử chỉ vuốt kéo xuống để đóng Bottom Sheet trên di động
+  const { swipeHandlers, sheetStyle, backdropStyle, isClosing } = useSwipeDownDismiss({
+    onClose: () => {
+      resetForm();
+      onClose();
+    },
+    threshold: 75
+  });
 
   const handleStartAdd = () => {
     playActionClick();
@@ -118,8 +128,9 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
   return (
     <div
       className="fixed inset-0 z-70 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
+      style={backdropStyle}
       onClick={(e) => {
-        if (e.target === e.currentTarget && !isSubmitting) {
+        if (e.target === e.currentTarget && !isSubmitting && !isClosing) {
           playActionClick();
           onClose();
         }
@@ -128,11 +139,18 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
       <div
         role="dialog"
         aria-modal="true"
-        className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 pb-safe"
+        style={sheetStyle}
+        className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 pb-safe transition-[max-height] duration-200 ease-out"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header Bottom Sheet */}
-        <div className="px-5 py-4 border-b border-[#F5F3EF] flex items-center justify-between bg-white shrink-0">
+        {/* Vùng kéo vuốt Header (Swipe to dismiss) */}
+        <div {...swipeHandlers} className="cursor-grab active:cursor-grabbing select-none bg-white rounded-t-3xl shrink-0">
+          <div className="w-full pt-2 pb-1 flex items-center justify-center sm:hidden">
+            <div className="w-9 h-1 bg-[#D6D3CD] rounded-full hover:bg-[#A8A29E] transition-colors" />
+          </div>
+
+          {/* Header Bottom Sheet */}
+          <div className="px-5 pb-3 pt-0 sm:py-4 border-b border-[#F5F3EF] flex items-center justify-between bg-white shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
             {viewMode === 'FORM' ? (
               <button
@@ -178,6 +196,7 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
           >
             <X className="w-4 h-4" />
           </button>
+          </div>
         </div>
 
         {/* Nội dung cuộn */}
