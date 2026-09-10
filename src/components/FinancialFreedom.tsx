@@ -257,17 +257,17 @@ export const FinancialFreedom: React.FC = () => {
 
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* =========================================================================
           1. HEADER PHÂN HỆ TỰ DO TÀI CHÍNH & BANNER TỔNG QUAN
           ========================================================================= */}
-      <div className="flex items-center justify-between gap-3 pb-1">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-base sm:text-lg font-bold text-[#1C1917] tracking-tight">
               Mục tiêu tài chính
             </h2>
-            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#B45309] border border-[#B45309]/20 shrink-0">
+            <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#B45309] border border-[#B45309]/20 shrink-0 inline-flex items-center">
               {financialGoals.length} mục tiêu
             </span>
           </div>
@@ -279,9 +279,9 @@ export const FinancialFreedom: React.FC = () => {
         <button
           type="button"
           onClick={() => handleOpenCreate('DEBT_PAYOFF')}
-          className="h-9 sm:h-10 px-3 sm:px-4 rounded-xl sm:rounded-2xl bg-[#0F3D39] hover:bg-[#174E4A] text-white text-xs font-bold flex items-center justify-center gap-1.5 sm:gap-2 shadow-xs active:scale-95 transition-all cursor-pointer shrink-0"
+          className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-xl bg-[#0F3D39] hover:bg-[#174E4A] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-3.5 h-3.5" />
           <span className="hidden xs:inline">Thêm mục tiêu</span>
           <span className="xs:hidden">Thêm</span>
         </button>
