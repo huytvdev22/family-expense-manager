@@ -31,6 +31,7 @@ Most AI-generated UIs suffer from uniform blandness: dark slate/indigo neon grad
 ## 4. Layout Architecture: Responsive Duality
 - **Mobile Experience (Handheld Context):**
   - Ergonomic thumb-zone accessibility: primary triggers and navigation must live at the screen's bottom (Bottom Dock).
+  - **Standardized BottomSheet Primitive:** All interactive overlays, modals, and auxiliary entry forms must standardize on the unified `BottomSheet.tsx` architecture (bám đáy phẳng, zero bottom gap on iOS PWA, swipe-down gesture dismissal, and Portal isolation).
   - Horizontal scrolling carousels for tag selection to preserve vertical screen real estate.
   - Strict containment: prevent awkward viewport scrolling during single-task input.
 - **Desktop Experience (Workspace Context):**
