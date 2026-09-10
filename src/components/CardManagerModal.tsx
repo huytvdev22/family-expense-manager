@@ -51,7 +51,8 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
   };
 
   // Cử chỉ vuốt kéo xuống để đóng Bottom Sheet trên di động
-  const { swipeHandlers, sheetStyle, backdropStyle, isClosing } = useSwipeDownDismiss({
+  const { isRendered, swipeHandlers, sheetStyle, backdropStyle, triggerClose } = useSwipeDownDismiss({
+    isOpen,
     onClose: () => {
       resetForm();
       onClose();
@@ -123,16 +124,16 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
     }
   };
 
-  if (!isOpen) return null;
+  if (!isRendered) return null;
 
   return (
     <div
-      className="fixed inset-0 z-70 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
+      className="fixed inset-0 z-70 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs touch-none"
       style={backdropStyle}
       onClick={(e) => {
-        if (e.target === e.currentTarget && !isSubmitting && !isClosing) {
+        if (e.target === e.currentTarget && !isSubmitting) {
           playActionClick();
-          onClose();
+          triggerClose();
         }
       }}
     >
@@ -140,7 +141,7 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
         role="dialog"
         aria-modal="true"
         style={sheetStyle}
-        className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 pb-safe transition-[max-height] duration-200 ease-out"
+        className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] sm:max-h-[88vh] pb-safe"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Vùng kéo vuốt Header (Swipe to dismiss) */}
@@ -189,7 +190,7 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
             type="button"
             onClick={() => {
               playActionClick();
-              onClose();
+              triggerClose();
             }}
             disabled={isSubmitting}
             className="w-8 h-8 rounded-xl text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF] flex items-center justify-center transition-colors cursor-pointer disabled:opacity-50"
@@ -401,7 +402,7 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
               type="button"
               onClick={() => {
                 playActionClick();
-                onClose();
+                triggerClose();
               }}
               className="w-full py-3 min-h-[44px] rounded-2xl bg-[#0F3D39] hover:bg-[#174E4A] text-white text-xs sm:text-sm font-bold transition-all shadow-2xs active:scale-98 cursor-pointer flex items-center justify-center"
             >

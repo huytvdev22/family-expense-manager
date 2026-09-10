@@ -13,24 +13,25 @@ interface NumpadBottomSheetProps {
 export const NumpadBottomSheet: React.FC<NumpadBottomSheetProps> = ({ isOpen, onClose }) => {
   useBodyScrollLock(isOpen);
 
-  const { swipeHandlers, sheetStyle, backdropStyle, isClosing } = useSwipeDownDismiss({
+  const { isRendered, swipeHandlers, sheetStyle, backdropStyle, triggerClose } = useSwipeDownDismiss({
+    isOpen,
     onClose,
-    threshold: 70
+    threshold: 75
   });
 
-  if (!isOpen) return null;
+  if (!isRendered) return null;
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-end justify-center p-0 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 sm:hidden touch-none"
+      className="fixed inset-0 z-60 flex items-end justify-center p-0 bg-black/55 backdrop-blur-xs sm:hidden touch-none"
       style={backdropStyle}
       onTouchMove={(e) => {
         if (e.target === e.currentTarget) e.preventDefault();
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget && !isClosing) {
+        if (e.target === e.currentTarget) {
           playActionClick();
-          onClose();
+          triggerClose();
         }
       }}
     >
@@ -38,7 +39,7 @@ export const NumpadBottomSheet: React.FC<NumpadBottomSheetProps> = ({ isOpen, on
         role="dialog"
         aria-modal="true"
         style={sheetStyle}
-        className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[94dvh] animate-in slide-in-from-bottom-3 duration-250 pb-safe transition-[max-height] duration-200 ease-out"
+        className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[94dvh] pb-safe"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Vùng kéo vuốt Header (Swipe to dismiss) */}
@@ -63,7 +64,7 @@ export const NumpadBottomSheet: React.FC<NumpadBottomSheetProps> = ({ isOpen, on
               type="button"
               onClick={() => {
                 playActionClick();
-                onClose();
+                triggerClose();
               }}
               className="w-7 h-7 rounded-xl text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF] flex items-center justify-center transition-colors cursor-pointer"
               title="Đóng (hoặc vuốt xuống)"
@@ -77,7 +78,7 @@ export const NumpadBottomSheet: React.FC<NumpadBottomSheetProps> = ({ isOpen, on
         <div className="p-2.5 sm:p-3 overflow-y-auto overscroll-contain touch-pan-y pb-4">
           <Numpad
             isBottomSheet
-            onSuccess={onClose}
+            onSuccess={triggerClose}
           />
         </div>
       </div>
