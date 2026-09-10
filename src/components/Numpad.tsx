@@ -425,14 +425,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
       </div>
 
       {/* 1. Màn hình hiển thị số tiền (Display) */}
-      <div className={`bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl ${isBottomSheet ? 'p-2 min-h-[58px] sm:min-h-[72px]' : 'p-2.5 sm:p-3 min-h-[68px] sm:min-h-[74px]'} flex flex-col items-center justify-center relative`}>
-        <span className="text-[10px] uppercase font-mono text-[#78716C] tracking-wider mb-0.5">
-          {isPending
-            ? 'Số tiền khoản chờ (chưa trừ ví)'
-            : txType === 'EXPENSE'
-            ? 'Số tiền chi tiêu'
-            : 'Số tiền thu nhập'}
-        </span>
+      <div className={`bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl ${isBottomSheet ? 'py-2 px-3 min-h-[50px] sm:min-h-[60px]' : 'py-2.5 sm:py-3 px-4 min-h-[56px] sm:min-h-[64px]'} flex flex-col items-center justify-center relative`}>
         <div className="flex items-baseline gap-1 text-[#1C1917]">
           {txType === 'INCOME' && amountStr !== '0' && (
             <span className="text-2xl font-bold font-mono text-[#10B981]">+</span>
