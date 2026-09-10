@@ -1,10 +1,10 @@
 import React from 'react';
-import { X, Receipt } from 'lucide-react';
+import { Receipt } from 'lucide-react';
 import type { Transaction } from '../types';
 import { formatVND, formatDateLabel } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
-import { useBodyScrollLock } from '../utils/scrollLock';
+import { BottomSheet } from './BottomSheet';
 
 interface SpendingHistoryModalProps {
   isOpen: boolean;
@@ -44,17 +44,6 @@ export const SpendingHistoryModal: React.FC<SpendingHistoryModalProps> = ({
   onSelectTransaction,
   emptyMessage = 'Chưa có khoản chi tiêu nào được ghi nhận.'
 }) => {
-  // Khóa cuộn trang nền trên iOS khi mở Modal lịch sử chi tiêu
-  useBodyScrollLock(isOpen);
-
-  if (!isOpen) return null;
-
-  const handleClose = () => {
-    playActionClick();
-    triggerHaptic(6);
-    onClose();
-  };
-
   const handleItemClick = (tx: Transaction) => {
     playActionClick();
     triggerHaptic(10);
@@ -64,167 +53,125 @@ export const SpendingHistoryModal: React.FC<SpendingHistoryModalProps> = ({
   };
 
   return (
-    <div 
-      className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
-      onTouchMove={(e) => {
-        if (e.target === e.currentTarget) e.preventDefault();
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) handleClose();
-      }}
-    >
-      <div className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[88vh] sm:max-h-[85vh] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-3 duration-200">
-        {/* Header Modal */}
-        <div className="p-4 sm:p-5 border-b border-[#F5F3EF] flex items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-xs"
-              style={{ backgroundColor: iconBgColor }}
-            >
-              {icon}
-            </div>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                    badgeColor === 'amber'
-                      ? 'bg-[#FEF3C7] text-[#B45309]'
-                      : 'bg-[#E7EFEF] text-[#0F3D39]'
-                  }`}
-                >
-                  {badgeText}
-                </span>
-              </div>
-              <h3 className="text-sm sm:text-base font-bold text-[#1C1917] truncate mt-0.5">
-                {title}
-              </h3>
-            </div>
-          </div>
-
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={title}
+      subtitle={
+        <span
+          className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full inline-block mt-0.5 ${
+            badgeColor === 'amber'
+              ? 'bg-[#FEF3C7] text-[#B45309]'
+              : 'bg-[#E7EFEF] text-[#0F3D39]'
+          }`}
+        >
+          {badgeText}
+        </span>
+      }
+      icon={
+        <div
+          className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-xs"
+          style={{ backgroundColor: iconBgColor }}
+        >
+          {icon}
+        </div>
+      }
+      maxHeight="max-h-[90dvh] sm:max-h-[85vh]"
+      bodyClassName="p-0"
+      footer={
+        <div className="p-3 sm:p-4">
           <button
             type="button"
-            onClick={handleClose}
-            className="w-8 h-8 rounded-xl text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF] flex items-center justify-center transition-colors shrink-0 cursor-pointer"
-            title="Đóng"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Thống kê tóm tắt nhanh */}
-        <div className="px-4 sm:px-5 py-3 bg-[#FAF9F6] border-b border-[#F5F3EF] grid grid-cols-2 gap-3 shrink-0">
-          <div>
-            <span className="text-[11px] text-[#78716C] block">
-              {summaryLeft.label}
-            </span>
-            <span className="text-sm font-bold font-mono text-[#0F3D39]">
-              {formatVND(summaryLeft.amount)}
-            </span>
-            <span className="text-[10px] text-[#78716C] block mt-0.5 font-mono">
-              ({summaryLeft.count} giao dịch)
-            </span>
-          </div>
-          <div className="text-right">
-            <span className="text-[11px] text-[#78716C] block">
-              {summaryRight.label}
-            </span>
-            <span
-              className={`text-sm font-bold font-mono ${
-                summaryRight.valueColor || 'text-[#0F3D39]'
-              }`}
-            >
-              {summaryRight.value}
-            </span>
-            {summaryRight.subtext && (
-              <span className="text-[10px] text-[#78716C] block mt-0.5 font-mono">
-                {summaryRight.subtext}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Danh sách các khoản chi tiêu */}
-        <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain touch-pan-y flex-1 space-y-2.5">
-          {transactions.length === 0 ? (
-            <div className="text-center py-8 px-4 bg-[#FAF9F6] rounded-2xl border border-dashed border-[#E6E2DA]">
-              <div className="w-10 h-10 mx-auto rounded-xl bg-white border border-[#E6E2DA] flex items-center justify-center text-[#78716C] mb-2.5 shadow-2xs">
-                <Receipt className="w-5 h-5 stroke-[1.5]" />
-              </div>
-              <p className="text-xs font-semibold text-[#1C1917]">
-                {emptyMessage}
-              </p>
-              <p className="text-[11px] text-[#78716C] mt-1 max-w-xs mx-auto leading-relaxed">
-                Các khoản chi tiêu được ghi nhận sẽ tự động xuất hiện tại đây.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-[11px] text-[#78716C] px-1">
-                <span>Tất cả các lần đã ghi nhận</span>
-                <span className="font-mono font-medium">{transactions.length} giao dịch</span>
-              </div>
-              <div className="divide-y divide-[#F5F3EF] border border-[#F5F3EF] rounded-2xl overflow-hidden bg-[#FAF9F6]/60">
-                {transactions.map((tx) => {
-                  const isIncome = tx.type === 'INCOME';
-                  return (
-                    <div
-                      key={tx.id}
-                      onClick={() => handleItemClick(tx)}
-                      className="p-3 hover:bg-white transition-colors flex items-center justify-between gap-3 cursor-pointer group"
-                      title={onSelectTransaction ? 'Bấm để xem hoặc chỉnh sửa giao dịch này' : undefined}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-[#1C1917] truncate group-hover:text-[#0F3D39] transition-colors">
-                            {tx.note || tx.categoryName}
-                          </span>
-                          <span
-                            className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium shrink-0 ${
-                              isIncome
-                                ? 'bg-[#ECFDF5] text-[#047857]'
-                                : tx.paidBy === 'Chồng'
-                                ? 'bg-[#E7EFEF] text-[#0F3D39]'
-                                : 'bg-[#FEF3C7] text-[#B45309]'
-                            }`}
-                          >
-                            {isIncome ? `${tx.paidBy} nhận` : tx.paidBy}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-[10px] text-[#78716C] mt-0.5">
-                          <span>{formatDateLabel(tx.date)}</span>
-                          <span>•</span>
-                          <span className="truncate">{tx.categoryName}</span>
-                        </div>
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <span
-                          className={`text-xs sm:text-sm font-bold font-mono ${
-                            isIncome ? 'text-[#059669]' : 'text-[#0F3D39]'
-                          }`}
-                        >
-                          {isIncome ? '+' : ''}{formatVND(tx.amount)}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Modal Footer */}
-        <div className="p-3 sm:p-4 bg-white border-t border-[#F5F3EF] flex items-center justify-end shrink-0 pb-safe">
-          <button
-            type="button"
-            onClick={handleClose}
-            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0F3D39] text-white text-xs font-bold hover:bg-[#174E4A] transition-colors cursor-pointer text-center"
+            onClick={() => {
+              playActionClick();
+              triggerHaptic(6);
+              onClose();
+            }}
+            className="w-full py-3 min-h-[44px] rounded-2xl bg-[#0F3D39] hover:bg-[#174E4A] text-white text-xs sm:text-sm font-bold transition-all shadow-2xs active:scale-98 cursor-pointer flex items-center justify-center"
           >
             Đóng
           </button>
         </div>
+      }
+    >
+      {/* Thống kê tóm tắt nhanh */}
+      <div className="px-4 sm:px-5 py-3 bg-[#FAF9F6] border-b border-[#F5F3EF] grid grid-cols-2 gap-3 shrink-0">
+        <div>
+          <span className="text-[11px] text-[#78716C] block">
+            {summaryLeft.label}
+          </span>
+          <span className="text-sm font-bold font-mono text-[#0F3D39]">
+            {formatVND(summaryLeft.amount)}
+          </span>
+          <span className="text-[10px] text-[#78716C] block font-mono">
+            {summaryLeft.count} giao dịch
+          </span>
+        </div>
+
+        <div className="text-right">
+          <span className="text-[11px] text-[#78716C] block">
+            {summaryRight.label}
+          </span>
+          <span
+            className={`text-sm font-bold font-mono ${
+              summaryRight.valueColor || 'text-[#1C1917]'
+            }`}
+          >
+            {summaryRight.value}
+          </span>
+          {summaryRight.subtext && (
+            <span className="text-[10px] text-[#78716C] block">
+              {summaryRight.subtext}
+            </span>
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* Danh sách giao dịch chi tiết */}
+      <div className="divide-y divide-[#F5F3EF]">
+        {transactions.length === 0 ? (
+          <div className="py-12 px-4 text-center">
+            <Receipt className="w-10 h-10 text-[#D6D3CD] mx-auto mb-2 stroke-[1.5]" />
+            <p className="text-xs text-[#78716C] font-medium">{emptyMessage}</p>
+          </div>
+        ) : (
+          transactions.map((tx) => (
+            <div
+              key={tx.id}
+              onClick={() => handleItemClick(tx)}
+              className="px-4 sm:px-5 py-3 flex items-center justify-between hover:bg-[#FAF9F6] active:bg-[#F5F3EF] transition-colors cursor-pointer"
+            >
+              <div className="min-w-0 pr-3">
+                <p className="text-xs sm:text-sm font-semibold text-[#1C1917] truncate">
+                  {tx.note || tx.categoryName}
+                </p>
+                <div className="flex items-center gap-2 mt-0.5 text-[11px] text-[#78716C]">
+                  <span>{formatDateLabel(tx.date)}</span>
+                  <span>•</span>
+                  <span>{tx.paidBy}</span>
+                  {tx.goalName && (
+                    <>
+                      <span>•</span>
+                      <span className="text-[#0F3D39] truncate max-w-[120px]">
+                        🎯 {tx.goalName}
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="text-right shrink-0">
+                <span className="text-xs sm:text-sm font-bold font-mono text-[#0F3D39]">
+                  {formatVND(tx.amount)}
+                </span>
+                <span className="text-[10px] text-[#78716C] block">
+                  {tx.categoryName}
+                </span>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </BottomSheet>
   );
 };

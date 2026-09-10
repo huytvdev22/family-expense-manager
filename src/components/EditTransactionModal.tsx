@@ -6,7 +6,7 @@ import { formatVND, getLocalDateString, formatDisplayDate } from '../utils/curre
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { renderGoalIcon, renderCategoryIcon } from '../utils/categoryIcons';
-import { useBodyScrollLock } from '../utils/scrollLock';
+import { BottomSheet } from './BottomSheet';
 import type { Transaction, CategoryKey } from '../types';
 
 interface EditTransactionModalProps {
@@ -22,9 +22,6 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
 }) => {
   const { categories, editTransaction, removeTransaction, financialGoals } = useApp();
   const { showToast } = useToast();
-
-  // Khóa cuộn trang nền trên iOS khi mở Modal / Bottom Sheet
-  useBodyScrollLock(isOpen && Boolean(transaction));
 
   const [txType, setTxType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
   const [amountStr, setAmountStr] = useState<string>('0');
@@ -271,45 +268,15 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   };
 
   return (
-    <div 
-      className="fixed inset-0 z-70 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
-      onTouchMove={(e) => {
-        if (e.target === e.currentTarget) e.preventDefault();
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          playActionClick();
-          onClose();
-        }
-      }}
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={`Chỉnh sửa ${txType === 'EXPENSE' ? 'khoản chi' : 'thu nhập'}`}
+      subtitle={transaction.note || transaction.categoryName}
+      maxHeight="max-h-[92dvh] sm:max-h-[88vh]"
     >
-      <div 
-        role="dialog" 
-        aria-modal="true" 
-        className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl relative max-h-[90vh] sm:max-h-[85vh] overflow-y-auto overscroll-contain touch-pan-y pb-safe sm:pb-6 animate-in slide-in-from-bottom-3 duration-200"
-      >
-        {/* Thanh trượt chỉ báo Bottom Sheet trên mobile */}
-        <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto mb-3 sm:hidden shrink-0" />
-        {/* Header Modal */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#F5F3EF]">
-          <h3 className="text-base font-bold text-[#1C1917]">
-            Chỉnh sửa {txType === 'EXPENSE' ? 'khoản chi' : 'thu nhập'}
-          </h3>
-          <button
-            type="button"
-            onClick={() => {
-              playActionClick();
-              onClose();
-            }}
-            className="w-8 h-8 rounded-full flex items-center justify-center text-[#A8A29E] hover:text-[#1C1917] hover:bg-[#F5F3EF] transition-all cursor-pointer"
-            aria-label="Đóng"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSave} className="mt-4 space-y-4">
-          {/* Bộ chọn loại giao dịch: Khoản chi vs Thu nhập */}
+      <form onSubmit={handleSave} className="space-y-4">
+        {/* Bộ chọn loại giao dịch: Khoản chi vs Thu nhập */}
           <div className="grid grid-cols-2 gap-1 p-1 bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl shadow-2xs">
             <button
               type="button"
@@ -597,7 +564,6 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             </div>
           </div>
         </form>
-      </div>
-    </div>
+    </BottomSheet>
   );
 };

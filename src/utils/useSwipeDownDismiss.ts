@@ -105,8 +105,7 @@ export function useSwipeDownDismiss({ isOpen, onClose, threshold = 75 }: UseSwip
       ? 'none'
       : isVisible
       ? 'transform 320ms cubic-bezier(0.16, 1, 0.3, 1), max-height 250ms ease-out'
-      : 'transform 260ms cubic-bezier(0.4, 0, 1, 1)',
-    touchAction: 'none'
+      : 'transform 260ms cubic-bezier(0.4, 0, 1, 1)'
   };
 
   // CSS Style cho lớp nền Backdrop (KHÔNG đổi opacity khi kéo ngón tay - giữ vững độ tối!)
