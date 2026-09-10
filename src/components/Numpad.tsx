@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Delete, Check, Tag, Target, ChevronDown, Clock, Calendar, CreditCard as CreditCardIcon } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { formatVND, getLocalDateString, formatDisplayDate, formatDueDateBadge, calculateCardNextDueDate } from '../utils/currency';
+import { formatVND, getLocalDateString, formatDisplayDate, formatDueDateBadge } from '../utils/currency';
 import { playKeyClick, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { renderGoalIcon, renderCategoryIcon } from '../utils/categoryIcons';
@@ -268,13 +268,6 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
           pendingPayload.goalName = selectedGoal?.title || '';
         }
 
-        if (selectedCardId) {
-          const chosenCard = activeCreditCards.find((c) => c.id === selectedCardId);
-          pendingPayload.paymentType = 'CREDIT_CARD';
-          pendingPayload.cardId = chosenCard?.id;
-          pendingPayload.cardName = chosenCard?.name;
-        }
-
         await logPendingExpense(pendingPayload);
 
         // Reset màn hình
@@ -403,6 +396,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
             triggerHaptic(10);
             setTxType('EXPENSE');
             setIsPending(true);
+            setSelectedCardId(null);
           }}
           className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition-all tactile-btn ${
             txType === 'EXPENSE' && isPending
@@ -475,8 +469,8 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         tags={currentQuickTags}
       />
 
-      {/* 2.1. Dải chọn Phương thức thanh toán / Thẻ tín dụng 1-chạm */}
-      {txType === 'EXPENSE' && activeCreditCards.length > 0 && (
+      {/* 2.1. Dải chọn Phương thức thanh toán / Thẻ tín dụng 1-chạm (Chỉ hiện khi ghi nhận Khoản chi) */}
+      {txType === 'EXPENSE' && !isPending && activeCreditCards.length > 0 && (
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 min-w-0">
           <button
             type="button"
@@ -503,11 +497,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
                 onClick={() => {
                   playActionClick();
                   triggerHaptic(8);
-                  const nextId = isSelected ? null : card.id;
-                  setSelectedCardId(nextId);
-                  if (nextId && isPending) {
-                    setDueDate(calculateCardNextDueDate(card.paymentDueDay));
-                  }
+                  setSelectedCardId(isSelected ? null : card.id);
                 }}
                 className={`px-2.5 py-1.5 rounded-xl text-[11px] font-medium border flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
                   isSelected
