@@ -31,7 +31,7 @@ import { renderGoalIcon } from '../utils/categoryIcons';
 import type { FinancialGoal, GoalType } from '../types';
 import { sortFinancialGoals, type GoalSortOption } from '../utils/goalSorting';
 import { useToast } from './Toast';
-import { useBodyScrollLock } from '../utils/scrollLock';
+import { BottomSheet } from './BottomSheet';
 
 const GOAL_COLORS = [
   { label: 'Terracotta', hex: '#B45309' },
@@ -65,9 +65,6 @@ export const FinancialFreedom: React.FC = () => {
 
   // Modal xem lịch sử tích lũy / trả nợ của mục tiêu
   const [selectedHistoryGoal, setSelectedHistoryGoal] = useState<FinancialGoal | null>(null);
-
-  // Khóa cuộn trang nền trên iOS khi mở Modal / Bottom Sheet mục tiêu tài chính
-  useBodyScrollLock(isModalOpen || Boolean(selectedHistoryGoal));
 
   // Thống kê số lượng giao dịch đã gắn với từng mục tiêu
   const goalTxCounts = useMemo(() => {
@@ -685,41 +682,39 @@ export const FinancialFreedom: React.FC = () => {
       {/* =========================================================================
           3. MODAL TẠO / SỬA MỤC TIÊU TỰ DO TÀI CHÍNH
           ========================================================================= */}
-      {isModalOpen && (
-        <div 
-          className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
-          onTouchMove={(e) => {
-            if (e.target === e.currentTarget) e.preventDefault();
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setIsModalOpen(false);
-          }}
-        >
-          <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-3 duration-200">
-            {/* Thanh trượt chỉ báo Bottom Sheet trên mobile */}
-            <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto mt-2.5 sm:hidden shrink-0" />
-            {/* Header Modal */}
-            <div className="p-4 border-b border-[#E6E2DA] flex items-center justify-between bg-white shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-[#0F3D39] text-[#FAF9F6] flex items-center justify-center">
-                  <Target className="w-4 h-4" />
-                </div>
-                <h3 className="text-sm font-bold text-[#1C1917]">
-                  {editingGoal ? 'Chỉnh sửa mục tiêu' : 'Tạo mục tiêu Tự do Tài chính'}
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="text-[#78716C] hover:text-[#1C1917] p-1.5 rounded-xl hover:bg-[#F5F3EF] cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Nội dung form */}
-            <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain touch-pan-y space-y-4 text-xs flex-1">
-              {/* Chọn loại mục tiêu: Khoản nợ vs Tích lũy */}
+      <BottomSheet
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={editingGoal ? 'Chỉnh sửa mục tiêu' : 'Tạo mục tiêu Tự do Tài chính'}
+        subtitle={editingGoal ? 'Cập nhật lộ trình tài chính' : 'Thiết lập cột mốc tự do tài chính'}
+        icon={
+          <div className="w-8 h-8 rounded-xl bg-[#0F3D39] text-[#FAF9F6] flex items-center justify-center shadow-2xs font-bold shrink-0">
+            <Target className="w-4 h-4" />
+          </div>
+        }
+        maxHeight="max-h-[92dvh] sm:max-h-[88vh]"
+        bodyClassName="p-4 sm:p-5 space-y-4 text-xs"
+        footer={
+          <div className="p-3 sm:p-4 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setIsModalOpen(false)}
+              className="px-4 py-2.5 rounded-xl border border-[#E6E2DA] text-xs font-semibold text-[#78716C] hover:bg-[#F5F3EF] cursor-pointer min-h-[40px]"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveGoal}
+              className="px-5 py-2.5 rounded-xl bg-[#0F3D39] text-white text-xs font-bold hover:bg-[#174E4A] flex items-center gap-1.5 shadow-sm active:scale-98 transition-all cursor-pointer min-h-[40px]"
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>{editingGoal ? 'Lưu thay đổi' : 'Tạo mục tiêu'}</span>
+            </button>
+          </div>
+        }
+      >
+        {/* Chọn loại mục tiêu: Khoản nợ vs Tích lũy */}
               <div>
                 <label className="block font-bold text-[#0F3D39] uppercase tracking-wider text-[10px] font-mono mb-1.5">
                   Loại mục tiêu:
@@ -926,83 +921,49 @@ export const FinancialFreedom: React.FC = () => {
                   className="w-full text-xs p-2.5 rounded-xl border border-[#E6E2DA] bg-white outline-hidden focus:border-[#0F3D39]"
                 />
               </div>
-            </div>
-
-            {/* Footer Modal */}
-            <div className="p-4 bg-white border-t border-[#E6E2DA] flex items-center justify-end gap-2 shrink-0 pb-safe sm:pb-4">
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-xs text-[#78716C] hover:bg-[#F5F3EF] cursor-pointer"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveGoal}
-                className="px-5 py-2.5 rounded-xl bg-[#0F3D39] text-white text-xs font-bold hover:bg-[#174E4A] flex items-center gap-1.5 shadow-sm active:scale-98 transition-all cursor-pointer"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>{editingGoal ? 'Lưu thay đổi' : 'Tạo mục tiêu'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      </BottomSheet>
 
       {/* =========================================================================
           4. MODAL XEM LỊCH SỬ TÍCH LŨY / TRẢ NỢ CỦA MỤC TIÊU
           ========================================================================= */}
       {selectedHistoryGoal && (
-        <div 
-          className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
-          onTouchMove={(e) => {
-            if (e.target === e.currentTarget) e.preventDefault();
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              playActionClick();
-              setSelectedHistoryGoal(null);
-            }
-          }}
-        >
-          <div className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg max-h-[88vh] sm:max-h-[85vh] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-3 duration-200">
-            {/* Modal Header */}
-            <div className="p-4 sm:p-5 border-b border-[#F5F3EF] flex items-center justify-between gap-3 shrink-0">
-              <div className="flex items-center gap-3 min-w-0">
-                <div
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-xs"
-                  style={{ backgroundColor: selectedHistoryGoal.color || '#0F3D39' }}
-                >
-                  {renderGoalIcon(selectedHistoryGoal.icon, selectedHistoryGoal.type, 'w-5 h-5')}
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                        selectedHistoryGoal.type === 'DEBT_PAYOFF'
-                          ? 'bg-[#FEF3C7] text-[#B45309]'
-                          : 'bg-[#ECFDF5] text-[#047857]'
-                      }`}
-                    >
-                      {selectedHistoryGoal.type === 'DEBT_PAYOFF' ? 'Lịch sử trả nợ' : 'Lịch sử tích lũy'}
-                    </span>
-                  </div>
-                  <h3 className="text-sm sm:text-base font-bold text-[#1C1917] truncate mt-0.5">
-                    {selectedHistoryGoal.title}
-                  </h3>
-                </div>
-              </div>
-
+        <BottomSheet
+          isOpen={Boolean(selectedHistoryGoal)}
+          onClose={() => setSelectedHistoryGoal(null)}
+          title={selectedHistoryGoal.title}
+          subtitle={
+            <span
+              className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full inline-block mt-0.5 ${
+                selectedHistoryGoal.type === 'DEBT_PAYOFF'
+                  ? 'bg-[#FEF3C7] text-[#B45309]'
+                  : 'bg-[#ECFDF5] text-[#047857]'
+              }`}
+            >
+              {selectedHistoryGoal.type === 'DEBT_PAYOFF' ? 'Lịch sử trả nợ' : 'Lịch sử tích lũy'}
+            </span>
+          }
+          icon={
+            <div
+              className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-xs"
+              style={{ backgroundColor: selectedHistoryGoal.color || '#0F3D39' }}
+            >
+              {renderGoalIcon(selectedHistoryGoal.icon, selectedHistoryGoal.type, 'w-5 h-5')}
+            </div>
+          }
+          maxHeight="max-h-[90dvh] sm:max-h-[85vh]"
+          bodyClassName="p-0 flex flex-col"
+          footer={
+            <div className="p-3 sm:p-4 flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => setSelectedHistoryGoal(null)}
-                className="w-8 h-8 rounded-xl text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF] flex items-center justify-center transition-colors shrink-0 cursor-pointer"
-                title="Đóng"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0F3D39] text-white text-xs font-bold hover:bg-[#174E4A] transition-colors cursor-pointer text-center min-h-[40px]"
               >
-                <X className="w-5 h-5" />
+                Đóng
               </button>
             </div>
+          }
+        >
 
             {/* Thống kê tóm tắt nhanh */}
             <div className="px-4 sm:px-5 py-3 bg-[#FAF9F6] border-b border-[#F5F3EF] grid grid-cols-2 gap-3 shrink-0">
@@ -1114,19 +1075,7 @@ export const FinancialFreedom: React.FC = () => {
                 </div>
               )}
             </div>
-
-            {/* Modal Footer */}
-            <div className="p-3 sm:p-4 bg-white border-t border-[#F5F3EF] flex items-center justify-end shrink-0">
-              <button
-                type="button"
-                onClick={() => setSelectedHistoryGoal(null)}
-                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0F3D39] text-white text-xs font-bold hover:bg-[#174E4A] transition-colors cursor-pointer text-center"
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-        </div>
+        </BottomSheet>
       )}
     </div>
   );

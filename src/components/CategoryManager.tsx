@@ -7,7 +7,7 @@ import { triggerHaptic } from '../utils/haptics';
 import type { Category, CategoryKey, QuickTagItem } from '../types';
 import { renderCategoryIcon } from '../utils/categoryIcons';
 import { useToast } from './Toast';
-import { useBodyScrollLock } from '../utils/scrollLock';
+import { BottomSheet } from './BottomSheet';
 
 const CATEGORY_ICON_OPTIONS = [
   { key: 'home', label: 'Tổ ấm' },
@@ -96,9 +96,6 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
 
   // Trạng thái hiển thị danh mục đã ẩn
   const [showArchived, setShowArchived] = useState(false);
-
-  // Khóa cuộn trang nền trên iOS khi mở bất kỳ Bottom Sheet / Modal nào
-  useBodyScrollLock(isAdding || Boolean(editingCat) || isAddingTag || Boolean(editingTag));
 
   // Lọc danh mục đang hoạt động
   const activeCategories = useMemo(() => {
@@ -657,62 +654,45 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
       {/* =========================================================================
           BOTTOM SHEET: THÊM / CHỈNH SỬA NHÓM DANH MỤC
           ========================================================================= */}
-      {(isAdding || editingCat) && (
-        <div 
-          className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
-          onTouchMove={(e) => {
-            if (e.target === e.currentTarget) e.preventDefault();
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              playActionClick();
-              setIsAdding(false);
-              setEditingCat(null);
-            }
-          }}
-        >
-          <div 
-            role="dialog"
-            aria-modal="true"
-            className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-3 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Thanh kéo chỉ báo trên mobile */}
-            <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto my-2.5 sm:hidden shrink-0" />
-
-            {/* Header Bottom Sheet */}
-            <div className="px-5 py-3.5 border-b border-[#F5F3EF] flex items-center justify-between bg-white shrink-0">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center shadow-2xs shrink-0">
-                  <FolderTree className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-[#1C1917] truncate">
-                    {editingCat 
-                      ? `Chỉnh sửa: ${editingCat.name}` 
-                      : `Thêm nhóm ${activeType === 'EXPENSE' ? 'chi tiêu' : 'thu nhập'} mới`}
-                  </h3>
-                  <p className="text-[11px] text-[#78716C] truncate">
-                    {editingCat ? 'Cập nhật thông tin nhận diện & hạn mức' : 'Điền thông tin và bấm lưu nhóm'}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  playActionClick();
-                  setIsAdding(false);
-                  setEditingCat(null);
-                }}
-                className="w-8 h-8 rounded-xl text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF] flex items-center justify-center transition-colors cursor-pointer shrink-0"
-                title="Đóng"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Thân cuộn Bottom Sheet */}
-            <div className="p-5 overflow-y-auto overscroll-contain touch-pan-y space-y-4 flex-1">
+      <BottomSheet
+        isOpen={Boolean(isAdding || editingCat)}
+        onClose={() => {
+          setIsAdding(false);
+          setEditingCat(null);
+        }}
+        title={editingCat ? `Chỉnh sửa: ${editingCat.name}` : `Thêm nhóm ${activeType === 'EXPENSE' ? 'chi tiêu' : 'thu nhập'} mới`}
+        subtitle={editingCat ? 'Cập nhật thông tin nhận diện & hạn mức' : 'Điền thông tin và bấm lưu nhóm'}
+        icon={
+          <div className="w-8 h-8 rounded-xl bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center shadow-2xs shrink-0">
+            <FolderTree className="w-4 h-4" />
+          </div>
+        }
+        maxHeight="max-h-[92dvh] sm:max-h-[88vh]"
+        bodyClassName="p-5 space-y-4"
+        footer={
+          <div className="px-5 py-3.5 flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                playActionClick();
+                setIsAdding(false);
+                setEditingCat(null);
+              }}
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[#78716C] hover:bg-[#E6E2DA]/50 transition-all cursor-pointer min-h-[40px]"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              onClick={editingCat ? handleSaveEdit : handleAddCategory}
+              className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#0F3D39] text-white hover:bg-[#174E4A] flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer min-h-[40px]"
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>{editingCat ? 'Lưu thay đổi' : 'Lưu nhóm mới'}</span>
+            </button>
+          </div>
+        }
+      >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[11px] font-semibold text-[#78716C] block mb-1">
@@ -809,87 +789,43 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
                   })}
                 </div>
               </div>
-            </div>
-
-            {/* Footer Bottom Sheet */}
-            <div className="px-5 py-3.5 bg-[#FAF9F6] border-t border-[#E6E2DA] flex items-center justify-end gap-2.5 shrink-0 pb-safe sm:pb-3.5">
-              <button
-                type="button"
-                onClick={() => {
-                  playActionClick();
-                  setIsAdding(false);
-                  setEditingCat(null);
-                }}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#78716C] hover:bg-[#E6E2DA]/50 transition-all cursor-pointer"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={editingCat ? handleSaveEdit : handleAddCategory}
-                className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-[#0F3D39] text-white hover:bg-[#174E4A] flex items-center gap-1.5 transition-all shadow-xs active:scale-95 cursor-pointer"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>{editingCat ? 'Lưu thay đổi' : 'Lưu nhóm mới'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      </BottomSheet>
 
       {/* =========================================================================
           BOTTOM SHEET: THÊM / CHỈNH SỬA PHÍM TẮT (QUICK TAGS)
           ========================================================================= */}
-      {(isAddingTag || editingTag) && (
-        <div 
-          className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
-          onTouchMove={(e) => {
-            if (e.target === e.currentTarget) e.preventDefault();
-          }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              playActionClick();
-              resetTagForm();
-            }
-          }}
-        >
-          <div 
-            role="dialog"
-            aria-modal="true"
-            className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-3 duration-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Thanh kéo chỉ báo trên mobile */}
-            <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto my-2.5 sm:hidden shrink-0" />
-
-            {/* Header Bottom Sheet */}
-            <div className="px-5 py-3.5 border-b border-[#F5F3EF] flex items-center justify-between bg-white shrink-0">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center shadow-2xs shrink-0">
-                  <Zap className="w-4 h-4 fill-[#0F3D39]" />
-                </div>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-[#1C1917] truncate">
-                    {editingTag ? `Chỉnh sửa phím tắt: ${editingTag.label}` : `Thêm phím tắt ${activeType === 'INCOME' ? 'thu nhập' : 'chi tiêu'} mới`}
-                  </h3>
-                  <p className="text-[11px] text-[#78716C] truncate">Gợi ý 1-chạm khi nhập liệu bàn phím số</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  playActionClick();
-                  resetTagForm();
-                }}
-                className="w-8 h-8 rounded-xl text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF] flex items-center justify-center transition-colors cursor-pointer shrink-0"
-                title="Đóng"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Thân cuộn Bottom Sheet */}
-            <div className="p-5 overflow-y-auto overscroll-contain touch-pan-y space-y-4 flex-1">
+      <BottomSheet
+        isOpen={Boolean(isAddingTag || editingTag)}
+        onClose={resetTagForm}
+        title={editingTag ? `Chỉnh sửa phím tắt: ${editingTag.label}` : `Thêm phím tắt ${activeType === 'INCOME' ? 'thu nhập' : 'chi tiêu'} mới`}
+        subtitle="Gợi ý 1-chạm khi nhập liệu bàn phím số"
+        icon={
+          <div className="w-8 h-8 rounded-xl bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center shadow-2xs shrink-0">
+            <Zap className="w-4 h-4 fill-[#0F3D39]" />
+          </div>
+        }
+        maxHeight="max-h-[92dvh] sm:max-h-[88vh]"
+        bodyClassName="p-5 space-y-4"
+        footer={
+          <div className="px-5 py-3.5 flex items-center justify-end gap-2.5">
+            <button
+              type="button"
+              onClick={resetTagForm}
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-[#78716C] hover:bg-[#E6E2DA]/50 transition-all cursor-pointer min-h-[40px]"
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveQuickTag}
+              className="px-5 py-2.5 rounded-xl bg-[#0F3D39] text-white text-xs font-semibold hover:bg-[#174E4A] transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95 min-h-[40px]"
+            >
+              <Check className="w-3.5 h-3.5" />
+              <span>{editingTag ? 'Lưu cập nhật' : 'Tạo phím tắt'}</span>
+            </button>
+          </div>
+        }
+      >
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {/* Tên nhãn */}
                 <div>
@@ -1036,29 +972,7 @@ export const CategoryManager: React.FC<CategoryManagerProps> = ({ className = ''
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Footer Bottom Sheet */}
-            <div className="px-5 py-3.5 bg-[#FAF9F6] border-t border-[#E6E2DA] flex items-center justify-end gap-2.5 shrink-0 pb-safe sm:pb-3.5">
-              <button
-                type="button"
-                onClick={resetTagForm}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-[#78716C] hover:bg-[#E6E2DA]/50 transition-all cursor-pointer"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveQuickTag}
-                className="px-5 py-2.5 rounded-xl bg-[#0F3D39] text-white text-xs font-semibold hover:bg-[#174E4A] transition-all shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-95"
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>{editingTag ? 'Lưu cập nhật' : 'Tạo phím tắt'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-  </div>
-);
+      </BottomSheet>
+    </div>
+  );
 };

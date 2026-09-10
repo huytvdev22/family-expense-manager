@@ -41,7 +41,7 @@ import {
   isStandaloneMode
 } from '../services/notificationService';
 import { useToast } from './Toast';
-import { useBodyScrollLock } from '../utils/scrollLock';
+import { BottomSheet } from './BottomSheet';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -49,8 +49,6 @@ interface SettingsModalProps {
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
-  // Khóa cuộn trang nền trên iOS khi mở Modal Cài đặt
-  useBodyScrollLock(isOpen);
   const {
     soundEnabled,
     toggleSound,
@@ -165,48 +163,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   };
 
   return (
-    <div 
-      className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
-      onTouchMove={(e) => {
-        if (e.target === e.currentTarget) e.preventDefault();
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          playActionClick();
-          onClose();
-        }
-      }}
-    >
-      <div 
-        className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in slide-in-from-bottom-3 duration-200"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header Modal */}
-        <div className="p-4 border-b border-[#E6E2DA] flex items-center justify-between bg-white shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[#0F3D39] text-[#FAF9F6] flex items-center justify-center shadow-xs">
-              <Settings className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-[#1C1917]">Cài đặt ứng dụng</h3>
-              <p className="text-[11px] text-[#78716C]">Trải nghiệm, tài khoản và hệ thống</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              playActionClick();
-              onClose();
-            }}
-            className="px-3.5 py-1.5 rounded-xl bg-[#0F3D39] text-white text-xs font-bold hover:bg-[#174E4A] active:scale-95 transition-all shadow-xs cursor-pointer flex items-center gap-1"
-            title="Hoàn tất và đóng cài đặt"
-          >
-            <span>Hoàn tất</span>
-          </button>
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Cài đặt ứng dụng"
+      subtitle="Trải nghiệm, tài khoản và hệ thống"
+      icon={
+        <div className="w-8 h-8 rounded-xl bg-[#0F3D39] text-[#FAF9F6] flex items-center justify-center shadow-xs shrink-0">
+          <Settings className="w-4 h-4" />
         </div>
-
-        {/* Thân Modal */}
-        <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain touch-pan-y space-y-4 flex-1 pb-safe sm:pb-5">
+      }
+      headerRight={
+        <button
+          type="button"
+          onClick={() => {
+            playActionClick();
+            onClose();
+          }}
+          className="px-3.5 py-1.5 rounded-xl bg-[#0F3D39] text-white text-xs font-bold hover:bg-[#174E4A] active:scale-95 transition-all shadow-xs cursor-pointer flex items-center gap-1 min-h-[32px]"
+          title="Hoàn tất và đóng cài đặt"
+        >
+          <span>Hoàn tất</span>
+        </button>
+      }
+      showCloseButton={false}
+      maxHeight="max-h-[92dvh] sm:max-h-[88vh]"
+      bodyClassName="p-4 sm:p-5 space-y-4"
+    >
           {/* =========================================================================
               1. ÂM THANH XÚC GIÁC CƠ HỌC
               ========================================================================= */}
@@ -638,9 +621,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               <span>{isCheckingUpdate ? 'Đang kiểm tra...' : 'Kiểm tra bản cập nhật'}</span>
             </button>
           </div>
-        </div>
-
-      </div>
-    </div>
+    </BottomSheet>
   );
 };

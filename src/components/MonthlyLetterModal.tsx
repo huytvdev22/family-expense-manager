@@ -17,7 +17,7 @@ import { useApp } from '../context/AppContext';
 import { formatVND, formatYearMonthLabel } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
 import { SendReportEmailModal } from './SendReportEmailModal';
-import { useBodyScrollLock } from '../utils/scrollLock';
+import { BottomSheet } from './BottomSheet';
 
 interface MonthlyLetterModalProps {
   isOpen: boolean;
@@ -25,8 +25,6 @@ interface MonthlyLetterModalProps {
 }
 
 export const MonthlyLetterModal: React.FC<MonthlyLetterModalProps> = ({ isOpen, onClose }) => {
-  // Khóa cuộn trang nền trên iOS khi mở Thư tài chính gia đình
-  useBodyScrollLock(isOpen);
   const {
     activeHousehold,
     currentYearMonth,
@@ -84,50 +82,27 @@ export const MonthlyLetterModal: React.FC<MonthlyLetterModalProps> = ({ isOpen, 
   const isDeficit = hasIncome && netSavings < 0;
 
   return (
-    <div 
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
-      onTouchMove={(e) => {
-        if (e.target === e.currentTarget) e.preventDefault();
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          playActionClick();
-          onClose();
-        }
-      }}
-    >
-      <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg p-5 sm:p-6 shadow-2xl relative max-h-[90vh] sm:max-h-[85vh] overflow-y-auto overscroll-contain touch-pan-y pb-safe sm:pb-6 animate-in slide-in-from-bottom-3 duration-200">
-        {/* Thanh trượt chỉ báo Bottom Sheet trên mobile */}
-        <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto mb-3 sm:hidden shrink-0" />
-        {/* Nút đóng */}
-        <button
-          onClick={() => {
-            playActionClick();
-            onClose();
-          }}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF] flex items-center justify-center transition-all cursor-pointer"
-        >
-          <X className="w-4 h-4" />
-        </button>
-
-        {/* Tiêu đề Bức Thư Tháng */}
-        <div className="text-center pb-4 border-b border-[#E6E2DA]">
-          <div className="w-12 h-12 mx-auto rounded-2xl bg-[#FEF3C7] text-[#B45309] flex items-center justify-center mb-2 shadow-2xs">
-            <MailOpen className="w-6 h-6 stroke-[2]" />
+    <>
+      <BottomSheet
+        isOpen={isOpen}
+        onClose={onClose}
+        title={`Bức Thư ${formatYearMonthLabel(currentYearMonth)}`}
+        subtitle={`Bản tin tổ ấm & tài chính • ${activeHousehold?.name || 'Tổ Ấm'}`}
+        icon={<MailOpen className="w-4 h-4 text-[#B45309]" />}
+        maxHeight="max-h-[94dvh] sm:max-h-[88vh]"
+        bodyClassName="p-4 sm:p-6 space-y-4 bg-[#FAF9F6]"
+        footer={
+          <div className="flex items-center justify-between text-xs text-[#78716C] w-full">
+            <span className="flex items-center gap-1 font-mono text-[11px]">
+              <Sparkles className="w-3 h-3 text-[#B45309]" />
+              Tổ Ấm Nhỏ Harmony Ledger
+            </span>
+            <span className="font-serif italic text-[11px]">Tình yêu trong từng con số</span>
           </div>
-          <span className="text-[10px] uppercase font-mono tracking-widest text-[#B45309] font-bold">
-            Bản tin tổ ấm & tài chính
-          </span>
-          <h2 className="text-xl sm:text-2xl font-serif font-bold text-[#1C1917] mt-0.5 tracking-tight">
-            Bức Thư {formatYearMonthLabel(currentYearMonth)}
-          </h2>
-          <p className="text-xs text-[#78716C] mt-1 font-serif italic">
-            Gửi gửi hai vợ chồng {activeHousehold?.name || 'Tổ Ấm'} thân yêu
-          </p>
-        </div>
-
+        }
+      >
         {/* Nội dung thư */}
-        <div className="py-4 space-y-4 text-xs leading-relaxed text-[#1C1917]">
+        <div className="space-y-4 text-xs leading-relaxed text-[#1C1917]">
           {/* Lời mở đầu tình cảm */}
           <p>
             Tháng vừa qua, tổ ấm của chúng ta đã cùng nhau đồng lòng lao động, chăm sóc gia đình và vượt qua những ngày bận rộn. Dưới đây là bức tranh tài chính trọn vẹn mà hai vợ chồng mình đã cùng nhau tạo nên:
@@ -323,16 +298,7 @@ export const MonthlyLetterModal: React.FC<MonthlyLetterModalProps> = ({ isOpen, 
             </button>
           </div>
         </div>
-
-        {/* Chữ ký chân thành */}
-        <div className="pt-3 border-t border-[#E6E2DA] flex items-center justify-between text-xs text-[#78716C]">
-          <span className="flex items-center gap-1 font-mono text-[11px]">
-            <Sparkles className="w-3 h-3 text-[#B45309]" />
-            Tổ Ấm Nhỏ Harmony Ledger
-          </span>
-          <span className="font-serif italic text-[11px]">Tình yêu trong từng con số</span>
-        </div>
-      </div>
+      </BottomSheet>
 
       {/* Modal gửi báo cáo qua Email */}
       <SendReportEmailModal
@@ -356,6 +322,6 @@ export const MonthlyLetterModal: React.FC<MonthlyLetterModalProps> = ({ isOpen, 
           topCategories: topCategories || []
         }}
       />
-    </div>
+    </>
   );
 };

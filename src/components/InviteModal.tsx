@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { X, Copy, Check, UserPlus, Link as LinkIcon, ShieldCheck, LogIn, Heart, Loader2, Sparkles } from 'lucide-react';
+import { Copy, Check, UserPlus, Link as LinkIcon, ShieldCheck, LogIn, Heart, Loader2, Sparkles } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { getInvitation } from '../services/firestoreService';
 import type { Invitation } from '../types';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { useToast } from './Toast';
-import { useBodyScrollLock } from '../utils/scrollLock';
+import { BottomSheet } from './BottomSheet';
 
 interface InviteModalProps {
   isOpen: boolean;
@@ -15,9 +15,6 @@ interface InviteModalProps {
 }
 
 export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initialCode }) => {
-  // Khóa cuộn trang nền trên iOS khi mở Modal mời thành viên
-  useBodyScrollLock(isOpen);
-
   const { 
     activeHousehold, 
     currentUser,
@@ -185,71 +182,45 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
   );
 
   return (
-    <div 
-      className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
-      onTouchMove={(e) => {
-        if (e.target === e.currentTarget) e.preventDefault();
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          playActionClick();
-          onClose();
-        }
-      }}
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title={
+        isHouseholdFull
+          ? 'Tổ ấm trọn vẹn'
+          : activeTab === 'join'
+          ? 'Gia nhập tổ ấm'
+          : 'Mời thành viên'
+      }
+      subtitle={
+        !firebaseUser
+          ? 'Đồng hành quản lý tài chính gia đình'
+          : isHouseholdFull
+          ? 'Đã đủ 2 thành viên đồng hành (Vợ & Chồng)'
+          : `Kết nối bạn đời vào ${activeHousehold?.name || 'tổ ấm'}`
+      }
+      icon={
+        isHouseholdFull ? (
+          <ShieldCheck className="w-4 h-4 text-[#10B981]" />
+        ) : activeTab === 'join' ? (
+          <Heart className="w-4 h-4 text-[#C15C3D]" />
+        ) : (
+          <UserPlus className="w-4 h-4 text-[#0F3D39]" />
+        )
+      }
+      maxHeight="max-h-[92dvh] sm:max-h-[85vh]"
+      bodyClassName="p-4 sm:p-5 space-y-4"
     >
-      <div className="bg-white border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 shadow-2xl relative max-h-[90vh] sm:max-h-[85vh] overflow-y-auto overscroll-contain touch-pan-y pb-safe sm:pb-5 animate-in slide-in-from-bottom-3 duration-200">
-        {/* Thanh trượt chỉ báo Bottom Sheet trên mobile */}
-        <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto mb-3 sm:hidden shrink-0" />
-        {/* Header Modal */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#F5F3EF]">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-[#E7EFEF] text-[#0F3D39] flex items-center justify-center">
-              {isHouseholdFull ? (
-                <ShieldCheck className="w-4 h-4 text-[#10B981]" />
-              ) : activeTab === 'join' ? (
-                <Heart className="w-4 h-4 text-[#C15C3D]" />
-              ) : (
-                <UserPlus className="w-4 h-4 text-[#0F3D39]" />
-              )}
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-[#1C1917]">
-                {isHouseholdFull
-                  ? 'Tổ ấm trọn vẹn'
-                  : activeTab === 'join'
-                  ? 'Gia nhập tổ ấm'
-                  : 'Mời thành viên'}
-              </h3>
-              <p className="text-[11px] text-[#78716C]">
-                {!firebaseUser
-                  ? 'Đồng hành quản lý tài chính gia đình'
-                  : isHouseholdFull
-                  ? 'Đã đủ 2 thành viên đồng hành (Vợ & Chồng)'
-                  : `Kết nối bạn đời vào ${activeHousehold?.name || 'tổ ấm'}`}
-              </p>
-            </div>
-          </div>
+      {/* Tab chuyển đổi: Chỉ hiển thị khi tổ ấm chưa đủ 2 người */}
+      {!isHouseholdFull && (
+        <div className="flex items-center bg-[#F5F3EF] p-1 rounded-2xl mb-1 border border-[#E6E2DA] shadow-2xs">
           <button
             onClick={() => {
               playActionClick();
-              onClose();
+              setActiveTab('create');
             }}
-            className="w-8 h-8 rounded-xl text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF] flex items-center justify-center transition-all cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Tab chuyển đổi: Chỉ hiển thị khi tổ ấm chưa đủ 2 người */}
-        {!isHouseholdFull && (
-          <div className="flex items-center bg-[#F5F3EF] p-1 rounded-2xl my-3 border border-[#E6E2DA] shadow-2xs">
-            <button
-              onClick={() => {
-                playActionClick();
-                setActiveTab('create');
-              }}
-              className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn cursor-pointer ${
-                activeTab === 'create'
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn cursor-pointer ${
+              activeTab === 'create'
                   ? 'bg-white text-[#0F3D39] shadow-2xs font-bold'
                   : 'text-[#78716C] hover:text-[#1C1917]'
               }`}
@@ -487,7 +458,6 @@ export const InviteModal: React.FC<InviteModalProps> = ({ isOpen, onClose, initi
             </div>
           </div>
         )}
-      </div>
-    </div>
+    </BottomSheet>
   );
 };

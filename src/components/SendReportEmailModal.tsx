@@ -34,7 +34,7 @@ import {
 import { formatVND, formatYearMonthLabel } from '../utils/currency';
 import { playActionClick, playSuccessChime } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
-import { useBodyScrollLock } from '../utils/scrollLock';
+import { BottomSheet } from './BottomSheet';
 
 interface SendReportEmailModalProps {
   isOpen: boolean;
@@ -49,9 +49,6 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
   onClose,
   reportData
 }) => {
-  // Khóa cuộn trang nền trên iOS khi mở Modal gửi email báo cáo
-  useBodyScrollLock(isOpen);
-
   const { activeHousehold, updateMemberEmail } = useApp();
   const { showToast } = useToast();
 
@@ -336,76 +333,90 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
   };
 
   return (
-    <div 
-      className="fixed inset-0 z-60 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/55 backdrop-blur-xs animate-in fade-in duration-150 touch-none"
-      onTouchMove={(e) => {
-        if (e.target === e.currentTarget) e.preventDefault();
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          playActionClick();
-          onClose();
-        }
-      }}
-    >
-      <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-t-3xl sm:rounded-3xl w-full max-w-lg shadow-2xl relative max-h-[90vh] sm:max-h-[88vh] flex flex-col overflow-hidden animate-in slide-in-from-bottom-3 duration-200">
-        {/* Thanh trượt chỉ báo Bottom Sheet trên mobile */}
-        <div className="w-12 h-1.5 bg-[#E6E2DA] rounded-full mx-auto mt-2.5 sm:hidden shrink-0" />
-        {/* Header Modal */}
-        <div className="p-4 border-b border-[#E6E2DA] flex items-center justify-between bg-white shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-[#0F3D39] text-[#FAF9F6] flex items-center justify-center shadow-2xs">
-              <Mail className="w-4 h-4" />
-            </div>
-            <div>
-              <h3 className="text-sm font-bold text-[#1C1917]">
-                Gửi Báo Cáo Tài Chính Qua Email
-              </h3>
-              <p className="text-[11px] text-[#78716C]">
-                {formatYearMonthLabel(reportData?.yearMonth)} • {reportData?.householdName || 'Tổ Ấm'}
-              </p>
-            </div>
-          </div>
+    <BottomSheet
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Gửi Báo Cáo Tài Chính Qua Email"
+      subtitle={`${formatYearMonthLabel(reportData?.yearMonth)} • ${reportData?.householdName || 'Tổ Ấm'}`}
+      icon={<Mail className="w-4 h-4" />}
+      maxHeight="max-h-[94dvh] sm:max-h-[88vh]"
+      bodyClassName="p-4 sm:p-5 space-y-4 text-xs bg-[#FAF9F6]"
+      headerRight={
+        <button
+          onClick={() => {
+            playActionClick();
+            setIsSettingsOpen(!isSettingsOpen);
+          }}
+          title="Cài đặt kết nối EmailJS"
+          className={`p-2 rounded-xl transition-all cursor-pointer relative ${
+            isSettingsOpen || emailConfig
+              ? 'bg-[#E7EFEF] text-[#0F3D39]'
+              : 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF]'
+          }`}
+        >
+          <Settings className="w-4 h-4" />
+          {/* Chấm trạng thái kết nối */}
+          <span className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full ring-2 ring-white ${
+            emailConfig ? 'bg-[#10B981]' : 'bg-[#D6D2CA]'
+          }`} />
+        </button>
+      }
+      footer={!isSettingsOpen ? (
+        <div className="flex items-center justify-between gap-2 w-full">
+          <button
+            type="button"
+            onClick={handleOpenMailClient}
+            className="py-2.5 px-3 rounded-xl border border-[#E6E2DA] text-[#57534E] hover:text-[#1C1917] hover:bg-[#F5F3EF] text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
+            title="Mở sẵn trong ứng dụng Mail của máy"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Mở ứng dụng Mail</span>
+            <span className="sm:hidden">Mail client</span>
+          </button>
 
-          <div className="flex items-center gap-1">
-            {/* Nút mở Cài đặt EmailJS */}
+          <div className="flex items-center gap-2">
             <button
-              onClick={() => {
-                playActionClick();
-                setIsSettingsOpen(!isSettingsOpen);
-              }}
-              title="Cài đặt kết nối EmailJS"
-              className={`p-2 rounded-xl transition-all cursor-pointer relative ${
-                isSettingsOpen || emailConfig
-                  ? 'bg-[#E7EFEF] text-[#0F3D39]'
-                  : 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF]'
-              }`}
-            >
-              <Settings className="w-4 h-4" />
-              {/* Chấm trạng thái kết nối */}
-              <span className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full ring-2 ring-white ${
-                emailConfig ? 'bg-[#10B981]' : 'bg-[#D6D2CA]'
-              }`} />
-            </button>
-
-            {/* Nút đóng */}
-            <button
+              type="button"
               onClick={() => {
                 playActionClick();
                 onClose();
               }}
-              className="w-8 h-8 rounded-full text-[#78716C] hover:text-[#1C1917] hover:bg-[#F5F3EF] flex items-center justify-center transition-all cursor-pointer"
+              className="py-2.5 px-3.5 rounded-xl border border-[#E6E2DA] text-[#78716C] hover:text-[#1C1917] text-xs font-semibold transition-all cursor-pointer"
             >
-              <X className="w-4 h-4" />
+              Đóng
+            </button>
+
+            <button
+              type="button"
+              disabled={isSending || selectedRecipients.length === 0}
+              onClick={handleSend}
+              className={`py-2.5 px-5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all tactile-btn cursor-pointer ${
+                isSending || selectedRecipients.length === 0
+                  ? 'bg-[#E6E2DA] text-[#A8A29E] cursor-not-allowed'
+                  : 'bg-[#0F3D39] text-white hover:bg-[#174E4A] shadow-xs active:scale-98'
+              }`}
+            >
+              {isSending ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Đang gửi...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{emailConfig ? 'Gửi báo cáo qua Gmail' : 'Kết nối & Gửi mail'}</span>
+                </>
+              )}
             </button>
           </div>
         </div>
-
-        {/* =========================================================================
-            MÀN HÌNH CÀI ĐẶT EMAILJS (KHI BẤM NÚT BÁNH RĂNG ⚙️)
-            ========================================================================= */}
-        {isSettingsOpen ? (
-          <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain touch-pan-y space-y-4 flex-1 text-xs">
+      ) : undefined}
+    >
+      {/* =========================================================================
+          MÀN HÌNH CÀI ĐẶT EMAILJS (KHI BẤM NÚT BÁNH RĂNG ⚙️)
+          ========================================================================= */}
+      {isSettingsOpen ? (
+        <div className="space-y-4 text-xs">
             <div className="flex items-center justify-between pb-2 border-b border-[#E6E2DA]">
               <button
                 onClick={() => setIsSettingsOpen(false)}
@@ -970,58 +981,8 @@ export const SendReportEmailModal: React.FC<SendReportEmailModalProps> = ({
           )}
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-4 bg-white border-t border-[#E6E2DA] flex items-center justify-between gap-2 shrink-0 pb-safe sm:pb-4">
-          <button
-            type="button"
-            onClick={handleOpenMailClient}
-            className="py-2.5 px-3 rounded-xl border border-[#E6E2DA] text-[#57534E] hover:text-[#1C1917] hover:bg-[#F5F3EF] text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer shrink-0"
-            title="Mở sẵn trong ứng dụng Mail của máy"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Mở ứng dụng Mail</span>
-            <span className="sm:hidden">Mail client</span>
-          </button>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                playActionClick();
-                onClose();
-              }}
-              className="py-2.5 px-3.5 rounded-xl border border-[#E6E2DA] text-[#78716C] hover:text-[#1C1917] text-xs font-semibold transition-all cursor-pointer"
-            >
-              Đóng
-            </button>
-
-            <button
-              type="button"
-              disabled={isSending || selectedRecipients.length === 0}
-              onClick={handleSend}
-              className={`py-2.5 px-5 rounded-xl text-xs font-bold flex items-center gap-2 transition-all tactile-btn cursor-pointer ${
-                isSending || selectedRecipients.length === 0
-                  ? 'bg-[#E6E2DA] text-[#A8A29E] cursor-not-allowed'
-                  : 'bg-[#0F3D39] text-white hover:bg-[#174E4A] shadow-xs active:scale-98'
-              }`}
-            >
-              {isSending ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Đang gửi...</span>
-                </>
-              ) : (
-                <>
-                  <Send className="w-3.5 h-3.5" />
-                  <span>{emailConfig ? 'Gửi báo cáo qua Gmail' : 'Kết nối & Gửi mail'}</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
         </>
-        )}
-      </div>
-    </div>
+      )}
+    </BottomSheet>
   );
 };
