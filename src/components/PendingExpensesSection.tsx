@@ -20,6 +20,7 @@ import { EditPendingExpenseModal } from './EditPendingExpenseModal';
 import { ConfirmPaidBottomSheet } from './ConfirmPaidBottomSheet';
 import { SettleCreditCardBottomSheet } from './SettleCreditCardBottomSheet';
 import { CardManagerModal } from './CardManagerModal';
+import { EditTransactionModal } from './EditTransactionModal';
 import type { PendingExpense, CreditCard, Transaction } from '../types';
 
 export const PendingExpensesSection: React.FC = () => {
@@ -36,6 +37,9 @@ export const PendingExpensesSection: React.FC = () => {
   // Modal chỉnh sửa khoản chờ hóa đơn rời
   const [selectedItem, setSelectedItem] = useState<PendingExpense | null>(null);
   const [confirmingItem, setConfirmingItem] = useState<PendingExpense | null>(null);
+
+  // Modal chỉnh sửa khoản quẹt thẻ tín dụng
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   // Bottom Sheet quyết toán thẻ tín dụng
   const [settlingGroup, setSettlingGroup] = useState<{
@@ -68,6 +72,12 @@ export const PendingExpensesSection: React.FC = () => {
     playActionClick();
     triggerHaptic(8);
     setSelectedItem(item);
+  };
+
+  const handleOpenTransaction = (tx: Transaction) => {
+    playActionClick();
+    triggerHaptic(8);
+    setEditingTransaction(tx);
   };
 
   const handleQuickConfirmPaid = (e: React.MouseEvent, item: PendingExpense) => {
@@ -289,24 +299,44 @@ export const PendingExpensesSection: React.FC = () => {
                             return (
                               <div
                                 key={tx.id}
-                                className="py-2 flex items-center justify-between gap-2 text-xs"
+                                onClick={() => handleOpenTransaction(tx)}
+                                className="py-2.5 px-2 -mx-1 rounded-xl flex items-center justify-between gap-2 text-xs hover:bg-white active:bg-[#F5F3EF] transition-all cursor-pointer group select-none"
                               >
-                                <div className="flex items-center gap-2 min-w-0">
-                                  <span className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0 border border-[#E6E2DA] bg-white shadow-2xs">
-                                    {renderCategoryIcon(cat?.icon, "w-3 h-3", cat?.color || '#0F3D39')}
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <span className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 border border-[#E6E2DA] bg-white shadow-2xs group-hover:border-[#0F3D39]/40 transition-colors">
+                                    {renderCategoryIcon(cat?.icon, "w-3.5 h-3.5", cat?.color || '#0F3D39')}
                                   </span>
                                   <div className="min-w-0">
-                                    <p className="font-semibold text-[#1C1917] truncate">
+                                    <p className="font-semibold text-[#1C1917] truncate group-hover:text-[#0F3D39] transition-colors">
                                       {tx.note || tx.categoryName}
                                     </p>
-                                    <p className="text-[10px] text-[#78716C] font-mono">
+                                    <p className="text-[10px] text-[#78716C] font-mono mt-0.5">
                                       {formatDisplayDate(tx.date)} • {tx.paidBy} quẹt
+                                      {tx.goalName && (
+                                        <span className="text-[#0F3D39] ml-1 truncate">
+                                          • 🎯 {tx.goalName}
+                                        </span>
+                                      )}
                                     </p>
                                   </div>
                                 </div>
-                                <span className="font-mono font-bold text-[#1C1917] tabular-nums shrink-0">
-                                  {formatVND(tx.amount)}
-                                </span>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  <span className="font-mono font-bold text-[#1C1917] tabular-nums">
+                                    {formatVND(tx.amount)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenTransaction(tx);
+                                    }}
+                                    className="text-[#A8A29E] hover:text-[#0F3D39] p-1 rounded-lg hover:bg-[#F5F3EF] opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
+                                    title="Chỉnh sửa khoản quẹt thẻ"
+                                    aria-label="Chỉnh sửa"
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
                               </div>
                             );
                           })
@@ -453,6 +483,15 @@ export const PendingExpensesSection: React.FC = () => {
         isOpen={isCardManagerOpen}
         onClose={() => setIsCardManagerOpen(false)}
       />
+
+      {/* Modal Chỉnh sửa giao dịch quẹt thẻ tín dụng */}
+      {editingTransaction && (
+        <EditTransactionModal
+          isOpen={Boolean(editingTransaction)}
+          onClose={() => setEditingTransaction(null)}
+          transaction={editingTransaction}
+        />
+      )}
     </>
   );
 };

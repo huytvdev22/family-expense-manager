@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Check, Trash2, Calendar, Tag, User, DollarSign, FileText, Target, ChevronDown } from 'lucide-react';
+import { X, Check, Trash2, Calendar, Tag, User, DollarSign, FileText, Target, ChevronDown, CreditCard as CardIcon } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from './Toast';
 import { formatVND, getLocalDateString, formatDisplayDate } from '../utils/currency';
@@ -20,7 +20,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   onClose,
   transaction
 }) => {
-  const { categories, editTransaction, removeTransaction, financialGoals } = useApp();
+  const { categories, editTransaction, removeTransaction, financialGoals, activeCreditCards, creditCards } = useApp();
   const { showToast } = useToast();
 
   const [txType, setTxType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
@@ -30,6 +30,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [date, setDate] = useState<string>('');
   const [note, setNote] = useState<string>('');
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(transaction?.goalId || null);
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(transaction?.cardId || null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [isCategoryOpen, setIsCategoryOpen] = useState<boolean>(false);
@@ -58,8 +59,10 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       if (isExpense) {
         lastExpenseCatId.current = transaction.categoryId;
         lastExpenseGoalId.current = transaction.goalId || null;
+        setSelectedCardId(transaction.cardId || null);
       } else {
         lastIncomeCatId.current = transaction.categoryId;
+        setSelectedCardId(null);
       }
     }
   }, [transaction]);
@@ -86,6 +89,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
         setSelectedCategoryId(validCat.id);
       }
       setSelectedGoalId(lastExpenseGoalId.current);
+      setSelectedCardId(transaction?.type === 'EXPENSE' ? (transaction.cardId || null) : null);
     } else {
       const incomeList = categories.filter((c) => (!c.isArchived || c.id === transaction?.categoryId) && c.type === 'INCOME');
       const targetCatId = lastIncomeCatId.current || (transaction?.type === 'INCOME' ? transaction.categoryId : '') || incomeList[0]?.id;
@@ -94,6 +98,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
         setSelectedCategoryId(validCat.id);
       }
       setSelectedGoalId(null);
+      setSelectedCardId(null);
     }
   };
 
@@ -234,6 +239,22 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       } else {
         delete updatedTx.goalId;
         delete updatedTx.goalName;
+      }
+
+      // Xử lý Phương thức thanh toán & Thẻ tín dụng
+      if (txType === 'EXPENSE' && selectedCardId) {
+        const chosenCard = activeCreditCards.find((c) => c.id === selectedCardId) || creditCards.find((c) => c.id === selectedCardId);
+        updatedTx.paymentMethod = 'CREDIT_CARD';
+        updatedTx.cardId = chosenCard ? chosenCard.id : selectedCardId;
+        updatedTx.cardName = chosenCard ? chosenCard.name : (transaction.cardName || '');
+        updatedTx.isSettled = transaction.isSettled !== undefined ? transaction.isSettled : false;
+      } else {
+        updatedTx.paymentMethod = 'CASH';
+        delete updatedTx.cardId;
+        delete updatedTx.cardName;
+        delete updatedTx.isSettled;
+        delete updatedTx.settledAt;
+        delete updatedTx.settledBy;
       }
 
       await editTransaction(transaction, updatedTx);
@@ -489,6 +510,104 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
               })}
             </div>
           </div>
+
+          {/* Phương thức thanh toán & Thẻ tín dụng (Chỉ hiển thị khi là Khoản chi & Có thẻ hoặc giao dịch đang là quẹt thẻ) */}
+          {txType === 'EXPENSE' && (activeCreditCards.length > 0 || Boolean(transaction?.cardId)) && (
+            <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-2.5 space-y-2 shadow-2xs">
+              <div className="flex items-center justify-between px-0.5">
+                <span className="text-[11px] font-semibold text-[#78716C] uppercase tracking-wider flex items-center gap-1.5">
+                  <CardIcon className="w-3.5 h-3.5 text-[#0F3D39]" />
+                  Hình thức thanh toán
+                </span>
+                {transaction?.isSettled && (
+                  <span className="text-[10px] font-medium bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] px-1.5 py-0.2 rounded-md">
+                    Đã tất toán sao kê
+                  </span>
+                )}
+              </div>
+
+              {/* Toggle 2 tab: Tiền mặt / CK vs Thẻ tín dụng */}
+              <div className="grid grid-cols-2 gap-1 p-1 bg-white border border-[#E6E2DA] rounded-xl shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(6);
+                    setSelectedCardId(null);
+                  }}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    !selectedCardId
+                      ? 'bg-[#0F3D39] text-white shadow-2xs'
+                      : 'text-[#78716C] hover:text-[#1C1917]'
+                  }`}
+                >
+                  Tiền mặt / CK
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(6);
+                    if (!selectedCardId) {
+                      const defaultCard = transaction?.cardId || activeCreditCards[0]?.id || null;
+                      setSelectedCardId(defaultCard);
+                    }
+                  }}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                    selectedCardId
+                      ? 'bg-[#0F3D39] text-white shadow-2xs'
+                      : 'text-[#78716C] hover:text-[#1C1917]'
+                  }`}
+                >
+                  <CardIcon className="w-3.5 h-3.5" />
+                  <span>Thẻ tín dụng</span>
+                </button>
+              </div>
+
+              {/* Danh sách thẻ tín dụng để lựa chọn (khi chọn tab Thẻ tín dụng) */}
+              {selectedCardId && (
+                <div className="pt-1 space-y-1.5 animate-in fade-in duration-150">
+                  <label className="block text-[10px] font-semibold text-[#78716C] uppercase tracking-wider">
+                    Chọn thẻ quẹt:
+                  </label>
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                    {activeCreditCards.map((card) => {
+                      const isChosen = selectedCardId === card.id;
+                      return (
+                        <button
+                          key={card.id}
+                          type="button"
+                          onClick={() => {
+                            playActionClick();
+                            triggerHaptic(8);
+                            setSelectedCardId(card.id);
+                          }}
+                          className={`shrink-0 px-2.5 py-1.5 rounded-xl text-xs font-medium border flex items-center gap-2 transition-all cursor-pointer ${
+                            isChosen
+                              ? 'bg-white border-[#0F3D39] ring-2 ring-[#0F3D39]/20 shadow-xs'
+                              : 'bg-white text-[#1C1917] border-[#E6E2DA] hover:bg-[#F5F3EF]'
+                          }`}
+                        >
+                          <div
+                            className="w-4 h-4 rounded-md flex items-center justify-center text-white shrink-0 shadow-2xs"
+                            style={{ backgroundColor: card.color || '#0F3D39' }}
+                          >
+                            <CardIcon className="w-2.5 h-2.5" />
+                          </div>
+                          <span className="font-semibold truncate max-w-[120px]">{card.name}</span>
+                          <span className="font-mono text-[10px] text-[#78716C]">•••• {card.last4Digits}</span>
+                          {isChosen && <Check className="w-3 h-3 text-[#0F3D39] stroke-[2.5]" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-[10px] text-[#78716C] leading-normal">
+                    💡 Khoản chi này được đưa vào danh sách chờ quyết toán sao kê của thẻ.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Ngày giao dịch */}
           <div>

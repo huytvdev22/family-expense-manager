@@ -253,6 +253,15 @@ export async function updateTransactionWithSummary(
       updatePayload.goalName = deleteField();
     }
 
+    // Nếu trước đó có liên kết thẻ tín dụng nhưng bản mới đã chuyển sang tiền mặt, dùng deleteField()
+    if (oldTx.cardId && !updatedTx.cardId) {
+      updatePayload.cardId = deleteField();
+      updatePayload.cardName = deleteField();
+      updatePayload.isSettled = deleteField();
+      updatePayload.settledAt = deleteField();
+      updatePayload.settledBy = deleteField();
+    }
+
     transaction.set(txRef, cleanFirestorePayload(updatePayload), { merge: true });
 
     // 2. Điều chỉnh số liệu tháng
