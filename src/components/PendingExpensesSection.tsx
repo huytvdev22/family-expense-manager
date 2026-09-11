@@ -12,7 +12,7 @@ import {
   Plus
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { formatVND, formatCompactVND, formatDueDateBadge, formatDisplayDate } from '../utils/currency';
+import { formatVND, formatCompactVND, formatDueDateBadge, formatDisplayDate, formatTxMonth } from '../utils/currency';
 import { renderCategoryIcon } from '../utils/categoryIcons';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
@@ -21,7 +21,7 @@ import { ConfirmPaidBottomSheet } from './ConfirmPaidBottomSheet';
 import { SettleCreditCardBottomSheet } from './SettleCreditCardBottomSheet';
 import { CardManagerModal } from './CardManagerModal';
 import { EditTransactionModal } from './EditTransactionModal';
-import type { PendingExpense, CreditCard, Transaction } from '../types';
+import type { PendingExpense, CreditCard, Transaction, UnsettledCardGroup } from '../types';
 
 export const PendingExpensesSection: React.FC = () => {
   const { 
@@ -31,7 +31,8 @@ export const PendingExpensesSection: React.FC = () => {
     categories,
     unsettledCardExpenses,
     totalUnsettledCardAmount,
-    activeCreditCards
+    activeCreditCards,
+    currentYearMonth
   } = useApp();
 
   // Modal chỉnh sửa khoản chờ hóa đơn rời
@@ -42,12 +43,7 @@ export const PendingExpensesSection: React.FC = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
   // Bottom Sheet quyết toán thẻ tín dụng
-  const [settlingGroup, setSettlingGroup] = useState<{
-    card: CreditCard;
-    transactions: Transaction[];
-    totalAmount: number;
-    nextDueDate: string;
-  } | null>(null);
+  const [settlingGroup, setSettlingGroup] = useState<UnsettledCardGroup | null>(null);
 
   // Modal quản lý thẻ tín dụng
   const [isCardManagerOpen, setIsCardManagerOpen] = useState<boolean>(false);
@@ -89,12 +85,7 @@ export const PendingExpensesSection: React.FC = () => {
 
   const handleOpenSettleSheet = (
     e: React.MouseEvent,
-    group: {
-      card: CreditCard;
-      transactions: Transaction[];
-      totalAmount: number;
-      nextDueDate: string;
-    }
+    group: UnsettledCardGroup
   ) => {
     e.stopPropagation();
     playActionClick();
@@ -105,6 +96,63 @@ export const PendingExpensesSection: React.FC = () => {
   const hasCreditCards = activeCreditCards.length > 0;
   const hasDirectExpenses = activePendingExpenses.length > 0;
   const totalAllPending = totalPendingAmount + totalUnsettledCardAmount;
+
+  // Render một dòng giao dịch quẹt thẻ
+  const renderCardTxRow = (tx: Transaction) => {
+    const cat = categories.find((c) => c.id === tx.categoryId);
+    const isPastMonth = (tx.date || '') < `${currentYearMonth}-01`;
+
+    return (
+      <div
+        key={tx.id}
+        onClick={() => handleOpenTransaction(tx)}
+        className="py-2.5 px-2 -mx-1 rounded-xl flex items-center justify-between gap-2 text-xs hover:bg-white active:bg-[#F5F3EF] transition-all cursor-pointer group select-none"
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 border border-[#E6E2DA] bg-white shadow-2xs group-hover:border-[#0F3D39]/40 transition-colors">
+            {renderCategoryIcon(cat?.icon, "w-3.5 h-3.5", cat?.color || '#0F3D39')}
+          </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
+              <p className="font-semibold text-[#1C1917] truncate group-hover:text-[#0F3D39] transition-colors">
+                {tx.note || tx.categoryName}
+              </p>
+              {isPastMonth && (
+                <span className="text-[9px] px-1.5 py-0.2 rounded-md bg-[#FEF3C7] text-[#92400E] font-medium border border-[#FDE68A] shrink-0 font-mono">
+                  {formatTxMonth(tx.date)}
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] text-[#78716C] font-mono mt-0.5">
+              {formatDisplayDate(tx.date)} • {tx.paidBy} quẹt
+              {tx.goalName && (
+                <span className="text-[#0F3D39] ml-1 truncate">
+                  • 🎯 {tx.goalName}
+                </span>
+              )}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className="font-mono font-bold text-[#1C1917] tabular-nums">
+            {formatVND(tx.amount)}
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleOpenTransaction(tx);
+            }}
+            className="text-[#A8A29E] hover:text-[#0F3D39] p-1 rounded-lg hover:bg-[#F5F3EF] opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
+            title="Chỉnh sửa khoản quẹt thẻ"
+            aria-label="Chỉnh sửa"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   // TRƯỜNG HỢP 1: Gia đình chưa kết nối thẻ tín dụng VÀ cũng không có hóa đơn chờ chi
   if (!hasCreditCards && !hasDirectExpenses) {
@@ -195,10 +243,12 @@ export const PendingExpensesSection: React.FC = () => {
 
             <div className="space-y-2">
               {unsettledCardExpenses.map((group) => {
-                const { card, transactions: cardTxs, totalAmount, nextDueDate } = group;
+                const { card, statementTxs, statementAmount, nextCycleTxs, nextCycleAmount, transactions: cardTxs, totalAmount, currentDueDate, nextDueDate } = group;
                 const isExpanded = Boolean(expandedCardIds[card.id]);
-                const dueBadge = formatDueDateBadge(nextDueDate);
-                const hasBalance = totalAmount > 0;
+                const activeDueDate = statementAmount > 0 ? currentDueDate : nextDueDate;
+                const dueBadge = formatDueDateBadge(activeDueDate);
+                const hasStatementDue = statementAmount > 0;
+                const hasAnyBalance = totalAmount > 0;
 
                 return (
                   <div
@@ -224,8 +274,8 @@ export const PendingExpensesSection: React.FC = () => {
                             {card.name} •••• {card.last4Digits}
                           </p>
 
-                          {/* Badge Hạn sao kê kế tiếp */}
-                          <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+                          {/* Badge Hạn sao kê & Dòng phụ kỳ tới */}
+                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5 min-w-0">
                             <span
                               className={`text-[10px] font-medium px-1.5 py-0.2 rounded-md font-mono flex items-center gap-1 min-w-0 ${
                                 dueBadge.status === 'OVERDUE'
@@ -237,10 +287,16 @@ export const PendingExpensesSection: React.FC = () => {
                             >
                               <Calendar className="w-2.5 h-2.5 shrink-0" />
                               <span className="truncate">
-                                <span className="hidden sm:inline">Hạn: {formatDisplayDate(nextDueDate)} • </span>
+                                <span className="hidden sm:inline">Hạn: {formatDisplayDate(activeDueDate)} • </span>
                                 {dueBadge.label}
                               </span>
                             </span>
+
+                            {nextCycleAmount > 0 && statementAmount > 0 && (
+                              <span className="text-[10px] text-[#78716C] font-mono hidden sm:inline">
+                                (+{displayAmount(nextCycleAmount)} kỳ tới)
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -249,25 +305,29 @@ export const PendingExpensesSection: React.FC = () => {
                       <div className="flex items-center gap-2 shrink-0">
                         <div className="text-right min-w-[72px]">
                           <span
-                            title={formatVND(totalAmount)}
+                            title={formatVND(hasStatementDue ? statementAmount : nextCycleAmount)}
                             className={`text-xs sm:text-sm font-bold font-mono tabular-nums ${
-                              hasBalance ? 'text-[#B45309]' : 'text-[#059669]'
+                              hasStatementDue
+                                ? 'text-[#B45309]'
+                                : hasAnyBalance
+                                ? 'text-[#0F3D39]'
+                                : 'text-[#059669]'
                             }`}
                           >
-                            {displayAmount(totalAmount)}
+                            {displayAmount(hasStatementDue ? statementAmount : nextCycleAmount)}
                           </span>
                           <p className="text-[9px] text-[#A8A29E]">
-                            {cardTxs.length} khoản quẹt
+                            {hasStatementDue ? `${statementTxs.length} khoản sao kê` : hasAnyBalance ? `${nextCycleTxs.length} quẹt kỳ tới` : 'Đã tất toán'}
                           </p>
                         </div>
 
                         {/* Nút Quyết toán thẻ 1-chạm nếu có dư nợ */}
-                        {hasBalance ? (
+                        {hasAnyBalance ? (
                           <button
                             type="button"
                             onClick={(e) => handleOpenSettleSheet(e, group)}
                             className="h-8 px-2.5 sm:px-3 rounded-xl bg-[#0F3D39] hover:bg-[#134E48] text-white text-[11px] font-semibold flex items-center justify-center gap-1 transition-all shadow-2xs cursor-pointer active:scale-95 shrink-0"
-                            title="Quyết toán toàn bộ sao kê thẻ này"
+                            title="Quyết toán thẻ này"
                           >
                             <Check className="w-3.5 h-3.5 stroke-[2.5]" />
                             <span className="hidden sm:inline">Trả thẻ</span>
@@ -286,60 +346,51 @@ export const PendingExpensesSection: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Danh sách các khoản quẹt thẻ con (Bung accordion khi nhấn vào) */}
+                    {/* Danh sách các khoản quẹt thẻ con: Phân chia 2 nhóm kỳ sao kê */}
                     {isExpanded && (
-                      <div className="border-t border-[#F5F3EF] bg-[#FAF9F6]/80 divide-y divide-[#F5F3EF] px-3 py-1 animate-in fade-in duration-150">
+                      <div className="border-t border-[#F5F3EF] bg-[#FAF9F6]/80 px-3 py-2 animate-in fade-in duration-150 space-y-2.5">
                         {cardTxs.length === 0 ? (
                           <p className="text-xs text-[#A8A29E] py-2 text-center">
                             Không có khoản quẹt thẻ nào đang chờ quyết toán.
                           </p>
                         ) : (
-                          cardTxs.map((tx) => {
-                            const cat = categories.find((c) => c.id === tx.categoryId);
-                            return (
-                              <div
-                                key={tx.id}
-                                onClick={() => handleOpenTransaction(tx)}
-                                className="py-2.5 px-2 -mx-1 rounded-xl flex items-center justify-between gap-2 text-xs hover:bg-white active:bg-[#F5F3EF] transition-all cursor-pointer group select-none"
-                              >
-                                <div className="flex items-center gap-2.5 min-w-0">
-                                  <span className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0 border border-[#E6E2DA] bg-white shadow-2xs group-hover:border-[#0F3D39]/40 transition-colors">
-                                    {renderCategoryIcon(cat?.icon, "w-3.5 h-3.5", cat?.color || '#0F3D39')}
+                          <>
+                            {/* NHÓM 1: KỲ SAO KÊ ĐẾN HẠN ĐỢT NÀY */}
+                            {statementTxs.length > 0 && (
+                              <div>
+                                <div className="flex items-center justify-between pb-1 mb-1 border-b border-[#E6E2DA]/60">
+                                  <span className="text-[10px] font-bold text-[#B45309] uppercase tracking-wider flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#B45309]" />
+                                    Kỳ sao kê đến hạn ({formatDisplayDate(currentDueDate)})
                                   </span>
-                                  <div className="min-w-0">
-                                    <p className="font-semibold text-[#1C1917] truncate group-hover:text-[#0F3D39] transition-colors">
-                                      {tx.note || tx.categoryName}
-                                    </p>
-                                    <p className="text-[10px] text-[#78716C] font-mono mt-0.5">
-                                      {formatDisplayDate(tx.date)} • {tx.paidBy} quẹt
-                                      {tx.goalName && (
-                                        <span className="text-[#0F3D39] ml-1 truncate">
-                                          • 🎯 {tx.goalName}
-                                        </span>
-                                      )}
-                                    </p>
-                                  </div>
+                                  <span className="text-[10px] font-mono font-bold text-[#B45309]">
+                                    {displayAmount(statementAmount)}
+                                  </span>
                                 </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <span className="font-mono font-bold text-[#1C1917] tabular-nums">
-                                    {formatVND(tx.amount)}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenTransaction(tx);
-                                    }}
-                                    className="text-[#A8A29E] hover:text-[#0F3D39] p-1 rounded-lg hover:bg-[#F5F3EF] opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
-                                    title="Chỉnh sửa khoản quẹt thẻ"
-                                    aria-label="Chỉnh sửa"
-                                  >
-                                    <Pencil className="w-3.5 h-3.5" />
-                                  </button>
+                                <div className="divide-y divide-[#F5F3EF]">
+                                  {statementTxs.map(renderCardTxRow)}
                                 </div>
                               </div>
-                            );
-                          })
+                            )}
+
+                            {/* NHÓM 2: KỲ TÍCH LŨY KẾ TIẾP (CHƯA CHỐT SAO KÊ) */}
+                            {nextCycleTxs.length > 0 && (
+                              <div className={statementTxs.length > 0 ? "pt-2 border-t border-[#E6E2DA]/60" : ""}>
+                                <div className="flex items-center justify-between pb-1 mb-1 border-b border-[#E6E2DA]/60">
+                                  <span className="text-[10px] font-bold text-[#0F3D39] uppercase tracking-wider flex items-center gap-1">
+                                    <Clock className="w-3 h-3 text-[#0F3D39]" />
+                                    Kỳ kế tiếp ({formatDisplayDate(nextDueDate)}) • Chưa chốt
+                                  </span>
+                                  <span className="text-[10px] font-mono font-bold text-[#0F3D39]">
+                                    {displayAmount(nextCycleAmount)}
+                                  </span>
+                                </div>
+                                <div className="divide-y divide-[#F5F3EF]">
+                                  {nextCycleTxs.map(renderCardTxRow)}
+                                </div>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     )}
@@ -472,9 +523,10 @@ export const PendingExpensesSection: React.FC = () => {
           isOpen={Boolean(settlingGroup)}
           onClose={() => setSettlingGroup(null)}
           card={settlingGroup.card}
+          group={settlingGroup}
           transactions={settlingGroup.transactions}
           totalAmount={settlingGroup.totalAmount}
-          dueDate={settlingGroup.nextDueDate}
+          dueDate={settlingGroup.statementAmount > 0 ? settlingGroup.currentDueDate : settlingGroup.nextDueDate}
         />
       )}
 

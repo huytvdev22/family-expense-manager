@@ -2,6 +2,7 @@
  * TIỆN ÍCH ĐỊNH DẠNG TIỀN TỆ & THỜI GIAN
  * Đảm bảo các con số luôn hiển thị thẳng hàng (Tabular Numerics)
  */
+import type { CreditCard, Transaction } from '../types';
 
 export function formatVND(amount: number, showSymbol = true): string {
   if (isNaN(amount)) return showSymbol ? '0 ₫' : '0';
@@ -155,21 +156,149 @@ export function formatDueDateBadge(dueDateStr: string): {
   };
 }
 
+export interface CardBillingCycleInfo {
+  // Kỳ sao kê gần nhất đã chốt (đang đến hạn thanh toán trong tháng)
+  currentStatementDate: string; // "YYYY-MM-DD"
+  currentDueDate: string; // "YYYY-MM-DD"
+  // Kỳ sao kê tiếp theo đang tích lũy
+  nextStatementDate: string; // "YYYY-MM-DD"
+  nextDueDate: string; // "YYYY-MM-DD"
+}
+
+/**
+ * Trích xuất nhãn tháng rút gọn từ chuỗi ngày (VD: "2026-08-28" -> "T8")
+ */
+export function formatTxMonth(dateString: string): string {
+  if (!dateString || dateString.length < 7) return '';
+  const month = parseInt(dateString.substring(5, 7), 10);
+  return `T${month}`;
+}
+
+/**
+ * Tính toán thông tin chu kỳ sao kê và hạn thanh toán cho thẻ tín dụng.
+ * Hỗ trợ cả 2 chuẩn: Cố định ngày (FIXED_DAY) và Ân hạn sau sao kê (GRACE_PERIOD).
+ */
+export function getCardBillingCycleInfo(card: CreditCard, referenceDate: Date = new Date()): CardBillingCycleInfo {
+  const refYear = referenceDate.getFullYear();
+  const refMonth = referenceDate.getMonth(); // 0-indexed
+  const refDay = referenceDate.getDate();
+
+  const statementDay = card.statementDay || 20;
+
+  // Xác định ngày chốt sao kê của tháng tham chiếu
+  const maxDaysThisMonth = new Date(refYear, refMonth + 1, 0).getDate();
+  const actualStatementDayThisMonth = Math.min(statementDay, maxDaysThisMonth);
+
+  // Xác định kỳ sao kê gần nhất đã chốt:
+  // Nếu ngày hiện tại <= ngày chốt sao kê tháng này: kỳ sao kê gần nhất vừa chốt là của THÁNG TRƯỚC
+  // Nếu ngày hiện tại > ngày chốt sao kê tháng này: kỳ sao kê gần nhất vừa chốt là của THÁNG NÀY
+  let pastStatementYear = refYear;
+  let pastStatementMonth = refMonth;
+
+  let upcomingStatementYear = refYear;
+  let upcomingStatementMonth = refMonth;
+
+  if (refDay <= actualStatementDayThisMonth) {
+    // Chưa chốt sao kê tháng này -> Kỳ đã chốt là tháng trước
+    pastStatementMonth = refMonth - 1;
+    if (pastStatementMonth < 0) {
+      pastStatementMonth = 11;
+      pastStatementYear = refYear - 1;
+    }
+    // Kỳ tiếp theo là tháng này
+    upcomingStatementMonth = refMonth;
+    upcomingStatementYear = refYear;
+  } else {
+    // Đã chốt sao kê tháng này -> Kỳ đã chốt là tháng này
+    pastStatementMonth = refMonth;
+    pastStatementYear = refYear;
+    // Kỳ tiếp theo là tháng sau
+    upcomingStatementMonth = refMonth + 1;
+    if (upcomingStatementMonth > 11) {
+      upcomingStatementMonth = 0;
+      upcomingStatementYear = refYear + 1;
+    }
+  }
+
+  // Hàm tạo chuỗi YYYY-MM-DD
+  const formatYMD = (d: Date): string => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  // 1. Tạo Date cho kỳ sao kê đã chốt
+  const maxDaysPast = new Date(pastStatementYear, pastStatementMonth + 1, 0).getDate();
+  const pastStmtDate = new Date(pastStatementYear, pastStatementMonth, Math.min(statementDay, maxDaysPast));
+
+  // 2. Tạo Date cho kỳ sao kê kế tiếp
+  const maxDaysUpcoming = new Date(upcomingStatementYear, upcomingStatementMonth + 1, 0).getDate();
+  const upcomingStmtDate = new Date(upcomingStatementYear, upcomingStatementMonth, Math.min(statementDay, maxDaysUpcoming));
+
+  // Hàm tính hạn thanh toán từ ngày sao kê
+  const calcDueDate = (stmtDate: Date): Date => {
+    if (card.dueType === 'GRACE_PERIOD') {
+      const graceDays = card.daysAfterStatement || (card.gracePeriodDays ? card.gracePeriodDays - 30 : 25);
+      return new Date(stmtDate.getFullYear(), stmtDate.getMonth(), stmtDate.getDate() + graceDays);
+    } else {
+      // Cố định ngày trong tháng sau ngày sao kê
+      const dueYear = stmtDate.getMonth() === 11 ? stmtDate.getFullYear() + 1 : stmtDate.getFullYear();
+      const dueMonth = (stmtDate.getMonth() + 1) % 12;
+      const maxDueDay = new Date(dueYear, dueMonth + 1, 0).getDate();
+      const actualDueDay = Math.min(card.paymentDueDay || 5, maxDueDay);
+      return new Date(dueYear, dueMonth, actualDueDay);
+    }
+  };
+
+  const pastDueDate = calcDueDate(pastStmtDate);
+  const upcomingDueDate = calcDueDate(upcomingStmtDate);
+
+  return {
+    currentStatementDate: formatYMD(pastStmtDate),
+    currentDueDate: formatYMD(pastDueDate),
+    nextStatementDate: formatYMD(upcomingStmtDate),
+    nextDueDate: formatYMD(upcomingDueDate)
+  };
+}
+
+/**
+ * Phân loại một giao dịch quẹt thẻ tín dụng:
+ * - 'STATEMENT': Thuộc kỳ sao kê đã chốt gần nhất (đang đến hạn thanh toán đợt này)
+ * - 'NEXT_CYCLE': Thuộc kỳ sao kê kế tiếp (chưa chốt sao kê / đang tích lũy)
+ */
+export function classifyCardTransaction(
+  tx: Transaction,
+  cycleInfo: CardBillingCycleInfo
+): 'STATEMENT' | 'NEXT_CYCLE' {
+  const txDate = tx.date || '';
+  if (txDate <= cycleInfo.currentStatementDate) {
+    return 'STATEMENT';
+  }
+  return 'NEXT_CYCLE';
+}
+
 /**
  * Tự động tính ngày đến hạn thanh toán sao kê gần nhất cho thẻ tín dụng (YYYY-MM-DD)
- * Dựa vào ngày đến hạn thanh toán hàng tháng (paymentDueDay).
+ * Hỗ trợ nhận vào `CreditCard` object hoặc fallback nhận số `paymentDueDay` (number)
  */
-export function calculateCardNextDueDate(paymentDueDay: number): string {
-  const now = new Date();
+export function calculateCardNextDueDate(cardOrDueDay: CreditCard | number, referenceDate: Date = new Date()): string {
+  if (typeof cardOrDueDay === 'object' && cardOrDueDay !== null) {
+    const cycleInfo = getCardBillingCycleInfo(cardOrDueDay, referenceDate);
+    return cycleInfo.currentDueDate;
+  }
+
+  // Fallback dành cho code cũ gọi calculateCardNextDueDate(number)
+  const paymentDueDay = typeof cardOrDueDay === 'number' ? cardOrDueDay : 5;
+  const now = referenceDate;
   const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth(); // 0-indexed
+  const currentMonth = now.getMonth();
   const currentDay = now.getDate();
 
   let targetYear = currentYear;
   let targetMonth = currentMonth;
 
   if (currentDay > paymentDueDay) {
-    // Hạn tháng này đã qua, hạn tiếp theo rơi vào tháng sau
     targetMonth += 1;
     if (targetMonth > 11) {
       targetMonth = 0;
@@ -177,7 +306,6 @@ export function calculateCardNextDueDate(paymentDueDay: number): string {
     }
   }
 
-  // Xử lý tháng có ít ngày hơn paymentDueDay (vd tháng 2)
   const lastDayOfTargetMonth = new Date(targetYear, targetMonth + 1, 0).getDate();
   const finalDay = Math.min(paymentDueDay, lastDayOfTargetMonth);
 

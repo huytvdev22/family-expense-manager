@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Plus, Check, Edit2, Trash2, CreditCard as CardIcon, Calendar, ArrowLeft } from 'lucide-react';
+import { Plus, Check, Edit2, Trash2, CreditCard as CardIcon, Calendar, ArrowLeft, Info, Clock } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
+import { getCardBillingCycleInfo, formatDisplayDate } from '../utils/currency';
 import { useToast } from './Toast';
 import { BottomSheet } from './BottomSheet';
-import type { CreditCard } from '../types';
+import type { CreditCard, CreditCardDueType } from '../types';
 
 interface CardManagerModalProps {
   isOpen: boolean;
@@ -20,12 +21,15 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
   const [viewMode, setViewMode] = useState<'LIST' | 'FORM'>('LIST');
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
 
-  // Form state tối giản: chỉ còn tên thẻ, 4 số cuối, ngày sao kê, ngày đến hạn và màu sắc
+  // Form state tối giản
   const [name, setName] = useState('');
   const [last4Digits, setLast4Digits] = useState('');
   const [color, setColor] = useState('#DC2626');
   const [statementDay, setStatementDay] = useState<number>(20);
+  const [dueType, setDueType] = useState<CreditCardDueType>('FIXED_DAY');
   const [paymentDueDay, setPaymentDueDay] = useState<number>(5);
+  const [daysAfterStatement, setDaysAfterStatement] = useState<number>(25);
+  const [gracePeriodDays, setGracePeriodDays] = useState<number>(55);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const COLOR_PRESETS = [
@@ -42,7 +46,10 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
     setLast4Digits('');
     setColor('#DC2626');
     setStatementDay(20);
+    setDueType('FIXED_DAY');
     setPaymentDueDay(5);
+    setDaysAfterStatement(25);
+    setGracePeriodDays(55);
     setEditingCardId(null);
     setViewMode('LIST');
   };
@@ -67,14 +74,17 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
     setLast4Digits(card.last4Digits);
     setColor(card.color || '#DC2626');
     setStatementDay(card.statementDay);
-    setPaymentDueDay(card.paymentDueDay);
+    setDueType(card.dueType || 'FIXED_DAY');
+    setPaymentDueDay(card.paymentDueDay || 5);
+    setDaysAfterStatement(card.daysAfterStatement || 25);
+    setGracePeriodDays(card.gracePeriodDays || 55);
     setViewMode('FORM');
   };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      showToast('Vui lòng nhập tên thẻ / ngân hàng', 'warning');
+      showToast('Vui lòng nhập tên thẻ hoặc ngân hàng', 'warning');
       return;
     }
     if (!last4Digits.trim() || last4Digits.length !== 4) {
@@ -84,21 +94,22 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
 
     try {
       setIsSubmitting(true);
+      const cardPayload = {
+        name: name.trim(),
+        last4Digits: last4Digits.trim(),
+        color,
+        statementDay: Number(statementDay),
+        dueType,
+        paymentDueDay: Number(paymentDueDay),
+        daysAfterStatement: dueType === 'GRACE_PERIOD' ? Number(daysAfterStatement) : undefined,
+        gracePeriodDays: dueType === 'GRACE_PERIOD' ? Number(gracePeriodDays) : undefined
+      };
+
       if (editingCardId) {
-        await editCreditCard(editingCardId, {
-          name: name.trim(),
-          last4Digits: last4Digits.trim(),
-          color,
-          statementDay: Number(statementDay),
-          paymentDueDay: Number(paymentDueDay)
-        });
+        await editCreditCard(editingCardId, cardPayload);
       } else {
         await addCreditCard({
-          name: name.trim(),
-          last4Digits: last4Digits.trim(),
-          color,
-          statementDay: Number(statementDay),
-          paymentDueDay: Number(paymentDueDay),
+          ...cardPayload,
           isActive: true
         });
       }
@@ -116,6 +127,22 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
     }
   };
 
+  const previewCycle = getCardBillingCycleInfo({
+    id: 'preview',
+    householdId: '',
+    name: name || 'Thẻ',
+    last4Digits: last4Digits || '0000',
+    color,
+    statementDay: Number(statementDay) || 20,
+    dueType,
+    paymentDueDay: Number(paymentDueDay) || 5,
+    daysAfterStatement: Number(daysAfterStatement) || 25,
+    gracePeriodDays: Number(gracePeriodDays) || 55,
+    isActive: true,
+    createdAt: '',
+    updatedAt: 0
+  });
+
   return (
     <BottomSheet
       isOpen={isOpen}
@@ -129,7 +156,7 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
       }
       subtitle={
         viewMode === 'FORM'
-          ? 'Thiết lập chu kỳ sao kê & thanh toán'
+          ? 'Thiết lập chu kỳ sao kê & hạn thanh toán'
           : `${creditCards.length} thẻ đang quản lý`
       }
       icon={
@@ -160,12 +187,12 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
                 playActionClick();
                 handleClose();
               }}
-              className="w-full py-3 min-h-[44px] rounded-2xl bg-[#0F3D39] hover:bg-[#174E4A] text-white text-xs sm:text-sm font-bold transition-all shadow-2xs active:scale-98 cursor-pointer flex items-center justify-center"
+              className="w-full min-h-[44px] py-2.5 rounded-2xl bg-[#0F3D39] text-white text-xs font-bold hover:bg-[#134E48] transition-all cursor-pointer shadow-sm"
             >
               Đóng
             </button>
           </div>
-        ) : undefined
+        ) : null
       }
     >
       {/* =========================================================================
@@ -206,7 +233,10 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
                         {card.name} •••• {card.last4Digits}
                       </p>
                       <p className="text-[10px] text-[#78716C] mt-0.5">
-                        Chốt ngày {card.statementDay} • Hạn ngày {card.paymentDueDay} hàng tháng
+                        Chốt ngày {card.statementDay} •{' '}
+                        {card.dueType === 'GRACE_PERIOD'
+                          ? `Hạn sau sao kê ${card.daysAfterStatement || 25} ngày`
+                          : `Hạn ngày ${card.paymentDueDay || 5} hàng tháng`}
                       </p>
                     </div>
                   </div>
@@ -237,7 +267,7 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
       )}
 
       {/* =========================================================================
-          VIEW 2: FORM THÊM / SỬA THẺ TỐI GIẢN
+          VIEW 2: FORM THÊM / SỬA THẺ
           ========================================================================= */}
       {viewMode === 'FORM' && (
         <form onSubmit={handleSave} className="space-y-4">
@@ -274,30 +304,69 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
             </div>
           </div>
 
-          {/* Chu kỳ sao kê & Hạn thanh toán */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div>
-              <label className="block text-[11px] font-semibold text-[#78716C] mb-1 uppercase tracking-wider">
-                Ngày chốt sao kê
-              </label>
-              <div className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] text-xs">
-                <Calendar className="w-3.5 h-3.5 text-[#78716C] shrink-0" />
-                <span className="text-[#78716C] text-[11px] shrink-0">Ngày</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={31}
-                  value={statementDay}
-                  onChange={(e) => setStatementDay(Number(e.target.value))}
-                  className="w-full font-mono font-bold text-[#1C1917] focus:outline-none text-right pr-1 bg-transparent"
-                  required
-                />
-              </div>
+          {/* Ngày chốt sao kê */}
+          <div>
+            <label className="block text-[11px] font-semibold text-[#78716C] mb-1 uppercase tracking-wider">
+              Ngày chốt sao kê hàng tháng
+            </label>
+            <div className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] text-xs">
+              <Calendar className="w-3.5 h-3.5 text-[#78716C] shrink-0" />
+              <span className="text-[#78716C] text-[11px] shrink-0">Ngày</span>
+              <input
+                type="number"
+                min={1}
+                max={31}
+                value={statementDay}
+                onChange={(e) => setStatementDay(Number(e.target.value))}
+                className="w-full font-mono font-bold text-[#1C1917] focus:outline-none text-right pr-1 bg-transparent"
+                required
+              />
+              <span className="text-[#78716C] text-[11px] shrink-0">hàng tháng</span>
             </div>
+          </div>
 
+          {/* Phương thức tính hạn thanh toán */}
+          <div>
+            <label className="block text-[11px] font-semibold text-[#78716C] mb-1.5 uppercase tracking-wider">
+              Cách tính hạn thanh toán
+            </label>
+            <div className="bg-[#F5F3EF] p-1 rounded-2xl flex border border-[#E6E2DA] shadow-2xs">
+              <button
+                type="button"
+                onClick={() => {
+                  playActionClick();
+                  setDueType('FIXED_DAY');
+                }}
+                className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  dueType === 'FIXED_DAY'
+                    ? 'bg-[#0F3D39] text-white font-bold shadow-2xs'
+                    : 'text-[#78716C] hover:text-[#1C1917]'
+                }`}
+              >
+                Cố định ngày trong tháng
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  playActionClick();
+                  setDueType('GRACE_PERIOD');
+                }}
+                className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  dueType === 'GRACE_PERIOD'
+                    ? 'bg-[#0F3D39] text-white font-bold shadow-2xs'
+                    : 'text-[#78716C] hover:text-[#1C1917]'
+                }`}
+              >
+                Số ngày sau sao kê
+              </button>
+            </div>
+          </div>
+
+          {/* Input cấu hình theo dueType */}
+          {dueType === 'FIXED_DAY' ? (
             <div>
               <label className="block text-[11px] font-semibold text-[#78716C] mb-1 uppercase tracking-wider">
-                Hạn thanh toán
+                Hạn thanh toán hàng tháng
               </label>
               <div className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] text-xs">
                 <Calendar className="w-3.5 h-3.5 text-[#0F3D39] shrink-0" />
@@ -311,6 +380,55 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
                   className="w-full font-mono font-bold text-[#0F3D39] focus:outline-none text-right pr-1 bg-transparent"
                   required
                 />
+                <span className="text-[#78716C] text-[11px] shrink-0">hàng tháng (tháng kế tiếp)</span>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label className="block text-[11px] font-semibold text-[#78716C] mb-1 uppercase tracking-wider">
+                Hạn thanh toán sau sao kê
+              </label>
+              <div className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] text-xs">
+                <Clock className="w-3.5 h-3.5 text-[#0F3D39] shrink-0" />
+                <span className="text-[#78716C] text-[11px] shrink-0">Sau ngày chốt sao kê</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={daysAfterStatement}
+                  onChange={(e) => {
+                    const days = Number(e.target.value);
+                    setDaysAfterStatement(days);
+                    setGracePeriodDays(days + 30);
+                  }}
+                  className="w-full font-mono font-bold text-[#0F3D39] focus:outline-none text-right pr-1 bg-transparent"
+                  required
+                />
+                <span className="text-[#78716C] text-[11px] shrink-0">ngày</span>
+              </div>
+            </div>
+          )}
+
+          {/* Smart Preview Mô phỏng chu kỳ */}
+          <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-3 text-xs space-y-2">
+            <div className="flex items-center gap-1.5 text-[#0F3D39] font-bold">
+              <Info className="w-3.5 h-3.5 shrink-0" />
+              <span>Mô phỏng chu kỳ sao kê thực tế</span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-[11px] pt-1.5 border-t border-[#E6E2DA]">
+              <div className="bg-white p-2.5 rounded-xl border border-[#E6E2DA]/80 shadow-2xs">
+                <span className="text-[#78716C] block text-[10px] uppercase font-semibold">Kỳ chốt vừa qua</span>
+                <span className="font-mono font-bold text-[#1C1917] block mt-0.5">{formatDisplayDate(previewCycle.currentStatementDate)}</span>
+                <span className="text-[10px] text-[#B45309] block mt-1 font-semibold">
+                  ➔ Hạn trả: {formatDisplayDate(previewCycle.currentDueDate)}
+                </span>
+              </div>
+              <div className="bg-white p-2.5 rounded-xl border border-[#E6E2DA]/80 shadow-2xs">
+                <span className="text-[#78716C] block text-[10px] uppercase font-semibold">Kỳ chốt kế tiếp</span>
+                <span className="font-mono font-bold text-[#1C1917] block mt-0.5">{formatDisplayDate(previewCycle.nextStatementDate)}</span>
+                <span className="text-[10px] text-[#059669] block mt-1 font-semibold">
+                  ➔ Hạn trả: {formatDisplayDate(previewCycle.nextDueDate)}
+                </span>
               </div>
             </div>
           </div>

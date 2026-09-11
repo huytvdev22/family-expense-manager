@@ -133,18 +133,35 @@ export interface QuickTagItem {
   createdAt?: string;
 }
 
+export type CreditCardDueType = 'FIXED_DAY' | 'GRACE_PERIOD';
+
 export interface CreditCard {
   id: string;
   householdId: string;
   name: string; // Tên thẻ hoặc ngân hàng (VD: "HSBC", "MSB", "BIDV JCB")
   last4Digits: string; // 4 số cuối (VD: "8828", "6512", "9366")
   color: string; // Mã màu hex đại diện thương hiệu
-  statementDay: number; // Ngày chốt sao kê hàng tháng (VD: 20)
-  paymentDueDay: number; // Ngày đến hạn thanh toán hàng tháng (VD: 05)
+  statementDay: number; // Ngày chốt sao kê hàng tháng (VD: 20 hoặc 25)
+  dueType?: CreditCardDueType; // 'FIXED_DAY' (mặc định) hoặc 'GRACE_PERIOD' (HSBC, Citi...)
+  paymentDueDay: number; // Ngày đến hạn thanh toán hàng tháng (VD: 05) - dùng khi dueType === 'FIXED_DAY'
+  daysAfterStatement?: number; // Số ngày thanh toán sau ngày sao kê (VD: 25 với thẻ 55 ngày của HSBC, 15 với thẻ 45 ngày)
+  gracePeriodDays?: number; // Tổng số ngày miễn lãi tối đa (VD: 55 hoặc 45 để hiển thị UI)
   creditLimit?: number; // Hạn mức tín dụng (tùy chọn)
   isActive: boolean;
   createdAt: string;
   updatedAt: number;
+}
+
+export interface UnsettledCardGroup {
+  card: CreditCard;
+  statementTxs: Transaction[];
+  statementAmount: number;
+  nextCycleTxs: Transaction[];
+  nextCycleAmount: number;
+  transactions: Transaction[]; // Toàn bộ giao dịch quẹt thẻ chưa tất toán
+  totalAmount: number; // Tổng dư nợ thẻ (statementAmount + nextCycleAmount)
+  currentDueDate: string; // Hạn sao kê kỳ này
+  nextDueDate: string; // Hạn sao kê kỳ kế tiếp
 }
 
 export interface PendingExpense {

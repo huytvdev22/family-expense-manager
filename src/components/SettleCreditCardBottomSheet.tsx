@@ -4,44 +4,69 @@ import { useApp } from '../context/AppContext';
 import { formatVND, getLocalDateString, formatDisplayDate } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
 import { BottomSheet } from './BottomSheet';
-import type { CreditCard, Transaction } from '../types';
+import type { CreditCard, Transaction, UnsettledCardGroup } from '../types';
 
 interface SettleCreditCardBottomSheetProps {
   isOpen: boolean;
   onClose: () => void;
   card: CreditCard | null;
-  transactions: Transaction[];
-  totalAmount: number;
-  dueDate: string;
+  group?: UnsettledCardGroup | null;
+  transactions?: Transaction[];
+  totalAmount?: number;
+  dueDate?: string;
 }
 
 export const SettleCreditCardBottomSheet: React.FC<SettleCreditCardBottomSheetProps> = ({
   isOpen,
   onClose,
   card,
-  transactions,
-  totalAmount,
-  dueDate
+  group,
+  transactions = [],
+  totalAmount = 0,
+  dueDate = ''
 }) => {
   const { settleCard, userRole } = useApp();
 
   const [paidBy, setPaidBy] = useState<'Chồng' | 'Vợ'>('Chồng');
   const [paidDate, setPaidDate] = useState<string>(getLocalDateString());
+  const [settleMode, setSettleMode] = useState<'STATEMENT_ONLY' | 'ALL'>('STATEMENT_ONLY');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
     if (card) {
       setPaidBy(userRole || 'Chồng');
       setPaidDate(getLocalDateString());
+      // Nếu có nợ sao kê kỳ này thì mặc định chọn STATEMENT_ONLY, nếu không thì chọn ALL
+      if (group && group.statementAmount > 0) {
+        setSettleMode('STATEMENT_ONLY');
+      } else {
+        setSettleMode('ALL');
+      }
     }
-  }, [card, userRole]);
+  }, [card, userRole, group]);
 
   if (!card) return null;
+
+  const hasStatementDebt = (group?.statementAmount ?? 0) > 0;
+  const hasNextCycleDebt = (group?.nextCycleAmount ?? 0) > 0;
+  const showModeSelector = Boolean(group && hasStatementDebt && hasNextCycleDebt);
+
+  const activeAmount = settleMode === 'STATEMENT_ONLY' && group
+    ? group.statementAmount
+    : (group?.totalAmount ?? totalAmount);
+
+  const activeTxs = settleMode === 'STATEMENT_ONLY' && group
+    ? group.statementTxs
+    : (group?.transactions ?? transactions);
+
+  const activeDueDate = settleMode === 'STATEMENT_ONLY' && group
+    ? group.currentDueDate
+    : (group?.statementAmount ? group.currentDueDate : group?.nextDueDate || dueDate);
 
   const handleConfirm = async () => {
     try {
       setIsSubmitting(true);
-      await settleCard(card.id, paidBy, paidDate);
+      await settleCard(card.id, paidBy, settleMode, paidDate);
       onClose();
     } catch (err) {
       console.error('Lỗi khi quyết toán thẻ:', err);
@@ -81,19 +106,19 @@ export const SettleCreditCardBottomSheet: React.FC<SettleCreditCardBottomSheetPr
           <button
             type="button"
             onClick={handleConfirm}
-            disabled={isSubmitting || transactions.length === 0}
+            disabled={isSubmitting || activeTxs.length === 0}
             className="flex-2 min-h-[44px] py-3 rounded-2xl bg-[#0F3D39] text-white text-xs font-bold hover:bg-[#134E48] shadow-sm flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
           >
             <Check className="w-4 h-4 stroke-[2.5] shrink-0" />
             <span className="truncate">
-              {isSubmitting ? 'Đang quyết toán...' : `Xác nhận đã trả (${formatVND(totalAmount)})`}
+              {isSubmitting ? 'Đang quyết toán...' : `Xác nhận đã trả (${formatVND(activeAmount)})`}
             </span>
           </button>
         </div>
       }
     >
       <div className="space-y-4">
-        {/* Card Tóm tắt Dư nợ sao kê */}
+        {/* Card Tóm tắt Dư nợ */}
         <div
           className="rounded-2xl p-4 text-white shadow-sm relative overflow-hidden flex flex-col justify-between"
           style={{
@@ -113,17 +138,65 @@ export const SettleCreditCardBottomSheet: React.FC<SettleCreditCardBottomSheetPr
           </div>
 
           <div className="my-1">
-            <p className="text-[11px] opacity-80 uppercase tracking-wider">Tổng dư nợ cần thanh toán</p>
+            <p className="text-[11px] opacity-80 uppercase tracking-wider">
+              {settleMode === 'STATEMENT_ONLY' ? 'Dư nợ sao kê đến hạn cần thanh toán' : 'Tổng dư nợ quyết toán'}
+            </p>
             <p className="text-2xl sm:text-3xl font-bold font-mono tracking-tight tabular-nums mt-0.5">
-              {formatVND(totalAmount)}
+              {formatVND(activeAmount)}
             </p>
           </div>
 
           <div className="flex items-center justify-between text-[11px] opacity-85 pt-2 border-t border-white/15">
-            <span>Hạn sao kê: {formatDisplayDate(dueDate)}</span>
-            <span>{transactions.length} khoản quẹt</span>
+            <span>Hạn sao kê: {formatDisplayDate(activeDueDate)}</span>
+            <span>{activeTxs.length} khoản quẹt</span>
           </div>
         </div>
+
+        {/* Bộ chọn Chế độ quyết toán: Trả sao kê kỳ này vs Tất toán toàn bộ */}
+        {showModeSelector && (
+          <div>
+            <label className="block text-[11px] font-semibold text-[#78716C] mb-1.5 uppercase tracking-wider">
+              Khoản muốn thanh toán
+            </label>
+            <div className="grid grid-cols-2 gap-2 bg-[#F5F3EF] p-1 rounded-2xl border border-[#E6E2DA]">
+              <button
+                type="button"
+                onClick={() => {
+                  playActionClick();
+                  setSettleMode('STATEMENT_ONLY');
+                }}
+                className={`py-2.5 px-3 rounded-xl text-xs transition-all cursor-pointer text-left ${
+                  settleMode === 'STATEMENT_ONLY'
+                    ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
+                    : 'text-[#78716C] hover:text-[#1C1917]'
+                }`}
+              >
+                <div className="font-semibold truncate">Trả sao kê kỳ này</div>
+                <div className={`text-[11px] font-mono font-bold mt-0.5 ${settleMode === 'STATEMENT_ONLY' ? 'text-[#A7F3D0]' : 'text-[#B45309]'}`}>
+                  {formatVND(group!.statementAmount)}
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  playActionClick();
+                  setSettleMode('ALL');
+                }}
+                className={`py-2.5 px-3 rounded-xl text-xs transition-all cursor-pointer text-left ${
+                  settleMode === 'ALL'
+                    ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
+                    : 'text-[#78716C] hover:text-[#1C1917]'
+                }`}
+              >
+                <div className="font-semibold truncate">Tất toán toàn bộ</div>
+                <div className={`text-[11px] font-mono font-bold mt-0.5 ${settleMode === 'ALL' ? 'text-[#A7F3D0]' : 'text-[#78716C]'}`}>
+                  {formatVND(group!.totalAmount)}
+                </div>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Dòng giải thích phương án hạch toán */}
         <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-3 text-xs text-[#78716C] flex items-start gap-2 leading-relaxed">
@@ -192,25 +265,25 @@ export const SettleCreditCardBottomSheet: React.FC<SettleCreditCardBottomSheetPr
           </div>
         </div>
 
-        {/* Danh sách các khoản quẹt trong kỳ này */}
+        {/* Danh sách các khoản quẹt được chọn thanh toán */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold text-[#1C1917] flex items-center gap-1.5">
               <ReceiptText className="w-3.5 h-3.5 text-[#78716C]" />
-              Các khoản quẹt thẻ trong kỳ ({transactions.length})
+              Khoản quẹt thanh toán đợt này ({activeTxs.length})
             </span>
             <span className="text-xs font-mono font-bold text-[#0F3D39]">
-              {formatVND(totalAmount)}
+              {formatVND(activeAmount)}
             </span>
           </div>
 
           <div className="divide-y divide-[#F5F3EF] border border-[#E6E2DA] rounded-2xl overflow-hidden bg-[#FAF9F6] max-h-48 overflow-y-auto">
-            {transactions.length === 0 ? (
+            {activeTxs.length === 0 ? (
               <div className="p-3 text-center text-xs text-[#A8A29E]">
                 Không có giao dịch quẹt thẻ nào đang chờ quyết toán.
               </div>
             ) : (
-              transactions.map((tx) => (
+              activeTxs.map((tx) => (
                 <div key={tx.id} className="flex items-center justify-between p-2.5 text-xs">
                   <div className="min-w-0 pr-2">
                     <p className="font-semibold text-[#1C1917] truncate">
@@ -232,3 +305,4 @@ export const SettleCreditCardBottomSheet: React.FC<SettleCreditCardBottomSheetPr
     </BottomSheet>
   );
 };
+

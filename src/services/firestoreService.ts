@@ -1249,4 +1249,34 @@ export async function settleCreditCardTransactions(
   await Promise.allSettled(updatePromises);
 }
 
+/**
+ * LẮNG NGHE REALTIME TOÀN BỘ GIAO DỊCH QUẸT THẺ CHƯA TẤT TOÁN CỦA TỔ ẤM
+ * Không lọc theo tháng để gom đủ các khoản quẹt từ tháng trước gối sang
+ */
+export function subscribeUnsettledCreditCardTransactions(
+  householdId: string,
+  onData: (transactions: Transaction[]) => void
+): Unsubscribe {
+  if (!db) return () => {};
+
+  const q = query(
+    collection(db, `households/${householdId}/transactions`),
+    where('paymentMethod', '==', 'CREDIT_CARD'),
+    where('isSettled', '==', false)
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const list: Transaction[] = [];
+    snapshot.forEach((docSnap) => {
+      list.push({ id: docSnap.id, ...docSnap.data() } as Transaction);
+    });
+    // Sắp xếp giảm dần theo ngày chi tiêu
+    list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    onData(list);
+  }, (err) => {
+    console.warn('Lỗi subscribeUnsettledCreditCardTransactions:', err);
+    onData([]);
+  });
+}
+
 

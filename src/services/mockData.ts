@@ -143,8 +143,11 @@ export const DEFAULT_CREDIT_CARDS: CreditCard[] = [
     name: 'HSBC',
     last4Digits: '8828',
     color: '#DC2626', // Đỏ rượu đặc trưng HSBC
-    statementDay: 20, // Chốt ngày 20 hàng tháng
-    paymentDueDay: 5, // Hạn thanh toán ngày 05 tháng sau
+    statementDay: 25, // Chốt ngày 25 hàng tháng
+    dueType: 'GRACE_PERIOD',
+    paymentDueDay: 20, // Fallback
+    daysAfterStatement: 25, // Thanh toán sau sao kê 25 ngày
+    gracePeriodDays: 55, // Ân hạn 55 ngày
     creditLimit: 60000000,
     isActive: true,
     createdAt: '2026-09-01T00:00:00Z',
@@ -371,6 +374,42 @@ export const MOCK_HOUSEHOLD: Household = {
 };
 
 export const MOCK_TRANSACTIONS: Transaction[] = [
+  {
+    id: 'tx_card_hsbc_aug_01',
+    amount: 3200000,
+    type: 'EXPENSE',
+    categoryId: 'cat_living',
+    categoryName: 'Sinh hoạt & Hẹn hò',
+    categoryKey: 'LIVING',
+    paidBy: 'Chồng',
+    paidByUid: 'mock_user_chong_01',
+    note: 'Vé máy bay Vietjet du lịch gia đình',
+    date: '2026-08-20',
+    paymentMethod: 'CREDIT_CARD',
+    cardId: 'card_hsbc',
+    cardName: 'HSBC LiveFree / Cash Back',
+    isSettled: false,
+    timestamp: Date.now() - 1000 * 60 * 60 * 24 * 22,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'tx_card_hsbc_aug_02',
+    amount: 1450000,
+    type: 'EXPENSE',
+    categoryId: 'cat_living',
+    categoryName: 'Sinh hoạt & Hẹn hò',
+    categoryKey: 'LIVING',
+    paidBy: 'Chồng',
+    paidByUid: 'mock_user_chong_01',
+    note: 'Siêu thị đồ gia đình cuối tháng 8',
+    date: '2026-08-28',
+    paymentMethod: 'CREDIT_CARD',
+    cardId: 'card_hsbc',
+    cardName: 'HSBC LiveFree / Cash Back',
+    isSettled: false,
+    timestamp: Date.now() - 1000 * 60 * 60 * 24 * 14,
+    createdAt: new Date().toISOString()
+  },
   {
     id: 'tx_card_hsbc_01',
     amount: 1850000,
