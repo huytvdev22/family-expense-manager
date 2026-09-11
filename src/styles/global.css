@@ -2,7 +2,8 @@
 @import "./tokens.css";
 @import "./theme.css";
 
-/* Base Typography & Background */
+/* Base Typography & Background & Native PWA Touch Experience */
+html,
 body {
   font-family: var(--font-sans);
   background-color: var(--color-bg);
@@ -12,6 +13,26 @@ body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
+  /* Trải nghiệm Native App: Chặn bôi đen text và menu callout khi nhấn giữ (long-press) */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Ngoại lệ: Cho phép nhập liệu, con trỏ và bôi đen trong ô input/textarea */
+input,
+textarea,
+[contenteditable="true"],
+.selectable {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Chống kéo thả ảnh và liên kết tạo cảm giác web */
+img,
+a {
+  -webkit-user-drag: none;
 }
 
 /* Số liệu tài chính thẳng cột */
