@@ -25,11 +25,11 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
   const [name, setName] = useState('');
   const [last4Digits, setLast4Digits] = useState('');
   const [color, setColor] = useState('#DC2626');
-  const [statementDay, setStatementDay] = useState<number>(20);
+  const [statementDay, setStatementDay] = useState<number | ''>(20);
   const [dueType, setDueType] = useState<CreditCardDueType>('FIXED_DAY');
-  const [paymentDueDay, setPaymentDueDay] = useState<number>(5);
-  const [daysAfterStatement, setDaysAfterStatement] = useState<number>(25);
-  const [gracePeriodDays, setGracePeriodDays] = useState<number>(55);
+  const [paymentDueDay, setPaymentDueDay] = useState<number | ''>(5);
+  const [daysAfterStatement, setDaysAfterStatement] = useState<number | ''>(25);
+  const [gracePeriodDays, setGracePeriodDays] = useState<number | ''>(55);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const COLOR_PRESETS = [
@@ -98,11 +98,11 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
         name: name.trim(),
         last4Digits: last4Digits.trim(),
         color,
-        statementDay: Number(statementDay),
+        statementDay: Number(statementDay) || 20,
         dueType,
-        paymentDueDay: Number(paymentDueDay),
-        daysAfterStatement: dueType === 'GRACE_PERIOD' ? Number(daysAfterStatement) : undefined,
-        gracePeriodDays: dueType === 'GRACE_PERIOD' ? Number(gracePeriodDays) : undefined
+        paymentDueDay: Number(paymentDueDay) || 5,
+        daysAfterStatement: dueType === 'GRACE_PERIOD' ? (Number(daysAfterStatement) || 25) : undefined,
+        gracePeriodDays: dueType === 'GRACE_PERIOD' ? (Number(gracePeriodDays) || 55) : undefined
       };
 
       if (editingCardId) {
@@ -313,11 +313,26 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
               <Calendar className="w-3.5 h-3.5 text-[#78716C] shrink-0" />
               <span className="text-[#78716C] text-[11px] shrink-0">Ngày</span>
               <input
-                type="number"
-                min={1}
-                max={31}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={statementDay}
-                onChange={(e) => setStatementDay(Number(e.target.value))}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/\D/g, '');
+                  if (!raw) {
+                    setStatementDay('');
+                    return;
+                  }
+                  const num = parseInt(raw, 10);
+                  setStatementDay(num > 31 ? 31 : num);
+                }}
+                onBlur={() => {
+                  if (!statementDay || statementDay < 1) {
+                    setStatementDay(20);
+                  }
+                }}
+                placeholder="20"
                 className="w-full font-mono font-bold text-[#1C1917] focus:outline-none text-right pr-1 bg-transparent"
                 required
               />
@@ -372,11 +387,26 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
                 <Calendar className="w-3.5 h-3.5 text-[#0F3D39] shrink-0" />
                 <span className="text-[#78716C] text-[11px] shrink-0">Ngày</span>
                 <input
-                  type="number"
-                  min={1}
-                  max={31}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={paymentDueDay}
-                  onChange={(e) => setPaymentDueDay(Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/\D/g, '');
+                    if (!raw) {
+                      setPaymentDueDay('');
+                      return;
+                    }
+                    const num = parseInt(raw, 10);
+                    setPaymentDueDay(num > 31 ? 31 : num);
+                  }}
+                  onBlur={() => {
+                    if (!paymentDueDay || paymentDueDay < 1) {
+                      setPaymentDueDay(5);
+                    }
+                  }}
+                  placeholder="5"
                   className="w-full font-mono font-bold text-[#0F3D39] focus:outline-none text-right pr-1 bg-transparent"
                   required
                 />
@@ -392,15 +422,29 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
                 <Clock className="w-3.5 h-3.5 text-[#0F3D39] shrink-0" />
                 <span className="text-[#78716C] text-[11px] shrink-0">Sau ngày chốt sao kê</span>
                 <input
-                  type="number"
-                  min={1}
-                  max={60}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={daysAfterStatement}
+                  onFocus={(e) => e.target.select()}
                   onChange={(e) => {
-                    const days = Number(e.target.value);
-                    setDaysAfterStatement(days);
-                    setGracePeriodDays(days + 30);
+                    const raw = e.target.value.replace(/\D/g, '');
+                    if (!raw) {
+                      setDaysAfterStatement('');
+                      return;
+                    }
+                    const num = parseInt(raw, 10);
+                    const safeNum = num > 60 ? 60 : num;
+                    setDaysAfterStatement(safeNum);
+                    setGracePeriodDays(safeNum + 30);
                   }}
+                  onBlur={() => {
+                    if (!daysAfterStatement || daysAfterStatement < 1) {
+                      setDaysAfterStatement(25);
+                      setGracePeriodDays(55);
+                    }
+                  }}
+                  placeholder="25"
                   className="w-full font-mono font-bold text-[#0F3D39] focus:outline-none text-right pr-1 bg-transparent"
                   required
                 />
