@@ -31,6 +31,9 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [note, setNote] = useState<string>('');
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(transaction?.goalId || null);
   const [selectedCardId, setSelectedCardId] = useState<string | null>(transaction?.cardId || null);
+  const [isSettled, setIsSettled] = useState<boolean>(false);
+  const [settledAt, setSettledAt] = useState<string>('');
+  const [settledBy, setSettledBy] = useState<'Chồng' | 'Vợ'>('Chồng');
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [isCategoryOpen, setIsCategoryOpen] = useState<boolean>(false);
@@ -53,6 +56,9 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       setDate(transaction.date || getLocalDateString());
       setNote(transaction.note || '');
       setSelectedGoalId(transaction.goalId || null);
+      setIsSettled(Boolean(transaction.isSettled));
+      setSettledAt(transaction.settledAt || getLocalDateString());
+      setSettledBy(transaction.settledBy || (transaction.paidBy as 'Chồng' | 'Vợ') || 'Chồng');
       setIsCategoryOpen(false);
       userUnlinkedGoal.current = !transaction.goalId;
 
@@ -247,7 +253,18 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
         updatedTx.paymentMethod = 'CREDIT_CARD';
         updatedTx.cardId = chosenCard ? chosenCard.id : selectedCardId;
         updatedTx.cardName = chosenCard ? chosenCard.name : (transaction.cardName || '');
-        updatedTx.isSettled = transaction.isSettled !== undefined ? transaction.isSettled : false;
+        updatedTx.isSettled = isSettled;
+        if (isSettled) {
+          updatedTx.settledAt = settledAt || getLocalDateString();
+          updatedTx.settledBy = settledBy;
+          if (transaction.settlementBatchId) {
+            updatedTx.settlementBatchId = transaction.settlementBatchId;
+          }
+        } else {
+          delete updatedTx.settledAt;
+          delete updatedTx.settledBy;
+          delete updatedTx.settlementBatchId;
+        }
       } else {
         updatedTx.paymentMethod = 'CASH';
         delete updatedTx.cardId;
@@ -255,6 +272,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
         delete updatedTx.isSettled;
         delete updatedTx.settledAt;
         delete updatedTx.settledBy;
+        delete updatedTx.settlementBatchId;
       }
 
       await editTransaction(transaction, updatedTx);
@@ -601,9 +619,114 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                       );
                     })}
                   </div>
-                  <p className="text-[10px] text-[#78716C] leading-normal">
-                    💡 Khoản chi này được đưa vào danh sách chờ quyết toán sao kê của thẻ.
-                  </p>
+
+                  {/* Khối quản lý trạng thái quyết toán thẻ & Ngày quyết toán */}
+                  <div className="mt-2 bg-white border border-[#E6E2DA] rounded-xl p-3 space-y-2.5 shadow-2xs">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-[#78716C] uppercase tracking-wider flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-[#0F3D39]" />
+                        Trạng thái quyết toán
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                          isSettled
+                            ? 'bg-[#ECFDF5] text-[#059669] border-[#A7F3D0]'
+                            : 'bg-[#FEF3C7] text-[#B45309] border-[#FDE68A]'
+                        }`}
+                      >
+                        {isSettled ? 'Đã tất toán sao kê' : 'Chờ sao kê'}
+                      </span>
+                    </div>
+
+                    {isSettled ? (
+                      <div className="space-y-2 pt-1 border-t border-[#F5F3EF]">
+                        <div className="grid grid-cols-2 gap-2">
+                          {/* Thuộc tính Ngày quyết toán */}
+                          <div>
+                            <label className="block text-[10px] font-semibold text-[#78716C] mb-1 uppercase tracking-wider">
+                              Ngày quyết toán
+                            </label>
+                            <div className="relative flex items-center justify-between px-2.5 py-1.5 rounded-lg border border-[#E6E2DA] bg-[#FAF9F6] text-xs font-mono text-[#1C1917] shadow-2xs hover:border-[#0F3D39] transition-colors">
+                              <span className="font-bold tabular-nums">
+                                {formatDisplayDate(settledAt)}
+                              </span>
+                              <span className="text-[10px] text-[#A8A29E] font-sans">Đổi ▾</span>
+                              <input
+                                type="date"
+                                value={settledAt}
+                                onChange={(e) => setSettledAt(e.target.value)}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Người quyết toán */}
+                          <div>
+                            <label className="block text-[10px] font-semibold text-[#78716C] mb-1 uppercase tracking-wider">
+                              Người quyết toán
+                            </label>
+                            <div className="flex bg-[#F5F3EF] border border-[#E6E2DA] rounded-lg p-0.5 shadow-2xs">
+                              <button
+                                type="button"
+                                onClick={() => setSettledBy('Chồng')}
+                                className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                                  settledBy === 'Chồng'
+                                    ? 'bg-[#0F3D39] text-white shadow-2xs'
+                                    : 'text-[#78716C]'
+                                }`}
+                              >
+                                Chồng
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSettledBy('Vợ')}
+                                className={`flex-1 py-1 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${
+                                  settledBy === 'Vợ'
+                                    ? 'bg-[#B45309] text-white shadow-2xs'
+                                    : 'text-[#78716C]'
+                                }`}
+                              >
+                                Vợ
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Nút hủy quyết toán về chờ sao kê */}
+                        <div className="pt-1 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              playActionClick();
+                              triggerHaptic(8);
+                              setIsSettled(false);
+                            }}
+                            className="text-[11px] text-[#DC2626] hover:text-[#991B1B] font-medium hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            ↩ Chuyển về chờ sao kê
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="pt-1 flex items-center justify-between border-t border-[#F5F3EF]">
+                        <span className="text-[10px] text-[#78716C]">
+                          Khoản này đang nằm trong danh sách chờ quyết toán thẻ.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            playActionClick();
+                            triggerHaptic(8);
+                            setIsSettled(true);
+                            if (!settledAt) setSettledAt(getLocalDateString());
+                          }}
+                          className="text-[11px] text-[#059669] hover:text-[#047857] font-semibold hover:underline cursor-pointer shrink-0"
+                        >
+                          ✓ Đánh dấu đã trả
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

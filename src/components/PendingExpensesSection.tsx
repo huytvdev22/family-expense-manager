@@ -9,7 +9,8 @@ import {
   ChevronUp, 
   Receipt, 
   CheckCircle2,
-  Plus
+  Plus,
+  History
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND, formatCompactVND, formatDueDateBadge, formatDisplayDate, formatTxMonth } from '../utils/currency';
@@ -21,6 +22,7 @@ import { ConfirmPaidBottomSheet } from './ConfirmPaidBottomSheet';
 import { SettleCreditCardBottomSheet } from './SettleCreditCardBottomSheet';
 import { CardManagerModal } from './CardManagerModal';
 import { EditTransactionModal } from './EditTransactionModal';
+import { SettlementHistoryBottomSheet } from './SettlementHistoryBottomSheet';
 import type { PendingExpense, CreditCard, Transaction, UnsettledCardGroup } from '../types';
 
 export const PendingExpensesSection: React.FC = () => {
@@ -32,7 +34,8 @@ export const PendingExpensesSection: React.FC = () => {
     unsettledCardExpenses,
     totalUnsettledCardAmount,
     activeCreditCards,
-    currentYearMonth
+    currentYearMonth,
+    settlementBatches
   } = useApp();
 
   // Modal chỉnh sửa khoản chờ hóa đơn rời
@@ -47,6 +50,9 @@ export const PendingExpensesSection: React.FC = () => {
 
   // Modal quản lý thẻ tín dụng
   const [isCardManagerOpen, setIsCardManagerOpen] = useState<boolean>(false);
+
+  // Bottom Sheet lịch sử quyết toán thẻ tín dụng
+  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
 
   // Trạng thái mở rộng accordion danh sách giao dịch con của từng thẻ
   const [expandedCardIds, setExpandedCardIds] = useState<Record<string, boolean>>({});
@@ -239,6 +245,26 @@ export const PendingExpensesSection: React.FC = () => {
                 <CardIcon className="w-3.5 h-3.5 text-[#0F3D39]" />
                 Thẻ tín dụng ({unsettledCardExpenses.length})
               </span>
+
+              {/* Nút xem Lịch sử quyết toán thẻ */}
+              <button
+                type="button"
+                onClick={() => {
+                  playActionClick();
+                  triggerHaptic(8);
+                  setIsHistoryOpen(true);
+                }}
+                className="text-[11px] text-[#0F3D39] hover:text-[#134E48] hover:bg-[#F5F3EF] px-2 py-0.5 rounded-lg flex items-center gap-1 font-semibold transition-colors cursor-pointer"
+                title="Xem lịch sử các đợt đã quyết toán thẻ"
+              >
+                <History className="w-3.5 h-3.5 text-[#0F3D39]" />
+                <span>Lịch sử quyết toán</span>
+                {settlementBatches.length > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-[#E7EFEF] text-[#0F3D39] text-[9px] font-mono font-bold flex items-center justify-center">
+                    {settlementBatches.length}
+                  </span>
+                )}
+              </button>
             </div>
 
             <div className="space-y-2">
@@ -543,6 +569,12 @@ export const PendingExpensesSection: React.FC = () => {
           transaction={editingTransaction}
         />
       )}
+
+      {/* Bottom Sheet Lịch sử quyết toán thẻ tín dụng */}
+      <SettlementHistoryBottomSheet
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+      />
     </>
   );
 };

@@ -53,7 +53,12 @@ import {
   updateCreditCard as firestoreUpdateCreditCard,
   deleteCreditCard as firestoreDeleteCreditCard,
   settleCreditCardTransactions,
-  subscribeUnsettledCreditCardTransactions
+  subscribeUnsettledCreditCardTransactions,
+  subscribeSettlementBatches,
+  subscribeSettledCreditCardTransactions,
+  undoSettlementBatch,
+  undoSingleTransactionSettlement,
+  updateTransactionSettlementInfo
 } from '../services/firestoreService';
 import { 
   DEFAULT_CATEGORIES,
@@ -68,7 +73,7 @@ import {
   MOCK_PENDING_EXPENSES,
   DEFAULT_CREDIT_CARDS
 } from '../services/mockData';
-import type { Household, Category, Transaction, MonthlySummary, UserProfile, FinancialGoal, QuickTagItem, PendingExpense, CreditCard, UnsettledCardGroup } from '../types';
+import type { Household, Category, Transaction, MonthlySummary, UserProfile, FinancialGoal, QuickTagItem, PendingExpense, CreditCard, UnsettledCardGroup, SettlementBatch } from '../types';
 import { getCurrentYearMonth, getLocalDateString, getLocalYearMonthString, formatVND, calculateCardNextDueDate, getCardBillingCycleInfo, classifyCardTransaction, formatTxMonth } from '../utils/currency';
 import { isSoundEnabled, setSoundEnabled, playSuccessChime, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
@@ -176,6 +181,12 @@ interface AppContextType {
   editCreditCard: (id: string, updates: Partial<CreditCard>) => Promise<void>;
   removeCreditCard: (id: string) => Promise<void>;
   settleCard: (cardId: string, paidBy: 'Chồng' | 'Vợ', mode?: 'STATEMENT_ONLY' | 'ALL', date?: string) => Promise<void>;
+  
+  // Lịch sử quyết toán thẻ tín dụng & Ngày quyết toán
+  settlementBatches: SettlementBatch[];
+  undoSettlement: (batch: SettlementBatch) => Promise<void>;
+  undoSingleSettlement: (txId: string) => Promise<void>;
+  updateSettlementInfo: (txId: string, settledAt: string, settledBy: 'Chồng' | 'Vợ') => Promise<void>;
 
   // Xác thực Google
   isAuthenticating: boolean;
@@ -199,6 +210,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [creditCards, setCreditCards] = useState<CreditCard[]>(DEFAULT_CREDIT_CARDS);
   const [unsettledCardTransactions, setUnsettledCardTransactions] = useState<Transaction[]>(() =>
     MOCK_TRANSACTIONS.filter((t) => t.paymentMethod === 'CREDIT_CARD' && t.isSettled !== true)
+  );
+  const [rawSettlementBatches, setRawSettlementBatches] = useState<SettlementBatch[]>([]);
+  const [settledCardTransactions, setSettledCardTransactions] = useState<Transaction[]>(() =>
+    MOCK_TRANSACTIONS.filter((t) => t.paymentMethod === 'CREDIT_CARD' && t.isSettled === true)
   );
   const [quickTags, setQuickTags] = useState<QuickTagItem[]>(() => [
     ...DEFAULT_QUICK_TAGS,
@@ -579,6 +594,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setUnsettledCardTransactions(items);
     });
 
+    const unsubBatches = subscribeSettlementBatches(activeHousehold.id, (items) => {
+      setRawSettlementBatches(items);
+    });
+
+    const unsubSettledCardTx = subscribeSettledCreditCardTransactions(activeHousehold.id, (items) => {
+      setSettledCardTransactions(items);
+    });
+
     return () => {
       unsubCat();
       unsubTx();
@@ -588,6 +611,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       unsubQuickTags();
       unsubCreditCards();
       unsubUnsettledCardTx();
+      unsubBatches();
+      unsubSettledCardTx();
     };
   }, [isFirebaseActive, activeHousehold?.id, currentYearMonth, firebaseUser]);
 
@@ -744,6 +769,70 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const totalAllCreditCardDebt = useMemo(() => {
     return unsettledCardExpenses.reduce((sum, g) => sum + g.totalAmount, 0);
   }, [unsettledCardExpenses]);
+
+  // TỔNG HỢP DANH SÁCH LỊCH SỬ QUYẾT TOÁN THẺ (Tự động nhận diện các đợt đã quyết toán)
+  const settlementBatches = useMemo<SettlementBatch[]>(() => {
+    // Tập hợp ID các giao dịch đã thuộc về một batch chính thức
+    const batchedTxIds = new Set<string>();
+    rawSettlementBatches.forEach((b) => {
+      (b.txIds || []).forEach((id) => batchedTxIds.add(id));
+    });
+
+    // Các giao dịch đã tất toán nhưng chưa có batch (legacy hoặc vừa quyết toán trước đó)
+    const unbatchedSettled = settledCardTransactions.filter((t) => !batchedTxIds.has(t.id));
+
+    if (unbatchedSettled.length === 0) {
+      return rawSettlementBatches;
+    }
+
+    // Nhóm các giao dịch chưa có batch theo (cardId, settledAt, settledBy)
+    const legacyGroups: Record<string, Transaction[]> = {};
+    unbatchedSettled.forEach((t) => {
+      const key = `${t.cardId || 'unknown'}_${t.settledAt || t.date || 'unknown'}_${t.settledBy || 'Chồng'}`;
+      if (!legacyGroups[key]) {
+        legacyGroups[key] = [];
+      }
+      legacyGroups[key].push(t);
+    });
+
+    const synthesizedBatches: SettlementBatch[] = Object.entries(legacyGroups).map(([key, txs]) => {
+      const first = txs[0];
+      const card = creditCards.find((c) => c.id === first.cardId);
+      const settledAtDate = first.settledAt || first.date || getLocalDateString();
+      const settledByPerson = (first.settledBy as 'Chồng' | 'Vợ') || 'Chồng';
+      const totalAmount = txs.reduce((sum, t) => sum + t.amount, 0);
+
+      return {
+        id: `legacy_${key}`,
+        householdId: activeHousehold?.id || '',
+        cardId: first.cardId || '',
+        cardName: card?.name || first.cardName || 'Thẻ tín dụng',
+        cardColor: card?.color || '#0F3D39',
+        last4Digits: card?.last4Digits || '',
+        amount: totalAmount,
+        txIds: txs.map((t) => t.id),
+        settledAt: settledAtDate,
+        settledBy: settledByPerson,
+        createdAt: first.timestamp || Date.now(),
+        txSnapshots: txs.map((t) => ({
+          id: t.id,
+          note: t.note || t.categoryName,
+          amount: t.amount,
+          date: t.date,
+          categoryName: t.categoryName,
+          paidBy: t.paidBy
+        }))
+      };
+    });
+
+    // Gộp và sắp xếp theo ngày quyết toán giảm dần (rồi đến createdAt)
+    const all = [...rawSettlementBatches, ...synthesizedBatches];
+    return all.sort((a, b) => {
+      const cmpDate = (b.settledAt || '').localeCompare(a.settledAt || '');
+      if (cmpDate !== 0) return cmpDate;
+      return b.createdAt - a.createdAt;
+    });
+  }, [rawSettlementBatches, settledCardTransactions, creditCards, activeHousehold?.id]);
 
   // HÀNH ĐỘNG GHI SỔ GIAO DỊCH
   const logTransaction = async (txData: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'>) => {
@@ -1175,10 +1264,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
 
     const txIds = targetTxs.map((t) => t.id);
+    const totalAmountToSettle = targetTxs.reduce((sum, t) => sum + t.amount, 0);
+    const txSnapshots = targetTxs.map((t) => ({
+      id: t.id,
+      note: t.note || t.categoryName,
+      amount: t.amount,
+      date: t.date,
+      categoryName: t.categoryName,
+      paidBy: t.paidBy
+    }));
 
     if (isFirebaseActive && activeHousehold && firebaseUser) {
       try {
-        await settleCreditCardTransactions(activeHousehold.id, cardId, txIds, paidByPerson, actualDate);
+        await settleCreditCardTransactions(
+          activeHousehold.id,
+          cardId,
+          txIds,
+          paidByPerson,
+          actualDate,
+          {
+            cardName: card?.name || 'Thẻ tín dụng',
+            cardColor: card?.color || '#0F3D39',
+            last4Digits: card?.last4Digits || '',
+            amount: totalAmountToSettle,
+            txSnapshots
+          }
+        );
         showToast(`Đã quyết toán thẻ ${card?.name || ''}!`, 'success');
       } catch (err) {
         console.error('Lỗi quyết toán thẻ trên Firestore:', err);
@@ -1187,16 +1298,139 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     } else {
       // Cập nhật state cục bộ
+      const batchId = `mock_batch_${Date.now()}`;
+      const newBatch: SettlementBatch = {
+        id: batchId,
+        householdId: activeHousehold?.id || 'mock_hh',
+        cardId,
+        cardName: card?.name || 'Thẻ tín dụng',
+        cardColor: card?.color || '#0F3D39',
+        last4Digits: card?.last4Digits || '',
+        amount: totalAmountToSettle,
+        txIds,
+        settledAt: actualDate,
+        settledBy: paidByPerson,
+        createdAt: Date.now(),
+        txSnapshots
+      };
+      setRawSettlementBatches((prev) => [newBatch, ...prev]);
+
       const targetIdSet = new Set(txIds);
       setUnsettledCardTransactions((prev) => prev.filter((t) => !targetIdSet.has(t.id)));
       setTransactions((prev) =>
         prev.map((t) =>
           targetIdSet.has(t.id)
-            ? { ...t, isSettled: true, settledAt: actualDate, settledBy: paidByPerson }
+            ? { ...t, isSettled: true, settledAt: actualDate, settledBy: paidByPerson, settlementBatchId: batchId }
             : t
         )
       );
       showToast(`Đã quyết toán thẻ ${card?.name || ''}!`, 'success');
+    }
+  };
+
+  // HOÀN TÁC ĐỢT QUYẾT TOÁN THẺ (UNDO BATCH)
+  const undoSettlement = async (batch: SettlementBatch): Promise<void> => {
+    playActionClick();
+    triggerHaptic(12);
+
+    if (isFirebaseActive && activeHousehold) {
+      try {
+        await undoSettlementBatch(activeHousehold.id, batch.id, batch.txIds);
+        showToast(`Đã hoàn tác quyết toán thẻ ${batch.cardName}!`, 'info');
+      } catch (err) {
+        console.error('Lỗi khi hoàn tác quyết toán:', err);
+        showToast('Không thể hoàn tác quyết toán. Vui lòng thử lại!', 'error');
+        throw err;
+      }
+    } else {
+      setRawSettlementBatches((prev) => prev.filter((b) => b.id !== batch.id));
+      const targetIdSet = new Set(batch.txIds);
+      
+      let restoredTxs: Transaction[] = [];
+      setTransactions((prev) =>
+        prev.map((t) => {
+          if (targetIdSet.has(t.id)) {
+            const next: Transaction = { ...t, isSettled: false };
+            delete next.settledAt;
+            delete next.settledBy;
+            delete next.settlementBatchId;
+            restoredTxs.push(next);
+            return next;
+          }
+          return t;
+        })
+      );
+      
+      // Khôi phục vào danh sách chưa quyết toán nếu chưa có
+      setUnsettledCardTransactions((prev) => {
+        const existingIds = new Set(prev.map((t) => t.id));
+        const toAdd = restoredTxs.filter((t) => !existingIds.has(t.id));
+        return [...toAdd, ...prev];
+      });
+
+      showToast(`Đã hoàn tác quyết toán thẻ ${batch.cardName}!`, 'info');
+    }
+  };
+
+  // HOÀN TÁC QUYẾT TOÁN CHO 1 GIAO DỊCH RIÊNG LẺ
+  const undoSingleSettlement = async (txId: string): Promise<void> => {
+    playActionClick();
+    triggerHaptic(10);
+
+    if (isFirebaseActive && activeHousehold) {
+      try {
+        await undoSingleTransactionSettlement(activeHousehold.id, txId);
+        showToast('Đã chuyển khoản chi về trạng thái chờ sao kê', 'info');
+      } catch (err) {
+        console.error('Lỗi khi hủy quyết toán giao dịch:', err);
+        showToast('Không thể hủy quyết toán giao dịch.', 'error');
+        throw err;
+      }
+    } else {
+      let targetTx: Transaction | null = null;
+      setTransactions((prev) =>
+        prev.map((t) => {
+          if (t.id === txId) {
+            const next: Transaction = { ...t, isSettled: false };
+            delete next.settledAt;
+            delete next.settledBy;
+            delete next.settlementBatchId;
+            targetTx = next;
+            return next;
+          }
+          return t;
+        })
+      );
+      if (targetTx) {
+        setUnsettledCardTransactions((prev) => [targetTx!, ...prev.filter((t) => t.id !== txId)]);
+      }
+      showToast('Đã chuyển khoản chi về trạng thái chờ sao kê', 'info');
+    }
+  };
+
+  // CẬP NHẬT THÔNG TIN QUYẾT TOÁN CỦA GIAO DỊCH (Ngày quyết toán, người trả)
+  const updateSettlementInfo = async (
+    txId: string,
+    settledAt: string,
+    settledBy: 'Chồng' | 'Vợ'
+  ): Promise<void> => {
+    playActionClick();
+    triggerHaptic(8);
+
+    if (isFirebaseActive && activeHousehold) {
+      try {
+        await updateTransactionSettlementInfo(activeHousehold.id, txId, settledAt, settledBy);
+        showToast('Đã cập nhật ngày quyết toán!', 'success');
+      } catch (err) {
+        console.error('Lỗi cập nhật ngày quyết toán:', err);
+        showToast('Không thể cập nhật ngày quyết toán.', 'error');
+        throw err;
+      }
+    } else {
+      setTransactions((prev) =>
+        prev.map((t) => (t.id === txId ? { ...t, settledAt, settledBy } : t))
+      );
+      showToast('Đã cập nhật ngày quyết toán!', 'success');
     }
   };
 
@@ -1838,6 +2072,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         editCreditCard,
         removeCreditCard,
         settleCard,
+        settlementBatches,
+        undoSettlement,
+        undoSingleSettlement,
+        updateSettlementInfo,
         loginWithGoogle,
         logout
       }}

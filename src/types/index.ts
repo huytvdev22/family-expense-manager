@@ -68,8 +68,9 @@ export interface Transaction {
   cardId?: string; // ID thẻ tín dụng liên kết nếu thanh toán qua thẻ
   cardName?: string; // Tên thẻ (VD: "HSBC Cash Back", "MSB Visa Online", "BIDV JCB")
   isSettled?: boolean; // Đối với giao dịch quẹt thẻ tín dụng: true = đã thanh toán sao kê, false = đang chờ quyết toán
-  settledAt?: string; // Ngày thanh toán sao kê ("YYYY-MM-DD")
+  settledAt?: string; // Ngày thanh toán sao kê / ngày quyết toán ("YYYY-MM-DD")
   settledBy?: 'Chồng' | 'Vợ'; // Ai là người chi tiền thanh toán sao kê thẻ
+  settlementBatchId?: string; // ID đợt quyết toán liên kết
 }
 
 export type GoalType = 'DEBT_PAYOFF' | 'SAVINGS';
@@ -190,4 +191,29 @@ export interface PendingExpense {
   cardName?: string;
   createdAt: string;
   updatedAt: number;
+}
+
+export interface SettlementBatchTxSnapshot {
+  id: string;
+  note: string;
+  amount: number;
+  date: string; // Ngày quẹt thẻ ("YYYY-MM-DD")
+  categoryName: string;
+  paidBy: string;
+}
+
+export interface SettlementBatch {
+  id: string;
+  householdId: string;
+  cardId: string;
+  cardName: string;
+  cardColor?: string;
+  last4Digits?: string;
+  amount: number;
+  txIds: string[];
+  settledAt: string; // Ngày quyết toán ("YYYY-MM-DD")
+  settledBy: 'Chồng' | 'Vợ'; // Người quyết toán
+  note?: string;
+  createdAt: number;
+  txSnapshots?: SettlementBatchTxSnapshot[];
 }

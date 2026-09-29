@@ -16,7 +16,7 @@ import {
   type Unsubscribe
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Household, Category, Transaction, MonthlySummary, Invitation, UserProfile, FinancialGoal, QuickTagItem, PendingExpense, CreditCard } from '../types';
+import type { Household, Category, Transaction, MonthlySummary, Invitation, UserProfile, FinancialGoal, QuickTagItem, PendingExpense, CreditCard, SettlementBatch, SettlementBatchTxSnapshot } from '../types';
 import { DEFAULT_CATEGORIES, DEFAULT_QUICK_TAGS, DEFAULT_INCOME_QUICK_TAGS, DEFAULT_CREDIT_CARDS } from './mockData';
 
 /**
@@ -1223,30 +1223,192 @@ export async function deleteCreditCard(
 
 /**
  * QUYẾT TOÁN CÁC GIAO DỊCH QUẸT THẺ TÍN DỤNG (1-TAP SETTLE)
- * Cập nhật isSettled = true cho toàn bộ các giao dịch quẹt thẻ được chọn
+ * Cập nhật isSettled = true, ngày quyết toán settledAt, người quyết toán settledBy
+ * và lưu bản ghi đợt quyết toán SettlementBatch
  */
 export async function settleCreditCardTransactions(
   householdId: string,
   cardId: string,
   txIds: string[],
   settledBy: 'Chồng' | 'Vợ',
-  settledDate?: string
-): Promise<void> {
+  settledDate?: string,
+  batchMetadata?: {
+    cardName?: string;
+    cardColor?: string;
+    last4Digits?: string;
+    amount?: number;
+    txSnapshots?: SettlementBatchTxSnapshot[];
+  }
+): Promise<string> {
   if (!db) throw new Error('Firestore chưa được khởi tạo');
   const firestoreDb = db;
 
   const actualDate = settledDate || new Date().toISOString().substring(0, 10);
+  const batchId = `batch_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+  // 1. Tạo bản ghi đợt quyết toán SettlementBatch
+  try {
+    const batchRef = doc(firestoreDb, `households/${householdId}/settlement_batches`, batchId);
+    await setDoc(batchRef, cleanFirestorePayload({
+      id: batchId,
+      householdId,
+      cardId,
+      cardName: batchMetadata?.cardName || '',
+      cardColor: batchMetadata?.cardColor || '#0F3D39',
+      last4Digits: batchMetadata?.last4Digits || '',
+      amount: batchMetadata?.amount || 0,
+      txIds,
+      settledAt: actualDate,
+      settledBy,
+      createdAt: Date.now(),
+      txSnapshots: batchMetadata?.txSnapshots || []
+    }));
+  } catch (err) {
+    console.warn('Lỗi khi lưu settlement_batch vào Firestore:', err);
+  }
+
+  // 2. Cập nhật các giao dịch quẹt thẻ với ngày quyết toán & batchId
   const updatePromises = txIds.map((txId) => {
     const txRef = doc(firestoreDb, `households/${householdId}/transactions`, txId);
     return updateDoc(txRef, cleanFirestorePayload({
       isSettled: true,
       settledAt: actualDate,
       settledBy,
+      settlementBatchId: batchId,
       updatedAt: Date.now()
     }));
   });
 
   await Promise.allSettled(updatePromises);
+  return batchId;
+}
+
+/**
+ * HOÀN TÁC ĐỢT QUYẾT TOÁN THẺ (UNDO BATCH SETTLEMENT)
+ * Chuyển các giao dịch về trạng thái chờ quyết toán và xóa batch
+ */
+export async function undoSettlementBatch(
+  householdId: string,
+  batchId: string,
+  txIds: string[]
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+  const firestoreDb = db;
+
+  // 1. Khôi phục các transactions về trạng thái chưa quyết toán
+  const updatePromises = txIds.map((txId) => {
+    const txRef = doc(firestoreDb, `households/${householdId}/transactions`, txId);
+    return updateDoc(txRef, {
+      isSettled: false,
+      settledAt: deleteField(),
+      settledBy: deleteField(),
+      settlementBatchId: deleteField(),
+      updatedAt: Date.now()
+    });
+  });
+
+  await Promise.allSettled(updatePromises);
+
+  // 2. Xóa batch document nếu tồn tại (bỏ qua nếu là legacy batch)
+  if (batchId && !batchId.startsWith('legacy_')) {
+    try {
+      const batchRef = doc(firestoreDb, `households/${householdId}/settlement_batches`, batchId);
+      await deleteDoc(batchRef);
+    } catch (err) {
+      console.warn('Lỗi khi xóa settlement_batch:', err);
+    }
+  }
+}
+
+/**
+ * HOÀN TÁC QUYẾT TOÁN CHO 1 GIAO DỊCH DUY NHẤT
+ */
+export async function undoSingleTransactionSettlement(
+  householdId: string,
+  txId: string
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+  const txRef = doc(db, `households/${householdId}/transactions`, txId);
+  await updateDoc(txRef, {
+    isSettled: false,
+    settledAt: deleteField(),
+    settledBy: deleteField(),
+    settlementBatchId: deleteField(),
+    updatedAt: Date.now()
+  });
+}
+
+/**
+ * CẬP NHẬT THÔNG TIN QUYẾT TOÁN CỦA GIAO DỊCH (Ngày quyết toán, người trả)
+ */
+export async function updateTransactionSettlementInfo(
+  householdId: string,
+  txId: string,
+  settledAt: string,
+  settledBy: 'Chồng' | 'Vợ'
+): Promise<void> {
+  if (!db) throw new Error('Firestore chưa được khởi tạo');
+  const txRef = doc(db, `households/${householdId}/transactions`, txId);
+  await updateDoc(txRef, cleanFirestorePayload({
+    settledAt,
+    settledBy,
+    updatedAt: Date.now()
+  }));
+}
+
+/**
+ * LẮNG NGHE REALTIME DANH SÁCH CÁC ĐỢT QUYẾT TOÁN (SETTLEMENT BATCHES)
+ */
+export function subscribeSettlementBatches(
+  householdId: string,
+  onData: (batches: SettlementBatch[]) => void
+): Unsubscribe {
+  if (!db) return () => {};
+
+  const q = query(
+    collection(db, `households/${householdId}/settlement_batches`),
+    orderBy('createdAt', 'desc')
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const list: SettlementBatch[] = [];
+    snapshot.forEach((docSnap) => {
+      list.push({ id: docSnap.id, ...docSnap.data() } as SettlementBatch);
+    });
+    onData(list);
+  }, (err) => {
+    console.warn('Lỗi subscribeSettlementBatches:', err);
+    onData([]);
+  });
+}
+
+/**
+ * LẮNG NGHE REALTIME CÁC GIAO DỊCH QUẸT THẺ ĐÃ TẤT TOÁN
+ * Dùng để tổng hợp lịch sử giao dịch và tự động nhận diện các đợt quyết toán cũ
+ */
+export function subscribeSettledCreditCardTransactions(
+  householdId: string,
+  onData: (transactions: Transaction[]) => void
+): Unsubscribe {
+  if (!db) return () => {};
+
+  const q = query(
+    collection(db, `households/${householdId}/transactions`),
+    where('paymentMethod', '==', 'CREDIT_CARD'),
+    where('isSettled', '==', true)
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const list: Transaction[] = [];
+    snapshot.forEach((docSnap) => {
+      list.push({ id: docSnap.id, ...docSnap.data() } as Transaction);
+    });
+    list.sort((a, b) => (b.settledAt || b.date || '').localeCompare(a.settledAt || a.date || ''));
+    onData(list);
+  }, (err) => {
+    console.warn('Lỗi subscribeSettledCreditCardTransactions:', err);
+    onData([]);
+  });
 }
 
 /**

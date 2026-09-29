@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Trash2, Receipt, Calendar, Pencil, ChevronDown, ChevronRight, ChevronsUpDown } from 'lucide-react';
 import { useApp } from '../context/AppContext';
-import { formatVND, formatCompactVND, formatDateLabel } from '../utils/currency';
+import { formatVND, formatCompactVND, formatDateLabel, formatDisplayDate } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import type { Transaction } from '../types';
@@ -203,7 +203,7 @@ export const TransactionList: React.FC = () => {
                             <p className="text-xs font-medium text-[#1C1917] truncate group-hover:text-[#0F3D39] transition-colors">
                               {tx.note || tx.categoryName}
                             </p>
-                            <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                               <span className="text-[10px] text-[#78716C] truncate">
                                 {tx.categoryName}
                               </span>
@@ -218,6 +218,33 @@ export const TransactionList: React.FC = () => {
                               >
                                 {isIncome ? `${tx.paidBy} nhận` : tx.paidBy}
                               </span>
+
+                              {/* Nhãn trạng thái quyết toán thẻ tín dụng & Ngày quyết toán */}
+                              {tx.paymentMethod === 'CREDIT_CARD' && (
+                                <>
+                                  <span className="text-[#D3CDC2] text-[10px]">•</span>
+                                  {tx.isSettled ? (
+                                    <span
+                                      title={tx.settledAt ? `Đã quyết toán ngày ${formatDisplayDate(tx.settledAt)}${tx.settledBy ? ` bởi ${tx.settledBy}` : ''}` : 'Đã tất toán sao kê'}
+                                      className="text-[9px] font-mono font-medium px-1.5 py-0.2 rounded-md bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]/60 flex items-center gap-0.5"
+                                    >
+                                      <span>✓ Đã tất toán</span>
+                                      {tx.settledAt && (
+                                        <span className="font-bold opacity-90">
+                                          ({tx.settledAt.substring(8, 10)}/{tx.settledAt.substring(5, 7)})
+                                        </span>
+                                      )}
+                                    </span>
+                                  ) : (
+                                    <span
+                                      title="Khoản quẹt thẻ đang chờ đến kỳ sao kê quyết toán"
+                                      className="text-[9px] font-mono font-medium px-1.5 py-0.2 rounded-md bg-[#FEF3C7] text-[#B45309] border border-[#FDE68A]/60"
+                                    >
+                                      ⏳ Chờ sao kê
+                                    </span>
+                                  )}
+                                </>
+                              )}
                             </div>
                           </div>
                         </div>
