@@ -17,13 +17,31 @@ interface NumpadProps {
 }
 
 export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBottomSheet = false }) => {
-  const { categories, logTransaction, logPendingExpense, currentUser, userRole, financialGoals, quickTags, activeCreditCards } = useApp();
+  const {
+    categories,
+    logTransaction,
+    logPendingExpense,
+    currentUser,
+    userRole,
+    financialGoals,
+    quickTags,
+    activeCreditCards,
+    currentYearMonth,
+    setCurrentYearMonth
+  } = useApp();
   const { showToast } = useToast();
 
   // Helper tính ngày trong tương lai cho hạn thanh toán
   const getFutureDate = (days: number) => {
     const d = new Date();
     d.setDate(d.getDate() + days);
+    return getLocalDateString(d);
+  };
+
+  // Helper tính ngày trong quá khứ (Hôm qua, Hôm kia)
+  const getPastDate = (daysAgo: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
     return getLocalDateString(d);
   };
 
@@ -37,6 +55,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
 
   // Loại giao dịch: 'EXPENSE' (Khoản chi) hoặc 'INCOME' (Thu nhập)
   const [txType, setTxType] = useState<'EXPENSE' | 'INCOME'>('EXPENSE');
+
+  // Ngày phát sinh giao dịch (Mặc định là ngày hôm nay, cho phép chọn Hôm qua / Hôm kia / Ngày bất kỳ)
+  const [txDate, setTxDate] = useState<string>(() => getLocalDateString());
 
   // Cờ rẽ nhánh Khoản chờ (chưa chi ngay, hẹn ngày thanh toán)
   const [isPending, setIsPending] = useState<boolean>(false);
@@ -286,6 +307,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
 
       // Nhánh thông thường: Ghi nhận giao dịch đã chi/thu vào sổ cái (Phương án 1)
       const chosenCard = selectedCardId ? activeCreditCards.find((c) => c.id === selectedCardId) : null;
+      const chosenDate = txDate || todayStr;
 
       const txPayload: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'> = {
         amount,
@@ -296,7 +318,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         paidBy,
         paidByUid: currentUser?.uid || 'anonymous',
         note: note.trim() || currentCat.name,
-        date: todayStr,
+        date: chosenDate,
       };
 
       if (selectedGoalId) {
@@ -325,6 +347,12 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
 
       await logTransaction(txPayload);
 
+      // Nếu ngày giao dịch thuộc một tháng khác với tháng đang xem, tự động chuyển sổ cái sang tháng đó để thấy ngay
+      const chosenYearMonth = chosenDate.substring(0, 7);
+      if (chosenYearMonth !== currentYearMonth) {
+        setCurrentYearMonth(chosenYearMonth);
+      }
+
       // Reset màn hình
       setAmountStr('0');
       setNote('');
@@ -333,9 +361,10 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
       setSelectedGoalId(null);
       setSelectedCardId(null);
 
+      const dateSuffix = chosenDate !== todayStr ? ` (ngày ${formatDisplayDate(chosenDate)})` : '';
       const successNotice = chosenCard
-        ? `Đã ghi nhận quẹt thẻ ${chosenCard.name} ••${chosenCard.last4Digits}: ${formatVND(amount)}`
-        : `Đã ghi nhận ${txType === 'EXPENSE' ? 'khoản chi' : 'thu nhập'} ${formatVND(amount)}`;
+        ? `Đã ghi nhận quẹt thẻ ${chosenCard.name} ••${chosenCard.last4Digits}: ${formatVND(amount)}${dateSuffix}`
+        : `Đã ghi nhận ${txType === 'EXPENSE' ? 'khoản chi' : 'thu nhập'} ${formatVND(amount)}${dateSuffix}`;
       showToast(successNotice, 'success');
 
       if (onSuccess) {
@@ -619,49 +648,114 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
             />
           </div>
         ) : (
-          /* Khi là Khoản chi / Thu nhập thông thường: chọn Người chi / nhận và ô ghi chú */
-          <div className="grid grid-cols-2 gap-2">
-            <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs">
-              <button
-                type="button"
-                onClick={() => {
-                  playActionClick();
-                  triggerHaptic(10);
-                  setPaidBy('Chồng');
-                }}
-                className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
-                  paidBy === 'Chồng'
-                    ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
-                    : 'text-[#78716C] hover:text-[#1C1917]'
+          /* Khi là Khoản chi / Thu nhập thông thường: chọn Ngày giao dịch, Người chi / nhận và ô ghi chú */
+          <div className="space-y-2">
+            {/* Thanh chọn Ngày giao dịch 1-Chạm (Hôm nay / Hôm qua / Hôm kia / Lịch tùy chọn) */}
+            <div className="flex items-center justify-between gap-1.5 bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-1.5 shadow-2xs min-w-0">
+              <div className="flex items-center gap-1 shrink-0">
+                {[
+                  { label: 'Hôm nay', dateVal: getPastDate(0) },
+                  { label: 'Hôm qua', dateVal: getPastDate(1) },
+                  { label: 'Hôm kia', dateVal: getPastDate(2) }
+                ].map((dItem) => {
+                  const isSelectedDate = txDate === dItem.dateVal;
+                  return (
+                    <button
+                      key={dItem.label}
+                      type="button"
+                      onClick={() => {
+                        playActionClick();
+                        triggerHaptic(8);
+                        setTxDate(dItem.dateVal);
+                      }}
+                      className={`px-2 py-1 rounded-xl text-[11px] font-semibold transition-all cursor-pointer ${
+                        isSelectedDate
+                          ? txType === 'INCOME'
+                            ? 'bg-[#10B981] text-white shadow-2xs font-bold'
+                            : 'bg-[#0F3D39] text-white shadow-2xs font-bold'
+                          : 'text-[#78716C] hover:text-[#1C1917] hover:bg-white'
+                      }`}
+                    >
+                      {dItem.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Nút mở lịch chọn ngày cụ thể (Native Date Picker) */}
+              <div
+                className={`relative flex items-center gap-1.5 px-2.5 py-1 rounded-xl border text-xs font-mono transition-colors min-w-0 ${
+                  txDate !== getPastDate(0) && txDate !== getPastDate(1) && txDate !== getPastDate(2)
+                    ? txType === 'INCOME'
+                      ? 'bg-[#ECFDF5] border-[#10B981] text-[#047857] font-bold'
+                      : 'bg-[#E7EFEF] border-[#0F3D39] text-[#0F3D39] font-bold'
+                    : 'bg-white border-[#E6E2DA] text-[#1C1917] font-semibold hover:border-[#0F3D39]/50'
                 }`}
               >
-                {txType === 'EXPENSE' ? 'Chồng chi' : 'Chồng nhận'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  playActionClick();
-                  triggerHaptic(10);
-                  setPaidBy('Vợ');
-                }}
-                className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
-                  paidBy === 'Vợ'
-                    ? 'bg-[#B45309] text-white shadow-2xs font-bold'
-                    : 'text-[#78716C] hover:text-[#1C1917]'
-                }`}
-              >
-                {txType === 'EXPENSE' ? 'Vợ chi' : 'Vợ nhận'}
-              </button>
+                <Calendar className="w-3.5 h-3.5 text-[#0F3D39] shrink-0" />
+                <span className="tabular-nums tracking-tight truncate">
+                  {formatDisplayDate(txDate)}
+                </span>
+                <span className="text-[10px] text-[#A8A29E] font-sans shrink-0">▾</span>
+                <input
+                  type="date"
+                  value={txDate}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      playActionClick();
+                      setTxDate(e.target.value);
+                    }
+                  }}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  aria-label="Chọn ngày giao dịch"
+                />
+              </div>
             </div>
 
-            <div className="relative flex items-center">
-              <input
-                type="text"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder={txType === 'EXPENSE' ? 'Ghi chú chi tiết...' : 'Nguồn thu (Lương, thưởng...)'}
-                className="w-full h-full bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl px-3.5 py-2 text-xs text-[#1C1917] placeholder:text-[#A8A29E] outline-hidden focus:border-[#0F3D39]"
-              />
+            {/* Chọn Người chi / nhận và ô ghi chú */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(10);
+                    setPaidBy('Chồng');
+                  }}
+                  className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
+                    paidBy === 'Chồng'
+                      ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
+                      : 'text-[#78716C] hover:text-[#1C1917]'
+                  }`}
+                >
+                  {txType === 'EXPENSE' ? 'Chồng chi' : 'Chồng nhận'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(10);
+                    setPaidBy('Vợ');
+                  }}
+                  className={`flex-1 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
+                    paidBy === 'Vợ'
+                      ? 'bg-[#B45309] text-white shadow-2xs font-bold'
+                      : 'text-[#78716C] hover:text-[#1C1917]'
+                  }`}
+                >
+                  {txType === 'EXPENSE' ? 'Vợ chi' : 'Vợ nhận'}
+                </button>
+              </div>
+
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder={txType === 'EXPENSE' ? 'Ghi chú chi tiết...' : 'Nguồn thu (Lương, thưởng...)'}
+                  className="w-full h-full bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl px-3.5 py-2 text-xs text-[#1C1917] placeholder:text-[#A8A29E] outline-hidden focus:border-[#0F3D39]"
+                />
+              </div>
             </div>
           </div>
         )}
@@ -877,8 +971,8 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
             <Check className="w-4 h-4 stroke-[2.5]" />
             <span>
               {txType === 'INCOME'
-                ? `Ghi nhận thu nhập (+${formatVND(Number(amountStr))})`
-                : `Ghi nhận khoản chi (${formatVND(Number(amountStr))})`}
+                ? `Ghi nhận thu nhập${txDate && txDate !== getPastDate(0) ? ` • ${txDate.substring(8, 10)}/${txDate.substring(5, 7)}` : ''} (+${formatVND(Number(amountStr))})`
+                : `Ghi nhận khoản chi${txDate && txDate !== getPastDate(0) ? ` • ${txDate.substring(8, 10)}/${txDate.substring(5, 7)}` : ''} (${formatVND(Number(amountStr))})`}
             </span>
           </>
         )}
