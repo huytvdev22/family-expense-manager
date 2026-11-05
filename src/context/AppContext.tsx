@@ -56,6 +56,7 @@ import {
   subscribeUnsettledCreditCardTransactions,
   subscribeSettlementBatches,
   subscribeSettledCreditCardTransactions,
+  subscribeCardCashbackTransactions,
   undoSettlementBatch,
   undoSingleTransactionSettlement,
   updateTransactionSettlementInfo
@@ -63,15 +64,7 @@ import {
 import { 
   DEFAULT_CATEGORIES,
   DEFAULT_QUICK_TAGS,
-  DEFAULT_INCOME_QUICK_TAGS,
-  MOCK_USER, 
-  MOCK_HOUSEHOLD, 
-  MOCK_CATEGORIES, 
-  MOCK_TRANSACTIONS, 
-  MOCK_SUMMARY,
-  MOCK_GOALS,
-  MOCK_PENDING_EXPENSES,
-  DEFAULT_CREDIT_CARDS
+  DEFAULT_INCOME_QUICK_TAGS
 } from '../services/mockData';
 import type { Household, Category, Transaction, MonthlySummary, UserProfile, FinancialGoal, QuickTagItem, PendingExpense, CreditCard, UnsettledCardGroup, SettlementBatch } from '../types';
 import { getCurrentYearMonth, getLocalDateString, getLocalYearMonthString, formatVND, calculateCardNextDueDate, getCardBillingCycleInfo, classifyCardTransaction, formatTxMonth } from '../utils/currency';
@@ -180,10 +173,14 @@ interface AppContextType {
   addCreditCard: (card: Omit<CreditCard, 'id' | 'createdAt' | 'updatedAt' | 'householdId'>) => Promise<string>;
   editCreditCard: (id: string, updates: Partial<CreditCard>) => Promise<void>;
   removeCreditCard: (id: string) => Promise<void>;
-  settleCard: (cardId: string, paidBy: 'Chồng' | 'Vợ', mode?: 'STATEMENT_ONLY' | 'ALL', date?: string) => Promise<void>;
+  settleCard: (cardId: string, paidBy: 'Chồng' | 'Vợ', mode?: 'STATEMENT_ONLY' | 'ALL', date?: string, cashbackAmount?: number) => Promise<void>;
   
-  // Lịch sử quyết toán thẻ tín dụng & Ngày quyết toán
+  // Lịch sử quyết toán thẻ tín dụng, Ngày quyết toán & Hoàn tiền (Cashback)
   settlementBatches: SettlementBatch[];
+  cashbackTransactions: Transaction[];
+  cardCashbackByCardId: Record<string, number>;
+  totalCardCashback: number;
+  recordCardCashback: (cardId: string, amount: number, receivedBy: 'Chồng' | 'Vợ', date?: string, note?: string) => Promise<void>;
   undoSettlement: (batch: SettlementBatch) => Promise<void>;
   undoSingleSettlement: (txId: string) => Promise<void>;
   updateSettlementInfo: (txId: string, settledAt: string, settledBy: 'Chồng' | 'Vợ') => Promise<void>;
@@ -199,22 +196,19 @@ const AppContext = createContext<AppContextType | null>(null);
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { showToast } = useToast();
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(MOCK_USER);
-  const [activeHousehold, setActiveHousehold] = useState<Household | null>(MOCK_HOUSEHOLD);
-  const [userHouseholds, setUserHouseholds] = useState<Household[]>([MOCK_HOUSEHOLD]);
-  const [categories, setCategories] = useState<Category[]>(MOCK_CATEGORIES);
-  const [transactions, setTransactions] = useState<Transaction[]>(MOCK_TRANSACTIONS);
-  const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(MOCK_SUMMARY);
-  const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>(() => sortFinancialGoals(MOCK_GOALS));
-  const [pendingExpenses, setPendingExpenses] = useState<PendingExpense[]>(MOCK_PENDING_EXPENSES);
-  const [creditCards, setCreditCards] = useState<CreditCard[]>(DEFAULT_CREDIT_CARDS);
-  const [unsettledCardTransactions, setUnsettledCardTransactions] = useState<Transaction[]>(() =>
-    MOCK_TRANSACTIONS.filter((t) => t.paymentMethod === 'CREDIT_CARD' && t.isSettled !== true)
-  );
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [activeHousehold, setActiveHousehold] = useState<Household | null>(null);
+  const [userHouseholds, setUserHouseholds] = useState<Household[]>([]);
+  const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
+  const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>([]);
+  const [pendingExpenses, setPendingExpenses] = useState<PendingExpense[]>([]);
+  const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
+  const [unsettledCardTransactions, setUnsettledCardTransactions] = useState<Transaction[]>([]);
   const [rawSettlementBatches, setRawSettlementBatches] = useState<SettlementBatch[]>([]);
-  const [settledCardTransactions, setSettledCardTransactions] = useState<Transaction[]>(() =>
-    MOCK_TRANSACTIONS.filter((t) => t.paymentMethod === 'CREDIT_CARD' && t.isSettled === true)
-  );
+  const [settledCardTransactions, setSettledCardTransactions] = useState<Transaction[]>([]);
+  const [cashbackTransactions, setCashbackTransactions] = useState<Transaction[]>([]);
   const [quickTags, setQuickTags] = useState<QuickTagItem[]>(() => [
     ...DEFAULT_QUICK_TAGS,
     ...DEFAULT_INCOME_QUICK_TAGS
@@ -502,15 +496,20 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           console.error('Lỗi khởi tạo hồ sơ người dùng:', err);
         }
       } else {
-        // Sử dụng Mock Data khi chưa đăng nhập
-        setCurrentUser(MOCK_USER);
-        setActiveHousehold(MOCK_HOUSEHOLD);
-        setUserHouseholds([MOCK_HOUSEHOLD]);
-        setCategories(MOCK_CATEGORIES);
-        setTransactions(MOCK_TRANSACTIONS);
-        setMonthlySummary(MOCK_SUMMARY);
-        setFinancialGoals(sortFinancialGoals(MOCK_GOALS));
-        setPendingExpenses(MOCK_PENDING_EXPENSES);
+        // Đặt toàn bộ state về rỗng khi chưa đăng nhập
+        setCurrentUser(null);
+        setActiveHousehold(null);
+        setUserHouseholds([]);
+        setCategories(DEFAULT_CATEGORIES);
+        setTransactions([]);
+        setMonthlySummary(null);
+        setFinancialGoals([]);
+        setPendingExpenses([]);
+        setCreditCards([]);
+        setUnsettledCardTransactions([]);
+        setRawSettlementBatches([]);
+        setSettledCardTransactions([]);
+        setCashbackTransactions([]);
       }
       setIsLoading(false);
     });
@@ -602,6 +601,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setSettledCardTransactions(items);
     });
 
+    const unsubCashbackTx = subscribeCardCashbackTransactions(activeHousehold.id, (items) => {
+      setCashbackTransactions(items);
+    });
+
     return () => {
       unsubCat();
       unsubTx();
@@ -613,6 +616,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       unsubUnsettledCardTx();
       unsubBatches();
       unsubSettledCardTx();
+      unsubCashbackTx();
     };
   }, [isFirebaseActive, activeHousehold?.id, currentYearMonth, firebaseUser]);
 
@@ -834,25 +838,47 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     });
   }, [rawSettlementBatches, settledCardTransactions, creditCards, activeHousehold?.id]);
 
+  // THỐNG KÊ TỔNG TIỀN HOÀN THẺ (CASHBACK) THEO TỪNG THẺ & TOÀN TỔ ẤM
+  const { cardCashbackByCardId, totalCardCashback } = useMemo(() => {
+    const byCard: Record<string, number> = {};
+    let total = 0;
+
+    // 1. Tập hợp từ các giao dịch thu nhập có isCashback === true
+    const countedBatchCashbackTxIds = new Set<string>();
+    cashbackTransactions.forEach((tx) => {
+      if (tx.amount > 0) {
+        const cId = tx.cardId || 'unknown';
+        byCard[cId] = (byCard[cId] || 0) + tx.amount;
+        total += tx.amount;
+        countedBatchCashbackTxIds.add(tx.id);
+      }
+    });
+
+    // 2. Phòng trường hợp đợt quyết toán có ghi nhận cashbackAmount nhưng chưa có trong cashbackTransactions
+    rawSettlementBatches.forEach((batch) => {
+      if (
+        batch.cashbackAmount &&
+        batch.cashbackAmount > 0 &&
+        (!batch.cashbackTxId || !countedBatchCashbackTxIds.has(batch.cashbackTxId))
+      ) {
+        const cId = batch.cardId || 'unknown';
+        byCard[cId] = (byCard[cId] || 0) + batch.cashbackAmount;
+        total += batch.cashbackAmount;
+      }
+    });
+
+    return {
+      cardCashbackByCardId: byCard,
+      totalCardCashback: total
+    };
+  }, [cashbackTransactions, rawSettlementBatches]);
+
   // HÀNH ĐỘNG GHI SỔ GIAO DỊCH
   const logTransaction = async (txData: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'>) => {
+    if (!isFirebaseActive || !activeHousehold || !firebaseUser) return;
     playSuccessChime();
 
-    if (isFirebaseActive && activeHousehold && firebaseUser) {
-      await addTransactionWithSummary(activeHousehold.id, txData);
-    } else {
-      // Cập nhật Mock Data cục bộ
-      const newTx: Transaction = {
-        ...txData,
-        id: `tx_${Date.now()}`,
-        timestamp: Date.now(),
-        createdAt: new Date().toISOString()
-      };
-      setTransactions((prev) => [newTx, ...prev]);
-      if (newTx.paymentMethod === 'CREDIT_CARD' && !newTx.isSettled) {
-        setUnsettledCardTransactions((prev) => [newTx, ...prev]);
-      }
-    }
+    await addTransactionWithSummary(activeHousehold.id, txData);
 
     // Nếu giao dịch gắn liền với một Mục tiêu Tự do Tài chính (Khoản nợ hoặc Tích lũy)
     if (txData.goalId) {
@@ -913,7 +939,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       nextAmount = Math.max(0, targetGoal.currentAmount + amountDelta);
       if (targetGoal.targetAmount > 0 && nextAmount >= targetGoal.targetAmount) {
         nextStatus = 'COMPLETED';
-      } else if (nextStatus === 'COMPLETED') {
+      } else if (newStatusIsCompleted(targetGoal.status)) {
         nextStatus = 'ACTIVE';
       }
     }
@@ -931,8 +957,13 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  function newStatusIsCompleted(status: string) {
+    return status === 'COMPLETED';
+  }
+
   // HÀNH ĐỘNG CẬP NHẬT GIAO DỊCH
   const editTransaction = async (oldTx: Transaction, updatedTx: Transaction) => {
+    if (!isFirebaseActive || !activeHousehold || !firebaseUser) return;
     playSuccessChime();
 
     // Đồng bộ điều chỉnh số dư mục tiêu Tự do Tài chính
@@ -953,64 +984,45 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       }
     }
 
-    if (isFirebaseActive && activeHousehold && firebaseUser) {
-      try {
-        await updateTransactionWithSummary(activeHousehold.id, oldTx, updatedTx);
-      } catch (err) {
-        console.error('Lỗi khi cập nhật giao dịch lên Firestore:', err);
-        // Hoàn tác điều chỉnh số dư mục tiêu
-        if (oldTx.goalId === updatedTx.goalId) {
-          if (oldTx.goalId) {
-            const delta = updatedTx.amount - oldTx.amount;
-            if (delta !== 0) adjustGoalBalance(oldTx.goalId, -delta);
-          }
-        } else {
-          if (oldTx.goalId) adjustGoalBalance(oldTx.goalId, oldTx.amount);
-          if (updatedTx.goalId) adjustGoalBalance(updatedTx.goalId, -updatedTx.amount);
+    try {
+      await updateTransactionWithSummary(activeHousehold.id, oldTx, updatedTx);
+    } catch (err) {
+      console.error('Lỗi khi cập nhật giao dịch lên Firestore:', err);
+      // Hoàn tác điều chỉnh số dư mục tiêu
+      if (oldTx.goalId === updatedTx.goalId) {
+        if (oldTx.goalId) {
+          const delta = updatedTx.amount - oldTx.amount;
+          if (delta !== 0) adjustGoalBalance(oldTx.goalId, -delta);
         }
-        showToast('Không thể lưu cập nhật giao dịch. Vui lòng thử lại!', 'error');
-        throw err;
+      } else {
+        if (oldTx.goalId) adjustGoalBalance(oldTx.goalId, oldTx.amount);
+        if (updatedTx.goalId) adjustGoalBalance(updatedTx.goalId, -updatedTx.amount);
       }
-    } else {
-      // Cập nhật Mock Data cục bộ
-      setTransactions((prev) =>
-        prev.map((item) => (item.id === oldTx.id ? updatedTx : item))
-      );
-      setUnsettledCardTransactions((prev) => {
-        const isStillUnsettled = updatedTx.paymentMethod === 'CREDIT_CARD' && !updatedTx.isSettled;
-        const exists = prev.some((t) => t.id === oldTx.id);
-        if (isStillUnsettled) {
-          return exists ? prev.map((t) => t.id === oldTx.id ? updatedTx : t) : [updatedTx, ...prev];
-        } else {
-          return prev.filter((t) => t.id !== oldTx.id);
-        }
-      });
+      showToast('Không thể lưu cập nhật giao dịch. Vui lòng thử lại!', 'error');
+      throw err;
     }
   };
 
   // HÀNH ĐỘNG XÓA GIAO DỊCH
   const removeTransaction = async (tx: Transaction) => {
+    if (!isFirebaseActive || !activeHousehold || !firebaseUser) return;
+
     // Hoàn tác số tiền đã trừ/cộng vào mục tiêu Tự do Tài chính nếu có
     if (tx.goalId) {
       adjustGoalBalance(tx.goalId, -tx.amount);
       showToast('Đã hoàn lại số dư cho mục tiêu tài chính', 'info');
     }
 
-    if (isFirebaseActive && activeHousehold && firebaseUser) {
-      try {
-        await deleteTransactionWithSummary(activeHousehold.id, tx);
-      } catch (err) {
-        console.error('Lỗi khi xóa giao dịch trên Firestore:', err);
-        // Hoàn tác lại số dư nếu xóa thất bại
-        if (tx.goalId) {
-          adjustGoalBalance(tx.goalId, tx.amount);
-        }
-        showToast('Không thể xóa giao dịch. Vui lòng kiểm tra kết nối mạng!', 'error');
-        throw err;
+    try {
+      await deleteTransactionWithSummary(activeHousehold.id, tx);
+    } catch (err) {
+      console.error('Lỗi khi xóa giao dịch trên Firestore:', err);
+      // Hoàn tác lại số dư nếu xóa thất bại
+      if (tx.goalId) {
+        adjustGoalBalance(tx.goalId, tx.amount);
       }
-    } else {
-      setTransactions((prev) => prev.filter((item) => item.id !== tx.id));
-      setUnsettledCardTransactions((prev) => prev.filter((item) => item.id !== tx.id));
+      showToast('Không thể xóa giao dịch. Vui lòng kiểm tra kết nối mạng!', 'error');
+      throw err;
     }
   };
 
@@ -1018,78 +1030,57 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const logPendingExpense = async (
     data: Omit<PendingExpense, 'id' | 'createdAt' | 'updatedAt' | 'householdId'>
   ): Promise<string> => {
+    if (!isFirebaseActive || !activeHousehold || !firebaseUser) {
+      throw new Error('AUTH_REQUIRED');
+    }
     playActionClick();
     triggerHaptic(10);
 
-    const householdId = activeHousehold?.id || 'mock_household_01';
+    const householdId = activeHousehold.id;
 
-    if (isFirebaseActive && activeHousehold && firebaseUser) {
-      try {
-        const newId = await addPendingExpense(householdId, {
-          ...data,
-          householdId
-        });
-        showToast(`Đã lưu khoản chờ: ${data.note || data.categoryName}`, 'success');
-        return newId;
-      } catch (err) {
-        console.error('Lỗi khi lưu khoản chờ lên Firestore:', err);
-        showToast('Không thể lưu khoản chờ. Vui lòng thử lại!', 'error');
-        throw err;
-      }
-    } else {
-      const newId = `pending_${Date.now()}`;
-      const newPending: PendingExpense = {
+    try {
+      const newId = await addPendingExpense(householdId, {
         ...data,
-        id: newId,
-        householdId,
-        createdAt: new Date().toISOString(),
-        updatedAt: Date.now()
-      };
-      setPendingExpenses((prev) => [newPending, ...prev]);
+        householdId
+      });
       showToast(`Đã lưu khoản chờ: ${data.note || data.categoryName}`, 'success');
       return newId;
+    } catch (err) {
+      console.error('Lỗi khi lưu khoản chờ lên Firestore:', err);
+      showToast('Không thể lưu khoản chờ. Vui lòng thử lại!', 'error');
+      throw err;
     }
   };
 
   // HÀNH ĐỘNG CẬP NHẬT KHOẢN CHỜ
   const editPendingExpense = async (id: string, updates: Partial<PendingExpense>): Promise<void> => {
+    if (!isFirebaseActive || !activeHousehold || !firebaseUser) return;
     playActionClick();
     triggerHaptic(10);
 
-    if (isFirebaseActive && activeHousehold && firebaseUser) {
-      try {
-        await updatePendingExpense(activeHousehold.id, id, updates);
-        showToast('Đã cập nhật khoản chờ', 'success');
-      } catch (err) {
-        console.error('Lỗi khi cập nhật khoản chờ lên Firestore:', err);
-        showToast('Không thể cập nhật khoản chờ. Vui lòng thử lại!', 'error');
-        throw err;
-      }
-    } else {
-      setPendingExpenses((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, ...updates, updatedAt: Date.now() } : item))
-      );
+    try {
+      await updatePendingExpense(activeHousehold.id, id, updates);
       showToast('Đã cập nhật khoản chờ', 'success');
+    } catch (err) {
+      console.error('Lỗi khi cập nhật khoản chờ lên Firestore:', err);
+      showToast('Không thể cập nhật khoản chờ. Vui lòng thử lại!', 'error');
+      throw err;
     }
   };
 
   // HÀNH ĐỘNG XÓA KHOẢN CHỜ
   const removePendingExpense = async (id: string): Promise<void> => {
+    if (!isFirebaseActive || !activeHousehold || !firebaseUser) return;
     playActionClick();
     triggerHaptic(15);
 
-    if (isFirebaseActive && activeHousehold && firebaseUser) {
-      try {
-        await deletePendingExpense(activeHousehold.id, id);
-        showToast('Đã xóa khoản chờ', 'info');
-      } catch (err) {
-        console.error('Lỗi khi xóa khoản chờ trên Firestore:', err);
-        showToast('Không thể xóa khoản chờ. Vui lòng thử lại!', 'error');
-        throw err;
-      }
-    } else {
-      setPendingExpenses((prev) => prev.filter((item) => item.id !== id));
+    try {
+      await deletePendingExpense(activeHousehold.id, id);
       showToast('Đã xóa khoản chờ', 'info');
+    } catch (err) {
+      console.error('Lỗi khi xóa khoản chờ trên Firestore:', err);
+      showToast('Không thể xóa khoản chờ. Vui lòng thử lại!', 'error');
+      throw err;
     }
   };
 
@@ -1099,62 +1090,26 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     paidByPerson: 'Chồng' | 'Vợ',
     date?: string
   ): Promise<void> => {
+    if (!isFirebaseActive || !activeHousehold || !firebaseUser) return;
     playSuccessChime();
     triggerHaptic(15);
 
     const actualDate = date || getLocalDateString();
-    const paidByUid = currentUser?.uid || 'anonymous';
+    const paidByUid = currentUser?.uid || firebaseUser.uid;
 
-    if (isFirebaseActive && activeHousehold && firebaseUser) {
-      try {
-        await convertPendingToTransaction(
-          activeHousehold.id,
-          pendingItem,
-          paidByPerson,
-          paidByUid,
-          actualDate
-        );
-        showToast(`Đã xác nhận chi ${formatVND(pendingItem.amount)}!`, 'success');
-      } catch (err) {
-        console.error('Lỗi khi chuyển khoản chờ sang giao dịch:', err);
-        showToast('Không thể xác nhận thanh toán. Vui lòng thử lại!', 'error');
-        throw err;
-      }
-    } else {
-      // Chế độ Mock Data:
-      const txPayload: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'> = {
-        amount: pendingItem.amount,
-        type: 'EXPENSE',
-        categoryId: pendingItem.categoryId,
-        categoryName: pendingItem.categoryName,
-        categoryKey: pendingItem.categoryKey,
-        paidBy: paidByPerson,
+    try {
+      await convertPendingToTransaction(
+        activeHousehold.id,
+        pendingItem,
+        paidByPerson,
         paidByUid,
-        note: pendingItem.note,
-        date: actualDate
-      };
-      if (pendingItem.goalId) {
-        txPayload.goalId = pendingItem.goalId;
-        txPayload.goalName = pendingItem.goalName || '';
-      }
-
-      await logTransaction(txPayload);
-
-      setPendingExpenses((prev) =>
-        prev.map((item) =>
-          item.id === pendingItem.id
-            ? {
-                ...item,
-                status: 'PAID',
-                paidAt: actualDate,
-                paidBy: paidByPerson,
-                paidByUid,
-                updatedAt: Date.now()
-              }
-            : item
-        )
+        actualDate
       );
       showToast(`Đã xác nhận chi ${formatVND(pendingItem.amount)}!`, 'success');
+    } catch (err) {
+      console.error('Lỗi khi chuyển khoản chờ sang giao dịch:', err);
+      showToast('Không thể xác nhận thanh toán. Vui lòng thử lại!', 'error');
+      throw err;
     }
   };
 
@@ -1166,87 +1121,68 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const addCreditCard = async (
     cardData: Omit<CreditCard, 'id' | 'createdAt' | 'updatedAt' | 'householdId'>
   ): Promise<string> => {
+    if (!isFirebaseActive || !activeHousehold || !firebaseUser) {
+      throw new Error('AUTH_REQUIRED');
+    }
     playActionClick();
     triggerHaptic(10);
-    const householdId = activeHousehold?.id || 'mock_household_01';
+    const householdId = activeHousehold.id;
 
-    if (isFirebaseActive && activeHousehold && firebaseUser) {
-      try {
-        const newId = await firestoreAddCreditCard(householdId, {
-          ...cardData,
-          householdId
-        });
-        showToast(`Đã thêm thẻ ${cardData.name}`, 'success');
-        return newId;
-      } catch (err) {
-        console.error('Lỗi khi thêm thẻ lên Firestore:', err);
-        showToast('Không thể thêm thẻ. Vui lòng thử lại!', 'error');
-        throw err;
-      }
-    } else {
-      const newId = `card_${Date.now()}`;
-      const newCard: CreditCard = {
+    try {
+      const newId = await firestoreAddCreditCard(householdId, {
         ...cardData,
-        id: newId,
-        householdId,
-        createdAt: new Date().toISOString(),
-        updatedAt: Date.now()
-      };
-      setCreditCards((prev) => [...prev, newCard]);
+        householdId
+      });
       showToast(`Đã thêm thẻ ${cardData.name}`, 'success');
       return newId;
+    } catch (err) {
+      console.error('Lỗi khi thêm thẻ lên Firestore:', err);
+      showToast('Không thể thêm thẻ. Vui lòng thử lại!', 'error');
+      throw err;
     }
   };
 
   // Cập nhật thông tin thẻ tín dụng
   const editCreditCard = async (id: string, updates: Partial<CreditCard>): Promise<void> => {
+    if (!isFirebaseActive || !activeHousehold || !firebaseUser) return;
     playActionClick();
     triggerHaptic(10);
 
-    if (isFirebaseActive && activeHousehold && firebaseUser) {
-      try {
-        await firestoreUpdateCreditCard(activeHousehold.id, id, updates);
-        showToast('Đã cập nhật thông tin thẻ', 'success');
-      } catch (err) {
-        console.error('Lỗi cập nhật thẻ trên Firestore:', err);
-        showToast('Không thể cập nhật thẻ!', 'error');
-        throw err;
-      }
-    } else {
-      setCreditCards((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, ...updates, updatedAt: Date.now() } : c))
-      );
+    try {
+      await firestoreUpdateCreditCard(activeHousehold.id, id, updates);
       showToast('Đã cập nhật thông tin thẻ', 'success');
+    } catch (err) {
+      console.error('Lỗi cập nhật thẻ trên Firestore:', err);
+      showToast('Không thể cập nhật thẻ!', 'error');
+      throw err;
     }
   };
 
   // Xóa / Gỡ thẻ tín dụng
   const removeCreditCard = async (id: string): Promise<void> => {
+    if (!isFirebaseActive || !activeHousehold || !firebaseUser) return;
     playActionClick();
     triggerHaptic(15);
 
-    if (isFirebaseActive && activeHousehold && firebaseUser) {
-      try {
-        await firestoreDeleteCreditCard(activeHousehold.id, id);
-        showToast('Đã gỡ thẻ tín dụng', 'info');
-      } catch (err) {
-        console.error('Lỗi xóa thẻ trên Firestore:', err);
-        showToast('Không thể xóa thẻ!', 'error');
-        throw err;
-      }
-    } else {
-      setCreditCards((prev) => prev.filter((c) => c.id !== id));
+    try {
+      await firestoreDeleteCreditCard(activeHousehold.id, id);
       showToast('Đã gỡ thẻ tín dụng', 'info');
+    } catch (err) {
+      console.error('Lỗi xóa thẻ trên Firestore:', err);
+      showToast('Không thể xóa thẻ!', 'error');
+      throw err;
     }
   };
 
-  // QUYẾT TOÁN THẺ TÍN DỤNG 1-CHẠM (1-TAP CARD SETTLEMENT)
+  // QUYẾT TOÁN THẺ TÍN DỤNG 1-CHẠM (1-TAP CARD SETTLEMENT + CASHBACK)
   const settleCard = async (
     cardId: string,
     paidByPerson: 'Chồng' | 'Vợ',
     mode: 'STATEMENT_ONLY' | 'ALL' = 'STATEMENT_ONLY',
-    date?: string
+    date?: string,
+    cashbackAmount?: number
   ): Promise<void> => {
+    if (!isFirebaseActive || !activeHousehold || !firebaseUser) return;
     playSuccessChime();
     triggerHaptic(15);
 
@@ -1265,6 +1201,9 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     const txIds = targetTxs.map((t) => t.id);
     const totalAmountToSettle = targetTxs.reduce((sum, t) => sum + t.amount, 0);
+    const safeCashback = cashbackAmount && cashbackAmount > 0 ? Math.round(cashbackAmount) : 0;
+    const netAmount = Math.max(0, totalAmountToSettle - safeCashback);
+
     const txSnapshots = targetTxs.map((t) => ({
       id: t.id,
       note: t.note || t.categoryName,
@@ -1274,137 +1213,133 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       paidBy: t.paidBy
     }));
 
-    if (isFirebaseActive && activeHousehold && firebaseUser) {
-      try {
-        await settleCreditCardTransactions(
-          activeHousehold.id,
+    try {
+      let cashbackTxId: string | undefined;
+
+      // Nếu có tiền hoàn (Cashback), tự động tạo một giao dịch Thu nhập (INCOME) gắn với thẻ
+      if (safeCashback > 0) {
+        const cashbackCat = categories.find((c) => c.id === 'cat_income_cashback') ||
+          categories.find((c) => c.type === 'INCOME');
+
+        cashbackTxId = await addTransactionWithSummary(activeHousehold.id, {
+          amount: safeCashback,
+          type: 'INCOME',
+          categoryId: cashbackCat?.id || 'cat_income_cashback',
+          categoryName: cashbackCat?.name || 'Hoàn tiền & Ưu đãi thẻ',
+          categoryKey: 'INCOME',
+          paidBy: paidByPerson,
+          paidByUid: currentUser?.uid || firebaseUser.uid,
+          note: `Hoàn tiền (Cashback) sao kê thẻ ${card?.name || 'Tín dụng'}`,
+          date: actualDate,
+          paymentMethod: 'CREDIT_CARD',
           cardId,
-          txIds,
-          paidByPerson,
-          actualDate,
-          {
-            cardName: card?.name || 'Thẻ tín dụng',
-            cardColor: card?.color || '#0F3D39',
-            last4Digits: card?.last4Digits || '',
-            amount: totalAmountToSettle,
-            txSnapshots
-          }
-        );
-        showToast(`Đã quyết toán thẻ ${card?.name || ''}!`, 'success');
-      } catch (err) {
-        console.error('Lỗi quyết toán thẻ trên Firestore:', err);
-        showToast('Không thể quyết toán thẻ. Vui lòng thử lại!', 'error');
-        throw err;
+          cardName: card?.name || 'Thẻ tín dụng',
+          isCashback: true
+        });
       }
-    } else {
-      // Cập nhật state cục bộ
-      const batchId = `mock_batch_${Date.now()}`;
-      const newBatch: SettlementBatch = {
-        id: batchId,
-        householdId: activeHousehold?.id || 'mock_hh',
+
+      await settleCreditCardTransactions(
+        activeHousehold.id,
+        cardId,
+        txIds,
+        paidByPerson,
+        actualDate,
+        {
+          cardName: card?.name || 'Thẻ tín dụng',
+          cardColor: card?.color || '#0F3D39',
+          last4Digits: card?.last4Digits || '',
+          amount: totalAmountToSettle,
+          cashbackAmount: safeCashback > 0 ? safeCashback : undefined,
+          netAmount: safeCashback > 0 ? netAmount : undefined,
+          cashbackTxId,
+          txSnapshots
+        }
+      );
+
+      if (safeCashback > 0) {
+        showToast(`Đã quyết toán thẻ ${card?.name || ''} & ghi nhận hoàn tiền +${formatVND(safeCashback)}!`, 'success');
+      } else {
+        showToast(`Đã quyết toán thẻ ${card?.name || ''}!`, 'success');
+      }
+    } catch (err) {
+      console.error('Lỗi quyết toán thẻ trên Firestore:', err);
+      showToast('Không thể quyết toán thẻ. Vui lòng thử lại!', 'error');
+      throw err;
+    }
+  };
+
+  // GHI NHẬN KHOẢN HOÀN TIỀN THẺ TÍN DỤNG ĐỘC LẬP (RECORD STANDALONE CARD CASHBACK)
+  const recordCardCashback = async (
+    cardId: string,
+    amount: number,
+    receivedBy: 'Chồng' | 'Vợ',
+    date?: string,
+    note?: string
+  ): Promise<void> => {
+    if (!isFirebaseActive || !activeHousehold || !firebaseUser) return;
+    if (!amount || amount <= 0) return;
+
+    playSuccessChime();
+    triggerHaptic(12);
+
+    const card = creditCards.find((c) => c.id === cardId);
+    const actualDate = date || getLocalDateString();
+    const cashbackCat = categories.find((c) => c.id === 'cat_income_cashback') ||
+      categories.find((c) => c.type === 'INCOME');
+
+    try {
+      await addTransactionWithSummary(activeHousehold.id, {
+        amount: Math.round(amount),
+        type: 'INCOME',
+        categoryId: cashbackCat?.id || 'cat_income_cashback',
+        categoryName: cashbackCat?.name || 'Hoàn tiền & Ưu đãi thẻ',
+        categoryKey: 'INCOME',
+        paidBy: receivedBy,
+        paidByUid: currentUser?.uid || firebaseUser.uid,
+        note: note?.trim() || `Hoàn tiền (Cashback) thẻ ${card?.name || 'Tín dụng'}`,
+        date: actualDate,
+        paymentMethod: 'CREDIT_CARD',
         cardId,
         cardName: card?.name || 'Thẻ tín dụng',
-        cardColor: card?.color || '#0F3D39',
-        last4Digits: card?.last4Digits || '',
-        amount: totalAmountToSettle,
-        txIds,
-        settledAt: actualDate,
-        settledBy: paidByPerson,
-        createdAt: Date.now(),
-        txSnapshots
-      };
-      setRawSettlementBatches((prev) => [newBatch, ...prev]);
-
-      const targetIdSet = new Set(txIds);
-      setUnsettledCardTransactions((prev) => prev.filter((t) => !targetIdSet.has(t.id)));
-      setTransactions((prev) =>
-        prev.map((t) =>
-          targetIdSet.has(t.id)
-            ? { ...t, isSettled: true, settledAt: actualDate, settledBy: paidByPerson, settlementBatchId: batchId }
-            : t
-        )
-      );
-      showToast(`Đã quyết toán thẻ ${card?.name || ''}!`, 'success');
+        isCashback: true
+      });
+      showToast(`Đã ghi nhận hoàn tiền +${formatVND(amount)} cho thẻ ${card?.name || ''}!`, 'success');
+    } catch (err) {
+      console.error('Lỗi khi ghi nhận hoàn tiền thẻ:', err);
+      showToast('Không thể ghi nhận hoàn tiền thẻ. Vui lòng thử lại!', 'error');
+      throw err;
     }
   };
 
   // HOÀN TÁC ĐỢT QUYẾT TOÁN THẺ (UNDO BATCH)
   const undoSettlement = async (batch: SettlementBatch): Promise<void> => {
+    if (!isFirebaseActive || !activeHousehold) return;
     playActionClick();
     triggerHaptic(12);
 
-    if (isFirebaseActive && activeHousehold) {
-      try {
-        await undoSettlementBatch(activeHousehold.id, batch.id, batch.txIds);
-        showToast(`Đã hoàn tác quyết toán thẻ ${batch.cardName}!`, 'info');
-      } catch (err) {
-        console.error('Lỗi khi hoàn tác quyết toán:', err);
-        showToast('Không thể hoàn tác quyết toán. Vui lòng thử lại!', 'error');
-        throw err;
-      }
-    } else {
-      setRawSettlementBatches((prev) => prev.filter((b) => b.id !== batch.id));
-      const targetIdSet = new Set(batch.txIds);
-      
-      let restoredTxs: Transaction[] = [];
-      setTransactions((prev) =>
-        prev.map((t) => {
-          if (targetIdSet.has(t.id)) {
-            const next: Transaction = { ...t, isSettled: false };
-            delete next.settledAt;
-            delete next.settledBy;
-            delete next.settlementBatchId;
-            restoredTxs.push(next);
-            return next;
-          }
-          return t;
-        })
-      );
-      
-      // Khôi phục vào danh sách chưa quyết toán nếu chưa có
-      setUnsettledCardTransactions((prev) => {
-        const existingIds = new Set(prev.map((t) => t.id));
-        const toAdd = restoredTxs.filter((t) => !existingIds.has(t.id));
-        return [...toAdd, ...prev];
-      });
-
+    try {
+      await undoSettlementBatch(activeHousehold.id, batch.id, batch.txIds, batch.cashbackTxId);
       showToast(`Đã hoàn tác quyết toán thẻ ${batch.cardName}!`, 'info');
+    } catch (err) {
+      console.error('Lỗi khi hoàn tác quyết toán:', err);
+      showToast('Không thể hoàn tác quyết toán. Vui lòng thử lại!', 'error');
+      throw err;
     }
   };
 
   // HOÀN TÁC QUYẾT TOÁN CHO 1 GIAO DỊCH RIÊNG LẺ
   const undoSingleSettlement = async (txId: string): Promise<void> => {
+    if (!isFirebaseActive || !activeHousehold) return;
     playActionClick();
     triggerHaptic(10);
 
-    if (isFirebaseActive && activeHousehold) {
-      try {
-        await undoSingleTransactionSettlement(activeHousehold.id, txId);
-        showToast('Đã chuyển khoản chi về trạng thái chờ sao kê', 'info');
-      } catch (err) {
-        console.error('Lỗi khi hủy quyết toán giao dịch:', err);
-        showToast('Không thể hủy quyết toán giao dịch.', 'error');
-        throw err;
-      }
-    } else {
-      let targetTx: Transaction | null = null;
-      setTransactions((prev) =>
-        prev.map((t) => {
-          if (t.id === txId) {
-            const next: Transaction = { ...t, isSettled: false };
-            delete next.settledAt;
-            delete next.settledBy;
-            delete next.settlementBatchId;
-            targetTx = next;
-            return next;
-          }
-          return t;
-        })
-      );
-      if (targetTx) {
-        setUnsettledCardTransactions((prev) => [targetTx!, ...prev.filter((t) => t.id !== txId)]);
-      }
+    try {
+      await undoSingleTransactionSettlement(activeHousehold.id, txId);
       showToast('Đã chuyển khoản chi về trạng thái chờ sao kê', 'info');
+    } catch (err) {
+      console.error('Lỗi khi hủy quyết toán giao dịch:', err);
+      showToast('Không thể hủy quyết toán giao dịch.', 'error');
+      throw err;
     }
   };
 
@@ -1414,23 +1349,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     settledAt: string,
     settledBy: 'Chồng' | 'Vợ'
   ): Promise<void> => {
+    if (!isFirebaseActive || !activeHousehold) return;
     playActionClick();
     triggerHaptic(8);
 
-    if (isFirebaseActive && activeHousehold) {
-      try {
-        await updateTransactionSettlementInfo(activeHousehold.id, txId, settledAt, settledBy);
-        showToast('Đã cập nhật ngày quyết toán!', 'success');
-      } catch (err) {
-        console.error('Lỗi cập nhật ngày quyết toán:', err);
-        showToast('Không thể cập nhật ngày quyết toán.', 'error');
-        throw err;
-      }
-    } else {
-      setTransactions((prev) =>
-        prev.map((t) => (t.id === txId ? { ...t, settledAt, settledBy } : t))
-      );
+    try {
+      await updateTransactionSettlementInfo(activeHousehold.id, txId, settledAt, settledBy);
       showToast('Đã cập nhật ngày quyết toán!', 'success');
+    } catch (err) {
+      console.error('Lỗi cập nhật ngày quyết toán:', err);
+      showToast('Không thể cập nhật ngày quyết toán.', 'error');
+      throw err;
     }
   };
 
@@ -1700,20 +1629,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (isFirebaseActive && currentUser) {
       const h = await createHousehold(name, budget, currentUser);
       setActiveHousehold(h);
-    } else {
-      const mockH: Household = {
-        id: `mock_h_${Date.now()}`,
-        name,
-        ownerUid: 'mock_user_chong_01',
-        members: ['mock_user_chong_01'],
-        memberNames: { 'mock_user_chong_01': 'Chồng' },
-        memberEmails: { 'mock_user_chong_01': 'chong@example.com' },
-        currency: 'VND',
-        monthlyBudget: budget,
-        createdAt: new Date().toISOString(),
-        updatedAt: Date.now()
-      };
-      setActiveHousehold(mockH);
     }
   };
 
@@ -1985,11 +1900,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
     localStorage.removeItem('active_household_id');
     localStorage.removeItem('pending_invite_code');
-    setCurrentUser(MOCK_USER);
-    setActiveHousehold(MOCK_HOUSEHOLD);
-    setUserHouseholds([MOCK_HOUSEHOLD]);
-    setTransactions(MOCK_TRANSACTIONS);
-    setPendingExpenses(MOCK_PENDING_EXPENSES);
+    setCurrentUser(null);
+    setActiveHousehold(null);
+    setUserHouseholds([]);
+    setTransactions([]);
+    setPendingExpenses([]);
+    setCreditCards([]);
+    setUnsettledCardTransactions([]);
+    setRawSettlementBatches([]);
+    setSettledCardTransactions([]);
+    setCashbackTransactions([]);
   };
 
   return (
@@ -2073,6 +1993,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         removeCreditCard,
         settleCard,
         settlementBatches,
+        cashbackTransactions,
+        cardCashbackByCardId,
+        totalCardCashback,
+        recordCardCashback,
         undoSettlement,
         undoSingleSettlement,
         updateSettlementInfo,

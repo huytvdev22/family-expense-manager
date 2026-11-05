@@ -1,7 +1,8 @@
-import type { Household, Category, Transaction, MonthlySummary, QuickTagItem, UserProfile, FinancialGoal, PendingExpense, CreditCard } from '../types';
+import type { Category, QuickTagItem, CreditCard } from '../types';
 
 /**
- * Các Danh mục chuẩn của hệ thống Tổ Ấm Nhỏ theo DESIGN.md & DATABASE_DESIGN.md
+ * Các Danh mục chuẩn mặc định của hệ thống Tổ Ấm Nhỏ theo DESIGN.md & DATABASE_DESIGN.md
+ * Chỉ dùng để khởi tạo (seed) danh mục mặc định cho hộ gia đình mới trên Firestore
  */
 export const DEFAULT_CATEGORIES: Category[] = [
   {
@@ -118,36 +119,46 @@ export const DEFAULT_CATEGORIES: Category[] = [
     createdAt: '2026-09-01T00:00:00Z'
   },
   {
+    id: 'cat_income_cashback',
+    name: 'Hoàn tiền & Ưu đãi thẻ',
+    type: 'INCOME',
+    categoryKey: 'INCOME',
+    icon: 'gift',
+    color: '#059669',
+    order: 10,
+    isDefault: true,
+    isArchived: false,
+    createdAt: '2026-09-01T00:00:00Z'
+  },
+  {
     id: 'cat_income_other',
     name: 'Thu nhập khác',
     type: 'INCOME',
     categoryKey: 'INCOME',
     icon: 'sparkles',
     color: '#4A6B68',
-    order: 10,
+    order: 11,
     isDefault: true,
     isArchived: false,
     createdAt: '2026-09-01T00:00:00Z'
   }
 ];
 
-export const MOCK_CATEGORIES = DEFAULT_CATEGORIES;
-
 /**
- * Danh sách 3 Thẻ tín dụng mặc định của gia đình (HSBC, MSB, BIDV JCB)
+ * Danh sách 3 Thẻ tín dụng mặc định dùng để seed khi yêu cầu
  */
 export const DEFAULT_CREDIT_CARDS: CreditCard[] = [
   {
     id: 'card_hsbc',
-    householdId: 'mock_household_01',
+    householdId: '',
     name: 'HSBC',
     last4Digits: '8828',
-    color: '#DC2626', // Đỏ rượu đặc trưng HSBC
-    statementDay: 25, // Chốt ngày 25 hàng tháng
+    color: '#DC2626',
+    statementDay: 25,
     dueType: 'GRACE_PERIOD',
-    paymentDueDay: 20, // Fallback
-    daysAfterStatement: 25, // Thanh toán sau sao kê 25 ngày
-    gracePeriodDays: 55, // Ân hạn 55 ngày
+    paymentDueDay: 20,
+    daysAfterStatement: 25,
+    gracePeriodDays: 55,
     creditLimit: 60000000,
     isActive: true,
     createdAt: '2026-09-01T00:00:00Z',
@@ -155,12 +166,12 @@ export const DEFAULT_CREDIT_CARDS: CreditCard[] = [
   },
   {
     id: 'card_msb',
-    householdId: 'mock_household_01',
+    householdId: '',
     name: 'MSB',
     last4Digits: '6512',
-    color: '#EA580C', // Cam cháy ấm áp MSB
-    statementDay: 15, // Chốt ngày 15 hàng tháng
-    paymentDueDay: 1, // Hạn thanh toán ngày 01 tháng sau
+    color: '#EA580C',
+    statementDay: 15,
+    paymentDueDay: 1,
     creditLimit: 50000000,
     isActive: true,
     createdAt: '2026-09-01T00:00:00Z',
@@ -168,12 +179,12 @@ export const DEFAULT_CREDIT_CARDS: CreditCard[] = [
   },
   {
     id: 'card_bidv_jcb',
-    householdId: 'mock_household_01',
+    householdId: '',
     name: 'BIDV JCB',
     last4Digits: '9366',
-    color: '#0F766E', // Xanh ngọc đậm BIDV
-    statementDay: 25, // Chốt ngày 25 hàng tháng
-    paymentDueDay: 10, // Hạn thanh toán ngày 10 tháng sau
+    color: '#0F766E',
+    statementDay: 25,
+    paymentDueDay: 10,
     creditLimit: 80000000,
     isActive: true,
     createdAt: '2026-09-01T00:00:00Z',
@@ -182,7 +193,7 @@ export const DEFAULT_CREDIT_CARDS: CreditCard[] = [
 ];
 
 /**
- * Danh sách Quick Tags 1-chạm (Dải vuốt ngang)
+ * Danh sách Quick Tags 1-chạm mặc định (Dải vuốt ngang)
  */
 export const DEFAULT_QUICK_TAGS: QuickTagItem[] = [
   {
@@ -310,6 +321,17 @@ export const DEFAULT_INCOME_QUICK_TAGS: QuickTagItem[] = [
     order: 2
   },
   {
+    id: 'tag_inc_cashback',
+    label: 'Hoàn tiền thẻ',
+    emoji: '💳',
+    type: 'INCOME',
+    categoryKey: 'INCOME',
+    categoryId: 'cat_income_cashback',
+    categoryName: 'Hoàn tiền & Ưu đãi thẻ',
+    defaultAmount: 300000,
+    order: 3
+  },
+  {
     id: 'tag_inc_freelance',
     label: 'Làm thêm / Dự án',
     emoji: '💻',
@@ -318,7 +340,7 @@ export const DEFAULT_INCOME_QUICK_TAGS: QuickTagItem[] = [
     categoryId: 'cat_income_side',
     categoryName: 'Thu nhập phụ',
     defaultAmount: 3000000,
-    order: 3
+    order: 4
   },
   {
     id: 'tag_inc_interest',
@@ -329,7 +351,7 @@ export const DEFAULT_INCOME_QUICK_TAGS: QuickTagItem[] = [
     categoryId: 'cat_income_invest',
     categoryName: 'Lãi & Đầu tư',
     defaultAmount: 1200000,
-    order: 4
+    order: 5
   },
   {
     id: 'tag_inc_gift',
@@ -340,338 +362,6 @@ export const DEFAULT_INCOME_QUICK_TAGS: QuickTagItem[] = [
     categoryId: 'cat_income_other',
     categoryName: 'Thu nhập khác',
     defaultAmount: 1000000,
-    order: 5
+    order: 6
   }
 ];
-
-export const MOCK_USER: UserProfile = {
-  uid: 'mock_user_chong_01',
-  email: 'chong.nguyen@gmail.com',
-  displayName: 'Nguyễn Văn Chồng',
-  householdIds: ['mock_household_01'],
-  activeHouseholdId: 'mock_household_01',
-  createdAt: '2026-09-01T00:00:00Z',
-  updatedAt: Date.now()
-};
-
-export const MOCK_HOUSEHOLD: Household = {
-  id: 'mock_household_01',
-  name: 'Tổ Ấm Nhỏ',
-  ownerUid: 'mock_user_chong_01',
-  members: ['mock_user_chong_01', 'mock_user_vo_02'],
-  memberNames: {
-    'mock_user_chong_01': 'Chồng',
-    'mock_user_vo_02': 'Vợ'
-  },
-  memberEmails: {
-    'mock_user_chong_01': 'chong.nguyen@gmail.com',
-    'mock_user_vo_02': 'vo.le@gmail.com'
-  },
-  currency: 'VND',
-  monthlyBudget: 35000000,
-  createdAt: '2026-09-01T00:00:00Z',
-  updatedAt: Date.now()
-};
-
-export const MOCK_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'tx_card_hsbc_aug_01',
-    amount: 3200000,
-    type: 'EXPENSE',
-    categoryId: 'cat_living',
-    categoryName: 'Sinh hoạt & Hẹn hò',
-    categoryKey: 'LIVING',
-    paidBy: 'Chồng',
-    paidByUid: 'mock_user_chong_01',
-    note: 'Vé máy bay Vietjet du lịch gia đình',
-    date: '2026-08-20',
-    paymentMethod: 'CREDIT_CARD',
-    cardId: 'card_hsbc',
-    cardName: 'HSBC LiveFree / Cash Back',
-    isSettled: false,
-    timestamp: Date.now() - 1000 * 60 * 60 * 24 * 22,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'tx_card_hsbc_aug_02',
-    amount: 1450000,
-    type: 'EXPENSE',
-    categoryId: 'cat_living',
-    categoryName: 'Sinh hoạt & Hẹn hò',
-    categoryKey: 'LIVING',
-    paidBy: 'Chồng',
-    paidByUid: 'mock_user_chong_01',
-    note: 'Siêu thị đồ gia đình cuối tháng 8',
-    date: '2026-08-28',
-    paymentMethod: 'CREDIT_CARD',
-    cardId: 'card_hsbc',
-    cardName: 'HSBC LiveFree / Cash Back',
-    isSettled: false,
-    timestamp: Date.now() - 1000 * 60 * 60 * 24 * 14,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'tx_card_hsbc_01',
-    amount: 1850000,
-    type: 'EXPENSE',
-    categoryId: 'cat_living',
-    categoryName: 'Sinh hoạt & Hẹn hò',
-    categoryKey: 'LIVING',
-    paidBy: 'Chồng',
-    paidByUid: 'mock_user_chong_01',
-    note: 'Mua sắm Uniqlo Thu Đông',
-    date: '2026-09-08',
-    paymentMethod: 'CREDIT_CARD',
-    cardId: 'card_hsbc',
-    cardName: 'HSBC LiveFree / Cash Back',
-    isSettled: false,
-    timestamp: Date.now() - 1000 * 60 * 60 * 12,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'tx_card_hsbc_02',
-    amount: 890000,
-    type: 'EXPENSE',
-    categoryId: 'cat_living',
-    categoryName: 'Sinh hoạt & Hẹn hò',
-    categoryKey: 'LIVING',
-    paidBy: 'Chồng',
-    paidByUid: 'mock_user_chong_01',
-    note: 'Ăn tối Pizza 4Ps cuối tuần',
-    date: '2026-09-06',
-    paymentMethod: 'CREDIT_CARD',
-    cardId: 'card_hsbc',
-    cardName: 'HSBC LiveFree / Cash Back',
-    isSettled: false,
-    timestamp: Date.now() - 1000 * 60 * 60 * 60,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'tx_card_msb_01',
-    amount: 1250000,
-    type: 'EXPENSE',
-    categoryId: 'cat_unexpected',
-    categoryName: 'Sức khỏe & Đột xuất',
-    categoryKey: 'UNEXPECTED',
-    paidBy: 'Vợ',
-    paidByUid: 'mock_user_vo_02',
-    note: 'Đồ gia dụng & Nồi chiên Shopee',
-    date: '2026-09-07',
-    paymentMethod: 'CREDIT_CARD',
-    cardId: 'card_msb',
-    cardName: 'MSB Visa Online',
-    isSettled: false,
-    timestamp: Date.now() - 1000 * 60 * 60 * 36,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'tx_card_bidv_01',
-    amount: 2150000,
-    type: 'EXPENSE',
-    categoryId: 'cat_essential',
-    categoryName: 'Tổ ấm & Con cái',
-    categoryKey: 'ESSENTIAL',
-    paidBy: 'Vợ',
-    paidByUid: 'mock_user_vo_02',
-    note: 'Đại siêu thị Aeon Mall thực phẩm',
-    date: '2026-09-05',
-    paymentMethod: 'CREDIT_CARD',
-    cardId: 'card_bidv_jcb',
-    cardName: 'BIDV JCB Ultimate',
-    isSettled: false,
-    timestamp: Date.now() - 1000 * 60 * 60 * 84,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'tx_01',
-    amount: 350000,
-    type: 'EXPENSE',
-    categoryId: 'cat_essential',
-    categoryName: 'Tổ ấm & Con cái',
-    categoryKey: 'ESSENTIAL',
-    paidBy: 'Chồng',
-    paidByUid: 'mock_user_chong_01',
-    note: 'Chợ & Siêu thị',
-    date: '2026-09-04',
-    timestamp: Date.now() - 1000 * 60 * 60 * 2,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'tx_02',
-    amount: 480000,
-    type: 'EXPENSE',
-    categoryId: 'cat_essential',
-    categoryName: 'Tổ ấm & Con cái',
-    categoryKey: 'ESSENTIAL',
-    paidBy: 'Vợ',
-    paidByUid: 'mock_user_vo_02',
-    note: 'Bỉm & Sữa con',
-    date: '2026-09-04',
-    timestamp: Date.now() - 1000 * 60 * 60 * 4,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'tx_03',
-    amount: 85000,
-    type: 'EXPENSE',
-    categoryId: 'cat_living',
-    categoryName: 'Sinh hoạt & Hẹn hò',
-    categoryKey: 'LIVING',
-    paidBy: 'Chồng',
-    paidByUid: 'mock_user_chong_01',
-    note: 'Cà phê sáng',
-    date: '2026-09-03',
-    timestamp: Date.now() - 1000 * 60 * 60 * 26,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'tx_04',
-    amount: 1450000,
-    type: 'EXPENSE',
-    categoryId: 'cat_essential',
-    categoryName: 'Tổ ấm & Con cái',
-    categoryKey: 'ESSENTIAL',
-    paidBy: 'Vợ',
-    paidByUid: 'mock_user_vo_02',
-    note: 'Tiền điện & Nước sinh hoạt',
-    date: '2026-09-02',
-    timestamp: Date.now() - 1000 * 60 * 60 * 50,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 'tx_05',
-    amount: 5000000,
-    type: 'EXPENSE',
-    categoryId: 'cat_saving',
-    categoryName: 'Tích lũy & Tương lai',
-    categoryKey: 'SAVING',
-    paidBy: 'Chồng',
-    paidByUid: 'mock_user_chong_01',
-    note: 'Gửi heo đất chung đầu tháng',
-    date: '2026-09-01',
-    timestamp: Date.now() - 1000 * 60 * 60 * 75,
-    createdAt: new Date().toISOString()
-  }
-];
-
-export const MOCK_SUMMARY: MonthlySummary = {
-  yearMonth: '2026-09',
-  totalIncome: 55000000,
-  totalExpense: 7365000,
-  netSavings: 47635000,
-  savingsPercent: 86,
-  byCategory: {
-    cat_essential: 2280000,
-    cat_living: 85000,
-    cat_unexpected: 0,
-    cat_saving: 5000000
-  },
-  byMember: {
-    'Chồng': 5435000,
-    'Vợ': 1930000
-  },
-  transactionCount: 5,
-  updatedAt: Date.now()
-};
-
-/**
- * Mục tiêu Tự do Tài chính Mẫu (Khoản vay & Tích lũy)
- */
-export const MOCK_GOALS: FinancialGoal[] = [
-  {
-    id: 'goal_bank_loan_01',
-    householdId: 'mock_household_01',
-    title: 'Khoản vay ngân hàng mua nhà',
-    type: 'DEBT_PAYOFF',
-    initialAmount: 1500000000,
-    currentAmount: 700000000,
-    targetAmount: 0,
-    monthlyTarget: 15000000,
-    categoryKey: 'ESSENTIAL',
-    categoryId: 'cat_debt',
-    color: '#B45309',
-    icon: 'landmark',
-    note: 'Kế hoạch trả dứt điểm khoản vay ngân hàng để sớm tự do tài chính',
-    status: 'ACTIVE',
-    createdAt: '2025-01-01T00:00:00Z',
-    updatedAt: Date.now()
-  },
-  {
-    id: 'goal_emergency_fund_02',
-    householdId: 'mock_household_01',
-    title: 'Quỹ dự phòng khẩn cấp (6 tháng)',
-    type: 'SAVINGS',
-    initialAmount: 0,
-    currentAmount: 60000000,
-    targetAmount: 120000000,
-    monthlyTarget: 10000000,
-    categoryKey: 'SAVING',
-    categoryId: 'cat_saving',
-    color: '#10B981',
-    icon: 'shield-check',
-    note: 'Đảm bảo cuộc sống gia đình an tâm trước mọi biến cố',
-    status: 'ACTIVE',
-    createdAt: '2025-03-01T00:00:00Z',
-    updatedAt: Date.now()
-  }
-];
-
-/**
- * Danh sách Khoản chờ thanh toán mẫu (Hóa đơn & Nhắc trả nợ)
- */
-export const MOCK_PENDING_EXPENSES: PendingExpense[] = [
-  {
-    id: 'pending_evn_01',
-    householdId: 'mock_household_01',
-    amount: 1250000,
-    type: 'EXPENSE',
-    categoryId: 'cat_essential',
-    categoryName: 'Tổ ấm & Con cái',
-    categoryKey: 'ESSENTIAL',
-    assignedTo: 'Chồng',
-    createdByUid: 'mock_user_01',
-    createdByName: 'Huy (Chồng)',
-    note: 'Hóa đơn tiền điện EVN tháng này',
-    dueDate: '2026-09-15',
-    status: 'PENDING',
-    createdAt: '2026-09-08T08:00:00Z',
-    updatedAt: Date.now()
-  },
-  {
-    id: 'pending_water_02',
-    householdId: 'mock_household_01',
-    amount: 280000,
-    type: 'EXPENSE',
-    categoryId: 'cat_essential',
-    categoryName: 'Tổ ấm & Con cái',
-    categoryKey: 'ESSENTIAL',
-    assignedTo: 'Vợ',
-    createdByUid: 'mock_user_02',
-    createdByName: 'Vợ yêu',
-    note: 'Tiền nước sinh hoạt căn hộ',
-    dueDate: '2026-09-18',
-    status: 'PENDING',
-    createdAt: '2026-09-08T09:30:00Z',
-    updatedAt: Date.now()
-  },
-  {
-    id: 'pending_debt_loan_03',
-    householdId: 'mock_household_01',
-    amount: 15000000,
-    type: 'EXPENSE',
-    categoryId: 'cat_debt',
-    categoryName: 'Trả nợ ngân hàng',
-    categoryKey: 'ESSENTIAL',
-    assignedTo: 'Cả hai',
-    createdByUid: 'mock_user_01',
-    createdByName: 'Huy (Chồng)',
-    note: 'Trích trả gốc vay ngân hàng mua nhà',
-    dueDate: '2026-09-25',
-    goalId: 'goal_bank_loan_01',
-    goalName: 'Khoản vay ngân hàng mua nhà',
-    status: 'PENDING',
-    createdAt: '2026-09-07T10:00:00Z',
-    updatedAt: Date.now()
-  }
-];
-

@@ -17,10 +17,11 @@ import { FinancialFreedom } from './components/FinancialFreedom';
 import { MonthPicker } from './components/MonthPicker';
 import { UpdateNotification } from './components/UpdateNotification';
 import { SettingsModal } from './components/SettingsModal';
+import { LandingPage } from './components/LandingPage';
 import { useApp } from './context/AppContext';
 
 export const App: React.FC = () => {
-  const { isLoading } = useApp();
+  const { isLoading, firebaseUser } = useApp();
 
   // Tab di động hiện tại ('ledger' | 'dashboard' | 'numpad' | 'goals' | 'family')
   const [mobileTab, setMobileTab] = useState<MobileTab>('ledger');
@@ -49,16 +50,20 @@ export const App: React.FC = () => {
       const code = joinCode.trim().toUpperCase();
       localStorage.setItem('pending_invite_code', code);
       setJoinCodeParam(code);
-      setIsInviteOpen(true);
+      if (firebaseUser) {
+        setIsInviteOpen(true);
+      }
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
       const savedPending = localStorage.getItem('pending_invite_code');
       if (savedPending) {
         setJoinCodeParam(savedPending);
-        setIsInviteOpen(true);
+        if (firebaseUser) {
+          setIsInviteOpen(true);
+        }
       }
     }
-  }, []);
+  }, [firebaseUser]);
 
   if (isLoading) {
     return (
@@ -70,6 +75,16 @@ export const App: React.FC = () => {
           Đang nạp sổ cái tổ ấm...
         </p>
       </div>
+    );
+  }
+
+  // Khi chưa đăng nhập: hiển thị Landing Page đơn giản
+  if (!firebaseUser) {
+    return (
+      <>
+        <LandingPage pendingInviteCode={joinCodeParam} />
+        <UpdateNotification />
+      </>
     );
   }
 

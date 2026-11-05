@@ -3,7 +3,7 @@ import { Plus, Check, Edit2, Trash2, CreditCard as CardIcon, Calendar, ArrowLeft
 import { useApp } from '../context/AppContext';
 import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
-import { getCardBillingCycleInfo, formatDisplayDate } from '../utils/currency';
+import { getCardBillingCycleInfo, formatDisplayDate, formatVND } from '../utils/currency';
 import { useToast } from './Toast';
 import { BottomSheet } from './BottomSheet';
 import type { CreditCard, CreditCardDueType } from '../types';
@@ -14,7 +14,7 @@ interface CardManagerModalProps {
 }
 
 export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onClose }) => {
-  const { creditCards, addCreditCard, editCreditCard, removeCreditCard } = useApp();
+  const { creditCards, addCreditCard, editCreditCard, removeCreditCard, cardCashbackByCardId } = useApp();
   const { showToast } = useToast();
 
   // Chế độ màn hình: 'LIST' (Danh sách thẻ) hoặc 'FORM' (Thêm/Sửa thẻ)
@@ -229,9 +229,16 @@ export const CardManagerModal: React.FC<CardManagerModalProps> = ({ isOpen, onCl
                       <CardIcon className="w-4 h-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-bold text-[#1C1917] truncate">
-                        {card.name} •••• {card.last4Digits}
-                      </p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-xs font-bold text-[#1C1917] truncate">
+                          {card.name} •••• {card.last4Digits}
+                        </p>
+                        {(cardCashbackByCardId[card.id] || 0) > 0 && (
+                          <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-md bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]">
+                            🎁 Đã hoàn +{formatVND(cardCashbackByCardId[card.id])}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-[#78716C] mt-0.5">
                         Chốt ngày {card.statementDay} •{' '}
                         {card.dueType === 'GRACE_PERIOD'

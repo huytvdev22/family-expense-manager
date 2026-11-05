@@ -1237,6 +1237,9 @@ export async function settleCreditCardTransactions(
     cardColor?: string;
     last4Digits?: string;
     amount?: number;
+    cashbackAmount?: number;
+    netAmount?: number;
+    cashbackTxId?: string;
     txSnapshots?: SettlementBatchTxSnapshot[];
   }
 ): Promise<string> {
@@ -1249,6 +1252,10 @@ export async function settleCreditCardTransactions(
   // 1. Tạo bản ghi đợt quyết toán SettlementBatch
   try {
     const batchRef = doc(firestoreDb, `households/${householdId}/settlement_batches`, batchId);
+    const rawAmount = batchMetadata?.amount || 0;
+    const cbAmount = batchMetadata?.cashbackAmount || 0;
+    const netAmt = batchMetadata?.netAmount !== undefined ? batchMetadata.netAmount : Math.max(0, rawAmount - cbAmount);
+
     await setDoc(batchRef, cleanFirestorePayload({
       id: batchId,
       householdId,
@@ -1256,7 +1263,10 @@ export async function settleCreditCardTransactions(
       cardName: batchMetadata?.cardName || '',
       cardColor: batchMetadata?.cardColor || '#0F3D39',
       last4Digits: batchMetadata?.last4Digits || '',
-      amount: batchMetadata?.amount || 0,
+      amount: rawAmount,
+      cashbackAmount: cbAmount > 0 ? cbAmount : undefined,
+      netAmount: cbAmount > 0 ? netAmt : undefined,
+      cashbackTxId: batchMetadata?.cashbackTxId,
       txIds,
       settledAt: actualDate,
       settledBy,
@@ -1285,12 +1295,13 @@ export async function settleCreditCardTransactions(
 
 /**
  * HOÀN TÁC ĐỢT QUYẾT TOÁN THẺ (UNDO BATCH SETTLEMENT)
- * Chuyển các giao dịch về trạng thái chờ quyết toán và xóa batch
+ * Chuyển các giao dịch về trạng thái chờ quyết toán, xóa giao dịch cashback đi kèm (nếu có) và xóa batch
  */
 export async function undoSettlementBatch(
   householdId: string,
   batchId: string,
-  txIds: string[]
+  txIds: string[],
+  cashbackTxId?: string
 ): Promise<void> {
   if (!db) throw new Error('Firestore chưa được khởi tạo');
   const firestoreDb = db;
@@ -1309,7 +1320,21 @@ export async function undoSettlementBatch(
 
   await Promise.allSettled(updatePromises);
 
-  // 2. Xóa batch document nếu tồn tại (bỏ qua nếu là legacy batch)
+  // 2. Nếu đợt quyết toán có tạo giao dịch thu nhập Cashback, tự động thu hồi
+  if (cashbackTxId) {
+    try {
+      const cbTxRef = doc(firestoreDb, `households/${householdId}/transactions`, cashbackTxId);
+      const cbSnap = await getDoc(cbTxRef);
+      if (cbSnap.exists()) {
+        const cbTx = { id: cbSnap.id, ...cbSnap.data() } as Transaction;
+        await deleteTransactionWithSummary(householdId, cbTx);
+      }
+    } catch (err) {
+      console.warn('Lỗi khi xóa giao dịch cashback đi kèm đợt quyết toán:', err);
+    }
+  }
+
+  // 3. Xóa batch document nếu tồn tại (bỏ qua nếu là legacy batch)
   if (batchId && !batchId.startsWith('legacy_')) {
     try {
       const batchRef = doc(firestoreDb, `households/${householdId}/settlement_batches`, batchId);
@@ -1440,5 +1465,34 @@ export function subscribeUnsettledCreditCardTransactions(
     onData([]);
   });
 }
+
+/**
+ * LẮNG NGHE REALTIME CÁC GIAO DỊCH HOÀN TIỀN THẺ TÍN DỤNG (CASHBACK)
+ * Dùng để thống kê tổng tiền hoàn lũy kế theo từng thẻ và hiển thị lịch sử cashback
+ */
+export function subscribeCardCashbackTransactions(
+  householdId: string,
+  onData: (transactions: Transaction[]) => void
+): Unsubscribe {
+  if (!db) return () => {};
+
+  const q = query(
+    collection(db, `households/${householdId}/transactions`),
+    where('isCashback', '==', true)
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const list: Transaction[] = [];
+    snapshot.forEach((docSnap) => {
+      list.push({ id: docSnap.id, ...docSnap.data() } as Transaction);
+    });
+    list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    onData(list);
+  }, (err) => {
+    console.warn('Lỗi subscribeCardCashbackTransactions:', err);
+    onData([]);
+  });
+}
+
 
 

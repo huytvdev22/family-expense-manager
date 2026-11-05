@@ -35,7 +35,9 @@ export const PendingExpensesSection: React.FC = () => {
     totalUnsettledCardAmount,
     activeCreditCards,
     currentYearMonth,
-    settlementBatches
+    settlementBatches,
+    cardCashbackByCardId,
+    totalCardCashback
   } = useApp();
 
   // Modal chỉnh sửa khoản chờ hóa đơn rời
@@ -246,7 +248,7 @@ export const PendingExpensesSection: React.FC = () => {
                 Thẻ tín dụng ({unsettledCardExpenses.length})
               </span>
 
-              {/* Nút xem Lịch sử quyết toán thẻ */}
+              {/* Nút xem Lịch sử quyết toán thẻ & Cashback */}
               <button
                 type="button"
                 onClick={() => {
@@ -255,12 +257,12 @@ export const PendingExpensesSection: React.FC = () => {
                   setIsHistoryOpen(true);
                 }}
                 className="text-[11px] text-[#0F3D39] hover:text-[#134E48] hover:bg-[#F5F3EF] px-2 py-0.5 rounded-lg flex items-center gap-1 font-semibold transition-colors cursor-pointer"
-                title="Xem lịch sử các đợt đã quyết toán thẻ"
+                title="Xem lịch sử các đợt đã quyết toán thẻ & hoàn tiền Cashback"
               >
                 <History className="w-3.5 h-3.5 text-[#0F3D39]" />
-                <span>Lịch sử quyết toán</span>
-                {settlementBatches.length > 0 && (
-                  <span className="w-4 h-4 rounded-full bg-[#E7EFEF] text-[#0F3D39] text-[9px] font-mono font-bold flex items-center justify-center">
+                <span>Lịch sử & Cashback</span>
+                {(settlementBatches.length > 0 || totalCardCashback > 0) && (
+                  <span className="px-1.5 h-4 rounded-full bg-[#E7EFEF] text-[#0F3D39] text-[9px] font-mono font-bold flex items-center justify-center">
                     {settlementBatches.length}
                   </span>
                 )}
@@ -275,6 +277,7 @@ export const PendingExpensesSection: React.FC = () => {
                 const dueBadge = formatDueDateBadge(activeDueDate);
                 const hasStatementDue = statementAmount > 0;
                 const hasAnyBalance = totalAmount > 0;
+                const cardCashback = cardCashbackByCardId[card.id] || 0;
 
                 return (
                   <div
@@ -296,9 +299,19 @@ export const PendingExpensesSection: React.FC = () => {
                         </div>
 
                         <div className="min-w-0">
-                          <p className="text-xs font-bold text-[#1C1917] truncate">
-                            {card.name} •••• {card.last4Digits}
-                          </p>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-xs font-bold text-[#1C1917] truncate">
+                              {card.name} •••• {card.last4Digits}
+                            </p>
+                            {cardCashback > 0 && (
+                              <span
+                                title={`Tổng tiền đã hoàn (Cashback) của thẻ ${card.name}`}
+                                className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-md bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0]"
+                              >
+                                🎁 +{displayAmount(cardCashback)}
+                              </span>
+                            )}
+                          </div>
 
                           {/* Badge Hạn sao kê & Dòng phụ kỳ tới */}
                           <div className="flex flex-wrap items-center gap-1.5 mt-0.5 min-w-0">

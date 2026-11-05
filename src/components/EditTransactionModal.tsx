@@ -254,6 +254,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
         updatedTx.cardId = chosenCard ? chosenCard.id : selectedCardId;
         updatedTx.cardName = chosenCard ? chosenCard.name : (transaction.cardName || '');
         updatedTx.isSettled = isSettled;
+        delete updatedTx.isCashback;
         if (isSettled) {
           updatedTx.settledAt = settledAt || getLocalDateString();
           updatedTx.settledBy = settledBy;
@@ -265,6 +266,18 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
           delete updatedTx.settledBy;
           delete updatedTx.settlementBatchId;
         }
+      } else if (txType === 'INCOME' && (transaction.isCashback || cat.id === 'cat_income_cashback')) {
+        const chosenCard = selectedCardId
+          ? (activeCreditCards.find((c) => c.id === selectedCardId) || creditCards.find((c) => c.id === selectedCardId))
+          : null;
+        updatedTx.paymentMethod = 'CREDIT_CARD';
+        updatedTx.isCashback = true;
+        updatedTx.cardId = chosenCard ? chosenCard.id : (selectedCardId || transaction.cardId);
+        updatedTx.cardName = chosenCard ? chosenCard.name : (transaction.cardName || '');
+        delete updatedTx.isSettled;
+        delete updatedTx.settledAt;
+        delete updatedTx.settledBy;
+        delete updatedTx.settlementBatchId;
       } else {
         updatedTx.paymentMethod = 'CASH';
         delete updatedTx.cardId;
@@ -273,6 +286,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
         delete updatedTx.settledAt;
         delete updatedTx.settledBy;
         delete updatedTx.settlementBatchId;
+        delete updatedTx.isCashback;
       }
 
       await editTransaction(transaction, updatedTx);

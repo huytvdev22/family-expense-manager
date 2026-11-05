@@ -219,8 +219,18 @@ export const TransactionList: React.FC = () => {
                                 {isIncome ? `${tx.paidBy} nhận` : tx.paidBy}
                               </span>
 
-                              {/* Nhãn trạng thái quyết toán thẻ tín dụng & Ngày quyết toán */}
-                              {tx.paymentMethod === 'CREDIT_CARD' && (
+                              {/* Nhãn trạng thái quyết toán thẻ tín dụng, Ngày quyết toán & Hoàn tiền Cashback */}
+                              {tx.isCashback ? (
+                                <>
+                                  <span className="text-[#D3CDC2] text-[10px]">•</span>
+                                  <span
+                                    title={`Khoản tiền hoàn (Cashback) từ thẻ ${tx.cardName || 'Tín dụng'}`}
+                                    className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-md bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] flex items-center gap-0.5"
+                                  >
+                                    <span>🎁 Cashback {tx.cardName || 'Thẻ'}</span>
+                                  </span>
+                                </>
+                              ) : tx.paymentMethod === 'CREDIT_CARD' ? (
                                 <>
                                   <span className="text-[#D3CDC2] text-[10px]">•</span>
                                   {tx.isSettled ? (
@@ -244,7 +254,7 @@ export const TransactionList: React.FC = () => {
                                     </span>
                                   )}
                                 </>
-                              )}
+                              ) : null}
                             </div>
                           </div>
                         </div>

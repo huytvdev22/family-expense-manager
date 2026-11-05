@@ -71,6 +71,7 @@ export interface Transaction {
   settledAt?: string; // Ngày thanh toán sao kê / ngày quyết toán ("YYYY-MM-DD")
   settledBy?: 'Chồng' | 'Vợ'; // Ai là người chi tiền thanh toán sao kê thẻ
   settlementBatchId?: string; // ID đợt quyết toán liên kết
+  isCashback?: boolean; // Đánh dấu giao dịch thu nhập là tiền hoàn (Cashback) từ thẻ tín dụng
 }
 
 export type GoalType = 'DEBT_PAYOFF' | 'SAVINGS';
@@ -209,7 +210,10 @@ export interface SettlementBatch {
   cardName: string;
   cardColor?: string;
   last4Digits?: string;
-  amount: number;
+  amount: number; // Tổng dư nợ các khoản quẹt thẻ trong đợt
+  cashbackAmount?: number; // Tiền hoàn thẻ (Cashback) được khấu trừ trong đợt quyết toán
+  netAmount?: number; // Số tiền thực trả sau khi trừ cashback (amount - cashbackAmount)
+  cashbackTxId?: string; // ID giao dịch thu nhập Cashback được tạo tự động (nếu có)
   txIds: string[];
   settledAt: string; // Ngày quyết toán ("YYYY-MM-DD")
   settledBy: 'Chồng' | 'Vợ'; // Người quyết toán

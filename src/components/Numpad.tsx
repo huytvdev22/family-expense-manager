@@ -304,12 +304,21 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         txPayload.goalName = selectedGoal?.title || '';
       }
 
-      // Nếu quẹt thẻ tín dụng: ghi nhận phương thức thẻ và trạng thái chờ quyết toán
+      // Nếu quẹt thẻ tín dụng (Khoản chi) hoặc nhận Hoàn tiền thẻ (Thu nhập Cashback)
+      const isCashbackCategory = txType === 'INCOME' && currentCat.id === 'cat_income_cashback';
       if (txType === 'EXPENSE' && chosenCard) {
         txPayload.paymentMethod = 'CREDIT_CARD';
         txPayload.cardId = chosenCard.id;
         txPayload.cardName = chosenCard.name;
         txPayload.isSettled = false;
+      } else if (isCashbackCategory) {
+        const targetCard = chosenCard || activeCreditCards[0];
+        txPayload.paymentMethod = 'CREDIT_CARD';
+        txPayload.isCashback = true;
+        if (targetCard) {
+          txPayload.cardId = targetCard.id;
+          txPayload.cardName = targetCard.name;
+        }
       } else {
         txPayload.paymentMethod = 'CASH';
       }
@@ -462,27 +471,29 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         tags={currentQuickTags}
       />
 
-      {/* 2.1. Dải chọn Phương thức thanh toán / Thẻ tín dụng 1-chạm (Chỉ hiện khi ghi nhận Khoản chi) */}
-      {txType === 'EXPENSE' && !isPending && activeCreditCards.length > 0 && (
+      {/* 2.1. Dải chọn Phương thức thanh toán / Thẻ tín dụng 1-chạm (Hiện khi ghi nhận Khoản chi hoặc Hoàn tiền thẻ) */}
+      {((txType === 'EXPENSE' && !isPending) || (txType === 'INCOME' && selectedCategory?.id === 'cat_income_cashback')) && activeCreditCards.length > 0 && (
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 min-w-0">
-          <button
-            type="button"
-            onClick={() => {
-              playActionClick();
-              triggerHaptic(8);
-              setSelectedCardId(null);
-            }}
-            className={`px-2.5 py-1.5 rounded-xl text-[11px] font-medium border flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
-              selectedCardId === null
-                ? 'bg-[#0F3D39] text-white border-[#0F3D39] font-bold shadow-2xs'
-                : 'bg-[#FAF9F6] text-[#78716C] border-[#E6E2DA] hover:bg-[#F5F3EF]'
-            }`}
-          >
-            <span>💵 Tiền mặt / CK</span>
-          </button>
+          {txType === 'EXPENSE' && (
+            <button
+              type="button"
+              onClick={() => {
+                playActionClick();
+                triggerHaptic(8);
+                setSelectedCardId(null);
+              }}
+              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-medium border flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
+                selectedCardId === null
+                  ? 'bg-[#0F3D39] text-white border-[#0F3D39] font-bold shadow-2xs'
+                  : 'bg-[#FAF9F6] text-[#78716C] border-[#E6E2DA] hover:bg-[#F5F3EF]'
+              }`}
+            >
+              <span>💵 Tiền mặt / CK</span>
+            </button>
+          )}
 
           {activeCreditCards.map((card) => {
-            const isSelected = selectedCardId === card.id;
+            const isSelected = selectedCardId === card.id || (txType === 'INCOME' && selectedCategory?.id === 'cat_income_cashback' && !selectedCardId && activeCreditCards[0]?.id === card.id);
             return (
               <button
                 key={card.id}
@@ -490,7 +501,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
                 onClick={() => {
                   playActionClick();
                   triggerHaptic(8);
-                  setSelectedCardId(isSelected ? null : card.id);
+                  setSelectedCardId(isSelected && txType === 'EXPENSE' ? null : card.id);
                 }}
                 className={`px-2.5 py-1.5 rounded-xl text-[11px] font-medium border flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
                   isSelected

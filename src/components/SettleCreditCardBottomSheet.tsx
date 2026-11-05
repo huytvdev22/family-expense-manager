@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Calendar, CreditCard as CardIcon, ReceiptText, ShieldCheck } from 'lucide-react';
+import { Check, Calendar, CreditCard as CardIcon, ReceiptText, ShieldCheck, Gift, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND, getLocalDateString, formatDisplayDate } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
+import { triggerHaptic } from '../utils/haptics';
 import { BottomSheet } from './BottomSheet';
 import type { CreditCard, Transaction, UnsettledCardGroup } from '../types';
 
@@ -15,6 +16,8 @@ interface SettleCreditCardBottomSheetProps {
   totalAmount?: number;
   dueDate?: string;
 }
+
+const CASHBACK_PRESETS = [100000, 200000, 300000, 500000];
 
 export const SettleCreditCardBottomSheet: React.FC<SettleCreditCardBottomSheetProps> = ({
   isOpen,
@@ -30,12 +33,14 @@ export const SettleCreditCardBottomSheet: React.FC<SettleCreditCardBottomSheetPr
   const [paidBy, setPaidBy] = useState<'Chồng' | 'Vợ'>('Chồng');
   const [paidDate, setPaidDate] = useState<string>(getLocalDateString());
   const [settleMode, setSettleMode] = useState<'STATEMENT_ONLY' | 'ALL'>('STATEMENT_ONLY');
+  const [cashbackRaw, setCashbackRaw] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
     if (card) {
       setPaidBy(userRole || 'Chồng');
       setPaidDate(getLocalDateString());
+      setCashbackRaw('');
       // Nếu có nợ sao kê kỳ này thì mặc định chọn STATEMENT_ONLY, nếu không thì chọn ALL
       if (group && group.statementAmount > 0) {
         setSettleMode('STATEMENT_ONLY');
@@ -43,7 +48,7 @@ export const SettleCreditCardBottomSheet: React.FC<SettleCreditCardBottomSheetPr
         setSettleMode('ALL');
       }
     }
-  }, [card, userRole, group]);
+  }, [card, userRole, group, isOpen]);
 
   if (!card) return null;
 
@@ -63,10 +68,22 @@ export const SettleCreditCardBottomSheet: React.FC<SettleCreditCardBottomSheetPr
     ? group.currentDueDate
     : (group?.statementAmount ? group.currentDueDate : group?.nextDueDate || dueDate);
 
+  const cashbackAmount = parseInt(cashbackRaw.replace(/\D/g, ''), 10) || 0;
+  const netAmount = Math.max(0, activeAmount - cashbackAmount);
+
+  const handleCashbackInput = (val: string) => {
+    const digits = val.replace(/\D/g, '');
+    setCashbackRaw(digits);
+  };
+
+  const formattedCashbackInput = cashbackAmount > 0
+    ? new Intl.NumberFormat('vi-VN').format(cashbackAmount)
+    : '';
+
   const handleConfirm = async () => {
     try {
       setIsSubmitting(true);
-      await settleCard(card.id, paidBy, settleMode, paidDate);
+      await settleCard(card.id, paidBy, settleMode, paidDate, cashbackAmount > 0 ? cashbackAmount : undefined);
       onClose();
     } catch (err) {
       console.error('Lỗi khi quyết toán thẻ:', err);
@@ -111,14 +128,18 @@ export const SettleCreditCardBottomSheet: React.FC<SettleCreditCardBottomSheetPr
           >
             <Check className="w-4 h-4 stroke-[2.5] shrink-0" />
             <span className="truncate">
-              {isSubmitting ? 'Đang quyết toán...' : `Xác nhận đã trả (${formatVND(activeAmount)})`}
+              {isSubmitting
+                ? 'Đang quyết toán...'
+                : cashbackAmount > 0
+                ? `Xác nhận trả (${formatVND(netAmount)})`
+                : `Xác nhận đã trả (${formatVND(activeAmount)})`}
             </span>
           </button>
         </div>
       }
     >
       <div className="space-y-4">
-        {/* Card Tóm tắt Dư nợ */}
+        {/* Card Tóm tắt Dư nợ & Khấu trừ Cashback */}
         <div
           className="rounded-2xl p-4 text-white shadow-sm relative overflow-hidden flex flex-col justify-between"
           style={{
@@ -139,11 +160,24 @@ export const SettleCreditCardBottomSheet: React.FC<SettleCreditCardBottomSheetPr
 
           <div className="my-1">
             <p className="text-[11px] opacity-80 uppercase tracking-wider">
-              {settleMode === 'STATEMENT_ONLY' ? 'Dư nợ sao kê đến hạn cần thanh toán' : 'Tổng dư nợ quyết toán'}
+              {cashbackAmount > 0
+                ? 'Số tiền thực trả (Sau khi trừ Cashback)'
+                : settleMode === 'STATEMENT_ONLY'
+                ? 'Dư nợ sao kê đến hạn cần thanh toán'
+                : 'Tổng dư nợ quyết toán'}
             </p>
             <p className="text-2xl sm:text-3xl font-bold font-mono tracking-tight tabular-nums mt-0.5">
-              {formatVND(activeAmount)}
+              {formatVND(netAmount)}
             </p>
+
+            {cashbackAmount > 0 && (
+              <div className="flex items-center gap-2 mt-1.5 text-[11px] font-mono">
+                <span className="opacity-75 line-through">{formatVND(activeAmount)}</span>
+                <span className="bg-[#059669] text-white px-2 py-0.5 rounded-md font-bold">
+                  🎁 Hoàn tiền: -{formatVND(cashbackAmount)}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between text-[11px] opacity-85 pt-2 border-t border-white/15">
@@ -198,12 +232,69 @@ export const SettleCreditCardBottomSheet: React.FC<SettleCreditCardBottomSheetPr
           </div>
         )}
 
-        {/* Dòng giải thích phương án hạch toán */}
-        <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-3 text-xs text-[#78716C] flex items-start gap-2 leading-relaxed">
-          <ShieldCheck className="w-4 h-4 text-[#0F3D39] shrink-0 mt-0.5" />
-          <p>
-            Các khoản chi quẹt thẻ đã được tính vào ngân sách chi tiêu tháng lúc phát sinh. Bấm xác nhận sẽ chuyển trạng thái sang <strong>Đã tất toán sao kê</strong> từ tài khoản của người chi.
-          </p>
+        {/* Khối nhập Tiền hoàn thẻ / Cashback kỳ này */}
+        <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-3 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-bold text-[#0F3D39] uppercase tracking-wider flex items-center gap-1.5">
+              <Gift className="w-3.5 h-3.5 text-[#059669]" />
+              <span>Tiền hoàn thẻ / Cashback kỳ này (Tùy chọn)</span>
+            </label>
+            {cashbackAmount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  playActionClick();
+                  setCashbackRaw('');
+                }}
+                className="text-[10px] text-[#78716C] hover:text-[#DC2626] flex items-center gap-0.5 cursor-pointer"
+              >
+                <X className="w-3 h-3" />
+                <span>Xóa</span>
+              </button>
+            )}
+          </div>
+
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={formattedCashbackInput}
+              onChange={(e) => handleCashbackInput(e.target.value)}
+              placeholder="Nhập số tiền ngân hàng hoàn (VD: 300.000)"
+              className="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-[#E6E2DA] bg-white text-xs font-mono font-bold text-[#059669] placeholder:font-sans placeholder:font-normal placeholder:text-[#A8A29E] focus:outline-none focus:border-[#059669] transition-colors"
+            />
+            <span className="absolute right-3.5 text-xs font-mono font-bold text-[#78716C] pointer-events-none">
+              ₫
+            </span>
+          </div>
+
+          {/* Các mức Cashback gợi ý 1-chạm */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {CASHBACK_PRESETS.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => {
+                  playActionClick();
+                  triggerHaptic(6);
+                  setCashbackRaw(String(preset));
+                }}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-mono font-semibold border transition-all cursor-pointer ${
+                  cashbackAmount === preset
+                    ? 'bg-[#059669] text-white border-[#059669] shadow-2xs'
+                    : 'bg-white text-[#78716C] border-[#E6E2DA] hover:border-[#059669] hover:text-[#059669]'
+                }`}
+              >
+                +{preset / 1000}k
+              </button>
+            ))}
+          </div>
+
+          {cashbackAmount > 0 && (
+            <p className="text-[11px] text-[#059669] font-medium leading-relaxed">
+              ✓ Hệ thống sẽ tự động ghi nhận <strong>+{formatVND(cashbackAmount)}</strong> vào danh mục <strong>Hoàn tiền & Ưu đãi thẻ</strong> trong tháng này.
+            </p>
+          )}
         </div>
 
         {/* Bộ chọn Người thanh toán & Ngày thanh toán */}
@@ -265,6 +356,14 @@ export const SettleCreditCardBottomSheet: React.FC<SettleCreditCardBottomSheetPr
           </div>
         </div>
 
+        {/* Dòng giải thích phương án hạch toán */}
+        <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-3 text-xs text-[#78716C] flex items-start gap-2 leading-relaxed">
+          <ShieldCheck className="w-4 h-4 text-[#0F3D39] shrink-0 mt-0.5" />
+          <p>
+            Các khoản chi quẹt thẻ đã được tính vào ngân sách chi tiêu tháng lúc phát sinh. Bấm xác nhận sẽ chuyển trạng thái sang <strong>Đã tất toán sao kê</strong> từ tài khoản của người chi.
+          </p>
+        </div>
+
         {/* Danh sách các khoản quẹt được chọn thanh toán */}
         <div>
           <div className="flex items-center justify-between mb-2">
@@ -305,4 +404,3 @@ export const SettleCreditCardBottomSheet: React.FC<SettleCreditCardBottomSheetPr
     </BottomSheet>
   );
 };
-
