@@ -873,6 +873,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     };
   }, [cashbackTransactions, rawSettlementBatches]);
 
+  // Tính số tiền thực sự tác động lên số dư gốc của mục tiêu (Trả lãi không làm giảm dư nợ gốc)
+  const getEffectiveGoalDelta = (tx: Pick<Transaction, 'amount' | 'goalId' | 'debtPaymentType'>): number => {
+    if (!tx.goalId) return 0;
+    const targetGoal = financialGoals.find((g) => g.id === tx.goalId);
+    if (targetGoal?.type === 'DEBT_PAYOFF' && tx.debtPaymentType === 'INTEREST') {
+      return 0;
+    }
+    return tx.amount;
+  };
+
   // HÀNH ĐỘNG GHI SỔ GIAO DỊCH
   const logTransaction = async (txData: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'>) => {
     if (!isFirebaseActive || !activeHousehold || !firebaseUser) return;
@@ -882,11 +892,18 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
     // Nếu giao dịch gắn liền với một Mục tiêu Tự do Tài chính (Khoản nợ hoặc Tích lũy)
     if (txData.goalId) {
-      adjustGoalBalance(txData.goalId, txData.amount);
       const targetGoal = financialGoals.find((g) => g.id === txData.goalId);
+      const effectiveDelta = getEffectiveGoalDelta(txData);
+      if (effectiveDelta !== 0) {
+        adjustGoalBalance(txData.goalId, effectiveDelta);
+      }
       if (targetGoal) {
         if (targetGoal.type === 'DEBT_PAYOFF') {
-          showToast(`Đã giảm dư nợ mục tiêu "${targetGoal.title}"!`, 'success');
+          if (txData.debtPaymentType === 'INTEREST') {
+            showToast(`Đã ghi nhận trả lãi cho khoản vay "${targetGoal.title}" (dư nợ gốc giữ nguyên)!`, 'success');
+          } else {
+            showToast(`Đã giảm dư nợ gốc mục tiêu "${targetGoal.title}"!`, 'success');
+          }
         } else {
           showToast(`Đã cộng vào quỹ tích lũy "${targetGoal.title}"!`, 'success');
         }
@@ -966,21 +983,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     if (!isFirebaseActive || !activeHousehold || !firebaseUser) return;
     playSuccessChime();
 
+    const oldDelta = getEffectiveGoalDelta(oldTx);
+    const newDelta = getEffectiveGoalDelta(updatedTx);
+
     // Đồng bộ điều chỉnh số dư mục tiêu Tự do Tài chính
     if (oldTx.goalId === updatedTx.goalId) {
       if (oldTx.goalId) {
-        const delta = updatedTx.amount - oldTx.amount;
+        const delta = newDelta - oldDelta;
         if (delta !== 0) {
           adjustGoalBalance(oldTx.goalId, delta);
         }
       }
     } else {
       // Đổi mục tiêu hoặc gỡ/gắn mới
-      if (oldTx.goalId) {
-        adjustGoalBalance(oldTx.goalId, -oldTx.amount);
+      if (oldTx.goalId && oldDelta !== 0) {
+        adjustGoalBalance(oldTx.goalId, -oldDelta);
       }
-      if (updatedTx.goalId) {
-        adjustGoalBalance(updatedTx.goalId, updatedTx.amount);
+      if (updatedTx.goalId && newDelta !== 0) {
+        adjustGoalBalance(updatedTx.goalId, newDelta);
       }
     }
 
@@ -991,12 +1011,12 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       // Hoàn tác điều chỉnh số dư mục tiêu
       if (oldTx.goalId === updatedTx.goalId) {
         if (oldTx.goalId) {
-          const delta = updatedTx.amount - oldTx.amount;
+          const delta = newDelta - oldDelta;
           if (delta !== 0) adjustGoalBalance(oldTx.goalId, -delta);
         }
       } else {
-        if (oldTx.goalId) adjustGoalBalance(oldTx.goalId, oldTx.amount);
-        if (updatedTx.goalId) adjustGoalBalance(updatedTx.goalId, -updatedTx.amount);
+        if (oldTx.goalId && oldDelta !== 0) adjustGoalBalance(oldTx.goalId, oldDelta);
+        if (updatedTx.goalId && newDelta !== 0) adjustGoalBalance(updatedTx.goalId, -newDelta);
       }
       showToast('Không thể lưu cập nhật giao dịch. Vui lòng thử lại!', 'error');
       throw err;
@@ -1007,9 +1027,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const removeTransaction = async (tx: Transaction) => {
     if (!isFirebaseActive || !activeHousehold || !firebaseUser) return;
 
+    const oldDelta = getEffectiveGoalDelta(tx);
     // Hoàn tác số tiền đã trừ/cộng vào mục tiêu Tự do Tài chính nếu có
-    if (tx.goalId) {
-      adjustGoalBalance(tx.goalId, -tx.amount);
+    if (tx.goalId && oldDelta !== 0) {
+      adjustGoalBalance(tx.goalId, -oldDelta);
       showToast('Đã hoàn lại số dư cho mục tiêu tài chính', 'info');
     }
 
@@ -1018,8 +1039,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } catch (err) {
       console.error('Lỗi khi xóa giao dịch trên Firestore:', err);
       // Hoàn tác lại số dư nếu xóa thất bại
-      if (tx.goalId) {
-        adjustGoalBalance(tx.goalId, tx.amount);
+      if (tx.goalId && oldDelta !== 0) {
+        adjustGoalBalance(tx.goalId, oldDelta);
       }
       showToast('Không thể xóa giao dịch. Vui lòng kiểm tra kết nối mạng!', 'error');
       throw err;

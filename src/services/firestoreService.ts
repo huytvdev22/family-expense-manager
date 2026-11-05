@@ -251,6 +251,9 @@ export async function updateTransactionWithSummary(
     if (oldTx.goalId && !updatedTx.goalId) {
       updatePayload.goalId = deleteField();
       updatePayload.goalName = deleteField();
+      updatePayload.debtPaymentType = deleteField();
+    } else if (oldTx.debtPaymentType && !updatedTx.debtPaymentType) {
+      updatePayload.debtPaymentType = deleteField();
     }
 
     // Nếu trước đó có liên kết thẻ tín dụng nhưng bản mới đã chuyển sang tiền mặt, dùng deleteField()
@@ -1039,6 +1042,9 @@ export async function updatePendingExpense(
   if ('goalId' in updates && !updates.goalId) {
     payload.goalId = deleteField();
     payload.goalName = deleteField();
+    payload.debtPaymentType = deleteField();
+  } else if ('debtPaymentType' in updates && !updates.debtPaymentType) {
+    payload.debtPaymentType = deleteField();
   }
 
   await updateDoc(itemRef, cleanFirestorePayload(payload));
@@ -1088,19 +1094,24 @@ export async function convertPendingToTransaction(
   if (pendingItem.goalId) {
     txPayload.goalId = pendingItem.goalId;
     txPayload.goalName = pendingItem.goalName || '';
+    if (pendingItem.debtPaymentType) {
+      txPayload.debtPaymentType = pendingItem.debtPaymentType;
+    }
   }
 
   const newTxId = await addTransactionWithSummary(householdId, txPayload);
 
-  // 2. Cập nhật tiến độ Mục tiêu Tài chính nếu có
+  // 2. Cập nhật tiến độ Mục tiêu Tài chính nếu có (Chỉ trừ dư nợ gốc khi không phải là trả lãi)
   if (pendingItem.goalId) {
-    const isDebt = pendingItem.categoryId === 'cat_debt' || pendingItem.categoryName.toLowerCase().includes('nợ');
-    await updateGoalProgress(
-      householdId,
-      pendingItem.goalId,
-      pendingItem.amount,
-      isDebt ? 'DEBT_PAYOFF' : 'SAVINGS'
-    );
+    const isDebt = pendingItem.categoryId === 'cat_debt' || pendingItem.categoryName.toLowerCase().includes('nợ') || Boolean(pendingItem.debtPaymentType);
+    if (!(isDebt && pendingItem.debtPaymentType === 'INTEREST')) {
+      await updateGoalProgress(
+        householdId,
+        pendingItem.goalId,
+        pendingItem.amount,
+        isDebt ? 'DEBT_PAYOFF' : 'SAVINGS'
+      );
+    }
   }
 
   // 3. Đánh dấu hoàn tất khoản chờ

@@ -48,6 +48,8 @@ export interface Category {
 
 export type PaymentMethod = 'CASH' | 'TRANSFER' | 'CREDIT_CARD';
 
+export type DebtPaymentType = 'PRINCIPAL' | 'INTEREST';
+
 export interface Transaction {
   id: string;
   amount: number;
@@ -63,6 +65,7 @@ export interface Transaction {
   createdAt: string;
   goalId?: string; // ID mục tiêu tài chính liên kết (nếu có)
   goalName?: string;
+  debtPaymentType?: DebtPaymentType; // Phân loại trả nợ: 'PRINCIPAL' (Trả nợ gốc - mặc định) | 'INTEREST' (Trả tiền lãi - không trừ gốc)
   // Các trường bổ sung cho phương thức thanh toán & Thẻ tín dụng
   paymentMethod?: PaymentMethod;
   cardId?: string; // ID thẻ tín dụng liên kết nếu thanh toán qua thẻ
@@ -181,6 +184,7 @@ export interface PendingExpense {
   dueDate: string; // "YYYY-MM-DD"
   goalId?: string;
   goalName?: string;
+  debtPaymentType?: DebtPaymentType;
   status: 'PENDING' | 'PAID' | 'CANCELLED';
   paidAt?: string; // "YYYY-MM-DD"
   paidBy?: string; // "Chồng" | "Vợ"

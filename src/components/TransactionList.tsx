@@ -219,6 +219,23 @@ export const TransactionList: React.FC = () => {
                                 {isIncome ? `${tx.paidBy} nhận` : tx.paidBy}
                               </span>
 
+                              {/* Nhãn phân loại Trả gốc / Trả lãi khi gắn với khoản nợ */}
+                              {tx.goalId && (tx.debtPaymentType || tx.categoryId === 'cat_debt') && (
+                                <>
+                                  <span className="text-[#D3CDC2] text-[10px]">•</span>
+                                  <span
+                                    title={tx.debtPaymentType === 'INTEREST' ? `Trả lãi cho "${tx.goalName || 'Khoản nợ'}" (Không trừ dư nợ gốc)` : `Trả nợ gốc cho "${tx.goalName || 'Khoản nợ'}"`}
+                                    className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-md border ${
+                                      tx.debtPaymentType === 'INTEREST'
+                                        ? 'bg-[#FEF3C7] text-[#B45309] border-[#FDE68A]'
+                                        : 'bg-[#E7EFEF] text-[#0F3D39] border-[#0F3D39]/20'
+                                    }`}
+                                  >
+                                    {tx.debtPaymentType === 'INTEREST' ? 'Trả lãi' : 'Trả gốc'}
+                                  </span>
+                                </>
+                              )}
+
                               {/* Nhãn trạng thái quyết toán thẻ tín dụng, Ngày quyết toán & Hoàn tiền Cashback */}
                               {tx.isCashback ? (
                                 <>

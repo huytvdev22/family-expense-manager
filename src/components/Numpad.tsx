@@ -7,7 +7,7 @@ import { triggerHaptic } from '../utils/haptics';
 import { renderGoalIcon, renderCategoryIcon } from '../utils/categoryIcons';
 import { QuickTags } from './QuickTags';
 import { DEFAULT_CATEGORIES } from '../services/mockData';
-import type { QuickTagItem, CategoryKey, Transaction, PendingExpense } from '../types';
+import type { QuickTagItem, CategoryKey, Transaction, PendingExpense, DebtPaymentType } from '../types';
 import { useToast } from './Toast';
 
 interface NumpadProps {
@@ -104,6 +104,11 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
 
   // Mục tiêu Tự do Tài chính liên kết (nếu danh mục là Trả nợ hoặc Tích lũy)
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+  const [debtPaymentType, setDebtPaymentType] = useState<DebtPaymentType>('PRINCIPAL');
+
+  const selectedGoal = useMemo(() => {
+    return financialGoals.find((g) => g.id === selectedGoalId) || null;
+  }, [financialGoals, selectedGoalId]);
 
   // Xác định mục tiêu liên quan dựa trên danh mục được chọn (Trả nợ hoặc Tích lũy)
   const matchingGoals = useMemo(() => {
@@ -263,7 +268,10 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
 
     const currentCat = categories.find((c) => c.id === selectedCategoryId) || currentCategories[0] || categories[0];
     const todayStr = getLocalDateString();
-    const selectedGoal = financialGoals.find((g) => g.id === selectedGoalId);
+    const defaultNote =
+      selectedGoal?.type === 'DEBT_PAYOFF'
+        ? `${debtPaymentType === 'INTEREST' ? 'Trả lãi' : 'Trả gốc'} - ${selectedGoal.title}`
+        : currentCat.name;
 
     try {
       setIsSubmitting(true);
@@ -279,7 +287,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
           assignedTo,
           createdByUid: currentUser?.uid || 'anonymous',
           createdByName: currentUser?.displayName || userRole || 'Thành viên',
-          note: note.trim() || currentCat.name,
+          note: note.trim() || defaultNote,
           dueDate: dueDate || getFutureDate(7),
           status: 'PENDING'
         };
@@ -287,6 +295,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         if (selectedGoalId) {
           pendingPayload.goalId = selectedGoalId;
           pendingPayload.goalName = selectedGoal?.title || '';
+          if (selectedGoal?.type === 'DEBT_PAYOFF') {
+            pendingPayload.debtPaymentType = debtPaymentType;
+          }
         }
 
         await logPendingExpense(pendingPayload);
@@ -296,6 +307,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         setNote('');
         setSelectedTagId(null);
         setSelectedGoalId(null);
+        setDebtPaymentType('PRINCIPAL');
         setSelectedCardId(null);
         setIsPending(false);
 
@@ -317,13 +329,16 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         categoryKey: currentCat.categoryKey as CategoryKey,
         paidBy,
         paidByUid: currentUser?.uid || 'anonymous',
-        note: note.trim() || currentCat.name,
+        note: note.trim() || defaultNote,
         date: chosenDate,
       };
 
       if (selectedGoalId) {
         txPayload.goalId = selectedGoalId;
         txPayload.goalName = selectedGoal?.title || '';
+        if (selectedGoal?.type === 'DEBT_PAYOFF') {
+          txPayload.debtPaymentType = debtPaymentType;
+        }
       }
 
       // Nếu quẹt thẻ tín dụng (Khoản chi) hoặc nhận Hoàn tiền thẻ (Thu nhập Cashback)
@@ -836,7 +851,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
 
       {/* 4.5. Dải gợi ý gắn vào Mục tiêu Tự do Tài chính (Tự động xuất hiện khi chọn Trả nợ / Tích lũy) */}
       {matchingGoals.length > 0 && (
-        <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-2 sm:p-2.5 flex flex-col gap-1.5 shadow-2xs animate-in fade-in slide-in-from-top-1 duration-200">
+        <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-2 sm:p-2.5 flex flex-col gap-2 shadow-2xs animate-in fade-in slide-in-from-top-1 duration-200">
           <div className="flex items-center justify-between px-0.5">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-[#0F3D39]">
               <Target className="w-3.5 h-3.5 text-[#B45309]" />
@@ -887,6 +902,50 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
               );
             })}
           </div>
+
+          {/* Công tắc 1-chạm: Trả nợ gốc vs Trả tiền lãi (chỉ hiện khi gắn với Khoản nợ) */}
+          {selectedGoal?.type === 'DEBT_PAYOFF' && (
+            <div className="pt-1.5 border-t border-[#E6E2DA]/80">
+              <div className="grid grid-cols-2 gap-1.5 bg-[#F5F3EF] p-1 rounded-xl border border-[#E6E2DA]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(8);
+                    setDebtPaymentType('PRINCIPAL');
+                  }}
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all tactile-btn flex items-center justify-center gap-1 cursor-pointer ${
+                    debtPaymentType === 'PRINCIPAL'
+                      ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
+                      : 'text-[#78716C] hover:text-[#1C1917]'
+                  }`}
+                >
+                  <span>Trả nợ gốc</span>
+                  <span className={`text-[9px] font-mono ${debtPaymentType === 'PRINCIPAL' ? 'text-white/80' : 'text-[#A8A29E]'}`}>
+                    (-Dư nợ)
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(8);
+                    setDebtPaymentType('INTEREST');
+                  }}
+                  className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all tactile-btn flex items-center justify-center gap-1 cursor-pointer ${
+                    debtPaymentType === 'INTEREST'
+                      ? 'bg-[#B45309] text-white shadow-2xs font-bold'
+                      : 'text-[#78716C] hover:text-[#1C1917]'
+                  }`}
+                >
+                  <span>Trả tiền lãi</span>
+                  <span className={`text-[9px] font-mono ${debtPaymentType === 'INTEREST' ? 'text-white/80' : 'text-[#A8A29E]'}`}>
+                    (Giữ gốc)
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -958,13 +1017,19 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
             ? 'bg-[#B45309] text-white hover:bg-[#9A3412] active:scale-98'
             : txType === 'INCOME'
             ? 'bg-[#10B981] text-white hover:bg-[#059669] active:scale-98'
+            : selectedGoal?.type === 'DEBT_PAYOFF' && debtPaymentType === 'INTEREST'
+            ? 'bg-[#B45309] text-white hover:bg-[#9A3412] active:scale-98'
             : 'bg-[#0F3D39] text-[#FAF9F6] hover:bg-[#174E4A] active:scale-98'
         }`}
       >
         {isPending ? (
           <>
             <Clock className="w-4 h-4 stroke-[2.5]" />
-            <span>Lưu khoản chờ thanh toán ({formatVND(Number(amountStr))})</span>
+            <span>
+              {selectedGoal?.type === 'DEBT_PAYOFF'
+                ? `Lưu khoản chờ ${debtPaymentType === 'INTEREST' ? 'trả lãi' : 'trả gốc'} (${formatVND(Number(amountStr))})`
+                : `Lưu khoản chờ thanh toán (${formatVND(Number(amountStr))})`}
+            </span>
           </>
         ) : (
           <>
@@ -972,6 +1037,8 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
             <span>
               {txType === 'INCOME'
                 ? `Ghi nhận thu nhập${txDate && txDate !== getPastDate(0) ? ` • ${txDate.substring(8, 10)}/${txDate.substring(5, 7)}` : ''} (+${formatVND(Number(amountStr))})`
+                : selectedGoal?.type === 'DEBT_PAYOFF'
+                ? `Ghi nhận ${debtPaymentType === 'INTEREST' ? 'trả lãi' : 'trả gốc'}${txDate && txDate !== getPastDate(0) ? ` • ${txDate.substring(8, 10)}/${txDate.substring(5, 7)}` : ''} (${formatVND(Number(amountStr))})`
                 : `Ghi nhận khoản chi${txDate && txDate !== getPastDate(0) ? ` • ${txDate.substring(8, 10)}/${txDate.substring(5, 7)}` : ''} (${formatVND(Number(amountStr))})`}
             </span>
           </>

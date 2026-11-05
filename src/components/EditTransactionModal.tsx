@@ -7,7 +7,7 @@ import { playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { renderGoalIcon, renderCategoryIcon } from '../utils/categoryIcons';
 import { BottomSheet } from './BottomSheet';
-import type { Transaction, CategoryKey } from '../types';
+import type { Transaction, CategoryKey, DebtPaymentType } from '../types';
 
 interface EditTransactionModalProps {
   isOpen: boolean;
@@ -30,6 +30,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   const [date, setDate] = useState<string>('');
   const [note, setNote] = useState<string>('');
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(transaction?.goalId || null);
+  const [debtPaymentType, setDebtPaymentType] = useState<DebtPaymentType>(transaction?.debtPaymentType || 'PRINCIPAL');
   const [selectedCardId, setSelectedCardId] = useState<string | null>(transaction?.cardId || null);
   const [isSettled, setIsSettled] = useState<boolean>(false);
   const [settledAt, setSettledAt] = useState<string>('');
@@ -56,6 +57,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       setDate(transaction.date || getLocalDateString());
       setNote(transaction.note || '');
       setSelectedGoalId(transaction.goalId || null);
+      setDebtPaymentType(transaction.debtPaymentType || 'PRINCIPAL');
       setIsSettled(Boolean(transaction.isSettled));
       setSettledAt(transaction.settledAt || getLocalDateString());
       setSettledBy(transaction.settledBy || (transaction.paidBy as 'Chồng' | 'Vợ') || 'Chồng');
@@ -242,9 +244,15 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       if (selectedGoalId) {
         updatedTx.goalId = selectedGoalId;
         updatedTx.goalName = selectedGoal?.title || '';
+        if (selectedGoal?.type === 'DEBT_PAYOFF') {
+          updatedTx.debtPaymentType = debtPaymentType;
+        } else {
+          delete updatedTx.debtPaymentType;
+        }
       } else {
         delete updatedTx.goalId;
         delete updatedTx.goalName;
+        delete updatedTx.debtPaymentType;
       }
 
       // Xử lý Phương thức thanh toán & Thẻ tín dụng
@@ -506,6 +514,50 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                   );
                 })}
               </div>
+
+              {/* Công tắc 1-chạm: Trả nợ gốc vs Trả tiền lãi */}
+              {selectedGoalId && financialGoals.find((g) => g.id === selectedGoalId)?.type === 'DEBT_PAYOFF' && (
+                <div className="pt-1.5 border-t border-[#E6E2DA]/80">
+                  <div className="grid grid-cols-2 gap-1.5 bg-[#F5F3EF] p-1 rounded-xl border border-[#E6E2DA]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playActionClick();
+                        triggerHaptic(8);
+                        setDebtPaymentType('PRINCIPAL');
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all tactile-btn flex items-center justify-center gap-1 cursor-pointer ${
+                        debtPaymentType === 'PRINCIPAL'
+                          ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
+                          : 'text-[#78716C] hover:text-[#1C1917]'
+                      }`}
+                    >
+                      <span>Trả nợ gốc</span>
+                      <span className={`text-[9px] font-mono ${debtPaymentType === 'PRINCIPAL' ? 'text-white/80' : 'text-[#A8A29E]'}`}>
+                        (-Dư nợ)
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playActionClick();
+                        triggerHaptic(8);
+                        setDebtPaymentType('INTEREST');
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all tactile-btn flex items-center justify-center gap-1 cursor-pointer ${
+                        debtPaymentType === 'INTEREST'
+                          ? 'bg-[#B45309] text-white shadow-2xs font-bold'
+                          : 'text-[#78716C] hover:text-[#1C1917]'
+                      }`}
+                    >
+                      <span>Trả tiền lãi</span>
+                      <span className={`text-[9px] font-mono ${debtPaymentType === 'INTEREST' ? 'text-white/80' : 'text-[#A8A29E]'}`}>
+                        (Giữ gốc)
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

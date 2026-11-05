@@ -7,7 +7,7 @@ import { playActionClick } from '../utils/audio';
 import { renderGoalIcon, renderCategoryIcon } from '../utils/categoryIcons';
 import { ConfirmPaidBottomSheet } from './ConfirmPaidBottomSheet';
 import { BottomSheet } from './BottomSheet';
-import type { PendingExpense, CategoryKey } from '../types';
+import type { PendingExpense, CategoryKey, DebtPaymentType } from '../types';
 
 interface EditPendingExpenseModalProps {
   isOpen: boolean;
@@ -28,6 +28,7 @@ export const EditPendingExpenseModal: React.FC<EditPendingExpenseModalProps> = (
   const [dueDate, setDueDate] = useState<string>('');
   const [note, setNote] = useState<string>('');
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+  const [debtPaymentType, setDebtPaymentType] = useState<DebtPaymentType>('PRINCIPAL');
   
   // Trạng thái mở Bottom Sheet xác nhận thanh toán
   const [isConfirmOpen, setIsConfirmOpen] = useState<boolean>(false);
@@ -45,6 +46,7 @@ export const EditPendingExpenseModal: React.FC<EditPendingExpenseModalProps> = (
       setDueDate(pendingExpense.dueDate || getLocalDateString());
       setNote(pendingExpense.note || '');
       setSelectedGoalId(pendingExpense.goalId || null);
+      setDebtPaymentType(pendingExpense.debtPaymentType || 'PRINCIPAL');
       setIsCategoryOpen(false);
       setIsConfirmOpen(false);
     }
@@ -127,7 +129,8 @@ export const EditPendingExpenseModal: React.FC<EditPendingExpenseModalProps> = (
         dueDate,
         note: note.trim() || currentCat.name,
         goalId: selectedGoalId || undefined,
-        goalName: selectedGoalId ? (selectedGoal?.title || '') : undefined
+        goalName: selectedGoalId ? (selectedGoal?.title || '') : undefined,
+        debtPaymentType: selectedGoalId && selectedGoal?.type === 'DEBT_PAYOFF' ? debtPaymentType : undefined
       };
 
       await editPendingExpense(pendingExpense.id, updates);
@@ -306,6 +309,48 @@ export const EditPendingExpenseModal: React.FC<EditPendingExpenseModalProps> = (
                   );
                 })}
               </div>
+
+              {/* Công tắc 1-chạm: Trả nợ gốc vs Trả tiền lãi */}
+              {selectedGoalId && financialGoals.find((g) => g.id === selectedGoalId)?.type === 'DEBT_PAYOFF' && (
+                <div className="pt-1.5 border-t border-[#E6E2DA]/80">
+                  <div className="grid grid-cols-2 gap-1.5 bg-[#F5F3EF] p-1 rounded-xl border border-[#E6E2DA]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playActionClick();
+                        setDebtPaymentType('PRINCIPAL');
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        debtPaymentType === 'PRINCIPAL'
+                          ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
+                          : 'text-[#78716C] hover:text-[#1C1917]'
+                      }`}
+                    >
+                      <span>Trả nợ gốc</span>
+                      <span className={`text-[9px] font-mono ${debtPaymentType === 'PRINCIPAL' ? 'text-white/80' : 'text-[#A8A29E]'}`}>
+                        (-Dư nợ)
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        playActionClick();
+                        setDebtPaymentType('INTEREST');
+                      }}
+                      className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                        debtPaymentType === 'INTEREST'
+                          ? 'bg-[#B45309] text-white shadow-2xs font-bold'
+                          : 'text-[#78716C] hover:text-[#1C1917]'
+                      }`}
+                    >
+                      <span>Trả tiền lãi</span>
+                      <span className={`text-[9px] font-mono ${debtPaymentType === 'INTEREST' ? 'text-white/80' : 'text-[#A8A29E]'}`}>
+                        (Giữ gốc)
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
