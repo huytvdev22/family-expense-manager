@@ -38,6 +38,8 @@ export interface BottomSheetProps {
   bodyClassName?: string;
   /** Class tùy biến cho header */
   headerClassName?: string;
+  /** Tùy biến z-index để hỗ trợ modal lồng nhau (mặc định: 'z-60') */
+  zIndex?: string;
 }
 
 /**
@@ -64,7 +66,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   preventCloseOnBackdrop = false,
   panelClassName = '',
   bodyClassName = 'p-4 sm:p-5',
-  headerClassName = ''
+  headerClassName = '',
+  zIndex = 'z-60'
 }) => {
   // Đảm bảo chỉ render Portal trên môi trường client-side (tránh SSR / hydration issue)
   const [isMounted, setIsMounted] = useState<boolean>(false);
@@ -86,10 +89,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
   if (!isMounted || !isRendered) return null;
 
   const content = (
-    <div className="fixed inset-0 z-60 pointer-events-none">
+    <div className={`fixed inset-0 ${zIndex} pointer-events-none`}>
       {/* 1. Backdrop làm tối & mờ trang nền */}
       <div
-        className="fixed inset-0 z-60 bg-black/55 backdrop-blur-xs pointer-events-auto"
+        className={`fixed inset-0 ${zIndex} bg-black/55 backdrop-blur-xs pointer-events-auto`}
         style={backdropStyle}
         onClick={() => {
           if (!preventCloseOnBackdrop) {
@@ -101,7 +104,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
       />
 
       {/* 2. Container căn chỉnh đáy trên Mobile, căn giữa trên Desktop */}
-      <div className="fixed inset-x-0 bottom-0 z-60 flex flex-col justify-end pointer-events-none sm:inset-0 sm:items-center sm:justify-center sm:p-4">
+      <div className={`fixed inset-x-0 bottom-0 ${zIndex} flex flex-col justify-end pointer-events-none sm:inset-0 sm:items-center sm:justify-center sm:p-4`}>
         {/* 3. Panel Bottom Sheet Card màu trắng - Bám sát đáy tuyệt đối */}
         <div
           role="dialog"

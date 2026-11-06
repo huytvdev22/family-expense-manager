@@ -219,12 +219,12 @@ export const TransactionList: React.FC = () => {
                                 {isIncome ? `${tx.paidBy} nhận` : tx.paidBy}
                               </span>
 
-                              {/* Nhãn phân loại Trả gốc / Trả lãi khi gắn với khoản nợ */}
-                              {tx.goalId && (tx.debtPaymentType || tx.categoryId === 'cat_debt') && (
+                              {/* Nhãn phân loại Trả gốc / Trả lãi khi là khoản nợ */}
+                              {(tx.debtPaymentType || tx.categoryId === 'cat_debt' || tx.categoryName?.toLowerCase().includes('nợ')) && (
                                 <>
                                   <span className="text-[#D3CDC2] text-[10px]">•</span>
                                   <span
-                                    title={tx.debtPaymentType === 'INTEREST' ? `Trả lãi cho "${tx.goalName || 'Khoản nợ'}" (Không trừ dư nợ gốc)` : `Trả nợ gốc cho "${tx.goalName || 'Khoản nợ'}"`}
+                                    title={tx.debtPaymentType === 'INTEREST' ? `Trả tiền lãi${tx.goalName ? ` cho "${tx.goalName}"` : ''} (Không trừ dư nợ gốc)` : `Trả nợ gốc${tx.goalName ? ` cho "${tx.goalName}"` : ''}`}
                                     className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-md border ${
                                       tx.debtPaymentType === 'INTEREST'
                                         ? 'bg-[#FEF3C7] text-[#B45309] border-[#FDE68A]'

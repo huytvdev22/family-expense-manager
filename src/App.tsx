@@ -19,9 +19,10 @@ import { UpdateNotification } from './components/UpdateNotification';
 import { SettingsModal } from './components/SettingsModal';
 import { LandingPage } from './components/LandingPage';
 import { useApp } from './context/AppContext';
+import type { FinancialGoal } from './types';
 
 export const App: React.FC = () => {
-  const { isLoading, firebaseUser } = useApp();
+  const { isLoading, firebaseUser, prepareNumpadForGoal } = useApp();
 
   // Tab di động hiện tại ('ledger' | 'dashboard' | 'numpad' | 'goals' | 'family')
   const [mobileTab, setMobileTab] = useState<MobileTab>('ledger');
@@ -64,6 +65,17 @@ export const App: React.FC = () => {
       }
     }
   }, [firebaseUser]);
+
+  // Điều hướng và điền sẵn dữ liệu vào Numpad khi bấm thêm giao dịch từ Mục tiêu tài chính
+  const handleAddTransactionForGoal = (goal: FinancialGoal) => {
+    prepareNumpadForGoal(goal);
+    // Trên mobile: mở Numpad Bottom Sheet và chuyển tab về ledger
+    setIsNumpadSheetOpen(true);
+    setMobileTab('ledger');
+    // Trên desktop: chuyển view về ledger và cuộn mượt lên Numpad
+    setDesktopView('ledger');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   if (isLoading) {
     return (
@@ -133,7 +145,7 @@ export const App: React.FC = () => {
 
           {mobileTab === 'goals' && (
             <div className="animate-in fade-in duration-150">
-              <FinancialFreedom />
+              <FinancialFreedom onAddTransactionForGoal={handleAddTransactionForGoal} />
             </div>
           )}
 
@@ -206,7 +218,7 @@ export const App: React.FC = () => {
 
           {desktopView === 'goals' && (
             <div className="animate-in fade-in duration-150">
-              <FinancialFreedom />
+              <FinancialFreedom onAddTransactionForGoal={handleAddTransactionForGoal} />
             </div>
           )}
 

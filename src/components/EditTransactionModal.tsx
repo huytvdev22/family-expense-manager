@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Check, Trash2, Calendar, Tag, User, DollarSign, FileText, Target, ChevronDown, CreditCard as CardIcon } from 'lucide-react';
+import { X, Check, Trash2, Calendar, Tag, User, DollarSign, FileText, Target, ChevronDown, Landmark, CreditCard as CardIcon } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { useToast } from './Toast';
 import { formatVND, getLocalDateString, formatDisplayDate } from '../utils/currency';
@@ -13,12 +13,14 @@ interface EditTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   transaction: Transaction | null;
+  zIndex?: string;
 }
 
 export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
   isOpen,
   onClose,
-  transaction
+  transaction,
+  zIndex = 'z-70'
 }) => {
   const { categories, editTransaction, removeTransaction, financialGoals, activeCreditCards, creditCards } = useApp();
   const { showToast } = useToast();
@@ -180,6 +182,18 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
     return [];
   }, [categories, selectedCategoryId, financialGoals, transaction?.goalId]);
 
+  // Xác định xem đây có phải là giao dịch trả nợ ngân hàng không (theo danh mục, mục tiêu, hoặc bản thân giao dịch)
+  const isDebtExpense = useMemo(() => {
+    if (txType !== 'EXPENSE') return false;
+    const currentCat = categories.find((c) => c.id === selectedCategoryId);
+    const catNameLower = (currentCat?.name || '').toLowerCase();
+    const isCatDebt = currentCat?.id === 'cat_debt' || catNameLower.includes('nợ') || catNameLower.includes('ngân hàng');
+    const selectedGoal = financialGoals.find((g) => g.id === selectedGoalId);
+    const isGoalDebt = selectedGoal?.type === 'DEBT_PAYOFF';
+    const hadDebtPaymentType = Boolean(transaction?.debtPaymentType);
+    return isCatDebt || isGoalDebt || hadDebtPaymentType;
+  }, [txType, categories, selectedCategoryId, financialGoals, selectedGoalId, transaction?.debtPaymentType]);
+
   // Tự động duy trì và khôi phục mục tiêu tài chính khi danh mục khớp (ví dụ: Trả nợ ngân hàng / Tích lũy)
   useEffect(() => {
     if (matchingGoals.length > 0) {
@@ -244,14 +258,15 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
       if (selectedGoalId) {
         updatedTx.goalId = selectedGoalId;
         updatedTx.goalName = selectedGoal?.title || '';
-        if (selectedGoal?.type === 'DEBT_PAYOFF') {
-          updatedTx.debtPaymentType = debtPaymentType;
-        } else {
-          delete updatedTx.debtPaymentType;
-        }
       } else {
         delete updatedTx.goalId;
         delete updatedTx.goalName;
+      }
+
+      // Lưu phân loại trả gốc hoặc trả lãi nếu là giao dịch trả nợ
+      if (isDebtExpense) {
+        updatedTx.debtPaymentType = debtPaymentType;
+      } else {
         delete updatedTx.debtPaymentType;
       }
 
@@ -332,6 +347,7 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
     <BottomSheet
       isOpen={isOpen}
       onClose={onClose}
+      zIndex={zIndex}
       title={`Chỉnh sửa ${txType === 'EXPENSE' ? 'khoản chi' : 'thu nhập'}`}
       subtitle={transaction.note || transaction.categoryName}
       maxHeight="max-h-[92dvh] sm:max-h-[88vh]"
@@ -448,6 +464,59 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
             )}
           </div>
 
+          {/* Phân loại khoản trả nợ ngân hàng: Trả nợ gốc vs Trả tiền lãi (Luôn hiển thị khi là khoản nợ) */}
+          {isDebtExpense && (
+            <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-2.5 flex flex-col gap-1.5 shadow-2xs animate-in fade-in duration-150">
+              <div className="flex items-center justify-between px-0.5">
+                <span className="text-xs font-semibold text-[#B45309] flex items-center gap-1.5">
+                  <Landmark className="w-3.5 h-3.5 text-[#B45309]" />
+                  Phân loại trả nợ:
+                </span>
+                <span className="text-[10.5px] text-[#78716C] font-mono">
+                  {debtPaymentType === 'PRINCIPAL' ? 'Trừ dư nợ gốc' : 'Chỉ tính lãi (giữ gốc)'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 bg-[#F5F3EF] p-1 rounded-xl border border-[#E6E2DA]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(8);
+                    setDebtPaymentType('PRINCIPAL');
+                  }}
+                  className={`py-2 px-2 rounded-lg text-xs font-semibold transition-all tactile-btn flex items-center justify-center gap-1.5 cursor-pointer ${
+                    debtPaymentType === 'PRINCIPAL'
+                      ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
+                      : 'text-[#78716C] hover:text-[#1C1917]'
+                  }`}
+                >
+                  <span>Trả nợ gốc</span>
+                  <span className={`text-[10px] font-mono ${debtPaymentType === 'PRINCIPAL' ? 'text-white/80' : 'text-[#A8A29E]'}`}>
+                    (-Dư nợ)
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(8);
+                    setDebtPaymentType('INTEREST');
+                  }}
+                  className={`py-2 px-2 rounded-lg text-xs font-semibold transition-all tactile-btn flex items-center justify-center gap-1.5 cursor-pointer ${
+                    debtPaymentType === 'INTEREST'
+                      ? 'bg-[#B45309] text-white shadow-2xs font-bold'
+                      : 'text-[#78716C] hover:text-[#1C1917]'
+                  }`}
+                >
+                  <span>Trả tiền lãi</span>
+                  <span className={`text-[10px] font-mono ${debtPaymentType === 'INTEREST' ? 'text-white/80' : 'text-[#A8A29E]'}`}>
+                    (Giữ gốc)
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Dải chọn Mục tiêu Tự do Tài chính liên kết */}
           {matchingGoals.length > 0 && (
             <div className="bg-[#FAF9F6] border border-[#E6E2DA] rounded-2xl p-2.5 flex flex-col gap-1.5 shadow-2xs animate-in fade-in duration-150">
@@ -514,50 +583,6 @@ export const EditTransactionModal: React.FC<EditTransactionModalProps> = ({
                   );
                 })}
               </div>
-
-              {/* Công tắc 1-chạm: Trả nợ gốc vs Trả tiền lãi */}
-              {selectedGoalId && financialGoals.find((g) => g.id === selectedGoalId)?.type === 'DEBT_PAYOFF' && (
-                <div className="pt-1.5 border-t border-[#E6E2DA]/80">
-                  <div className="grid grid-cols-2 gap-1.5 bg-[#F5F3EF] p-1 rounded-xl border border-[#E6E2DA]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        playActionClick();
-                        triggerHaptic(8);
-                        setDebtPaymentType('PRINCIPAL');
-                      }}
-                      className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all tactile-btn flex items-center justify-center gap-1 cursor-pointer ${
-                        debtPaymentType === 'PRINCIPAL'
-                          ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
-                          : 'text-[#78716C] hover:text-[#1C1917]'
-                      }`}
-                    >
-                      <span>Trả nợ gốc</span>
-                      <span className={`text-[9px] font-mono ${debtPaymentType === 'PRINCIPAL' ? 'text-white/80' : 'text-[#A8A29E]'}`}>
-                        (-Dư nợ)
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        playActionClick();
-                        triggerHaptic(8);
-                        setDebtPaymentType('INTEREST');
-                      }}
-                      className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all tactile-btn flex items-center justify-center gap-1 cursor-pointer ${
-                        debtPaymentType === 'INTEREST'
-                          ? 'bg-[#B45309] text-white shadow-2xs font-bold'
-                          : 'text-[#78716C] hover:text-[#1C1917]'
-                      }`}
-                    >
-                      <span>Trả tiền lãi</span>
-                      <span className={`text-[9px] font-mono ${debtPaymentType === 'INTEREST' ? 'text-white/80' : 'text-[#A8A29E]'}`}>
-                        (Giữ gốc)
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

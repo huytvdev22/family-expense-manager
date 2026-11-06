@@ -79,6 +79,16 @@ export interface Transaction {
 
 export type GoalType = 'DEBT_PAYOFF' | 'SAVINGS';
 
+export interface NumpadPrefillConfig {
+  goalId: string;
+  goalTitle: string;
+  goalType: GoalType;
+  categoryId: string;
+  txType: 'EXPENSE' | 'INCOME';
+  debtPaymentType?: DebtPaymentType;
+  note?: string;
+}
+
 export interface FinancialGoal {
   id: string;
   householdId: string;

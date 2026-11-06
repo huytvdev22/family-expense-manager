@@ -1505,5 +1505,39 @@ export function subscribeCardCashbackTransactions(
   });
 }
 
+/**
+ * LẮNG NGHE REALTIME TOÀN BỘ GIAO DỊCH GẮN MỤC TIÊU TÀI CHÍNH (KHOẢN NỢ & TÍCH LŨY) CỦA TỔ ẤM
+ * Không lọc theo tháng để gom đầy đủ lịch sử trả nợ / tích lũy xuyên suốt từ các tháng trước tới nay.
+ */
+export function subscribeGoalTransactions(
+  householdId: string,
+  onData: (transactions: Transaction[]) => void
+): Unsubscribe {
+  if (!db) return () => {};
+
+  const q = query(
+    collection(db, `households/${householdId}/transactions`),
+    where('goalId', '>=', '')
+  );
+
+  return onSnapshot(q, (snapshot) => {
+    const list: Transaction[] = [];
+    snapshot.forEach((docSnap) => {
+      list.push({ id: docSnap.id, ...docSnap.data() } as Transaction);
+    });
+    // Sắp xếp ngày mới nhất lên đầu, nếu cùng ngày thì theo timestamp
+    list.sort((a, b) => {
+      const dDiff = (b.date || '').localeCompare(a.date || '');
+      if (dDiff !== 0) return dDiff;
+      return (b.timestamp || 0) - (a.timestamp || 0);
+    });
+    onData(list);
+  }, (err) => {
+    console.warn('Lỗi subscribeGoalTransactions:', err);
+    onData([]);
+  });
+}
+
+
 
 

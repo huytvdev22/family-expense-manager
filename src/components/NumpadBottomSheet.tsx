@@ -1,6 +1,7 @@
 import React from 'react';
 import { BottomSheet } from './BottomSheet';
 import { Numpad } from './Numpad';
+import { useApp } from '../context/AppContext';
 
 interface NumpadBottomSheetProps {
   isOpen: boolean;
@@ -8,10 +9,19 @@ interface NumpadBottomSheetProps {
 }
 
 export const NumpadBottomSheet: React.FC<NumpadBottomSheetProps> = ({ isOpen, onClose }) => {
+  const { setNumpadPrefill } = useApp();
+
+  const handleClose = () => {
+    if (setNumpadPrefill) {
+      setNumpadPrefill(null);
+    }
+    onClose();
+  };
+
   return (
     <BottomSheet
       isOpen={isOpen}
-      onClose={onClose}
+      onClose={handleClose}
       title="Ghi nhận thu chi"
       subtitle="Nhập số tiền hoặc chạm gợi ý nhanh"
       icon={

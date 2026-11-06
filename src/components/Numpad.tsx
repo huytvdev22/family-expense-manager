@@ -27,7 +27,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
     quickTags,
     activeCreditCards,
     currentYearMonth,
-    setCurrentYearMonth
+    setCurrentYearMonth,
+    numpadPrefill,
+    setNumpadPrefill
   } = useApp();
   const { showToast } = useToast();
 
@@ -132,8 +134,47 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
     return [];
   }, [categories, selectedCategoryId, financialGoals]);
 
+  // Kiểm tra xem giao dịch chi tiêu hiện tại có phải là trả nợ ngân hàng không
+  const isDebtExpense = useMemo(() => {
+    if (txType !== 'EXPENSE') return false;
+    const currentCat = categories.find((c) => c.id === selectedCategoryId);
+    if (!currentCat) return false;
+    const isDebtCat = currentCat.id === 'cat_debt' 
+      || currentCat.name.toLowerCase().includes('nợ') 
+      || currentCat.name.toLowerCase().includes('ngân hàng');
+    return isDebtCat || selectedGoal?.type === 'DEBT_PAYOFF';
+  }, [txType, categories, selectedCategoryId, selectedGoal]);
+
+  // Áp dụng cấu hình điền sẵn khi bấm ghi nhận nhanh từ Mục tiêu Tài chính
+  useEffect(() => {
+    if (numpadPrefill) {
+      if (numpadPrefill.txType) {
+        setTxType(numpadPrefill.txType);
+      }
+      if (numpadPrefill.categoryId) {
+        setSelectedCategoryId(numpadPrefill.categoryId);
+      }
+      if (numpadPrefill.goalId) {
+        setSelectedGoalId(numpadPrefill.goalId);
+      }
+      if (numpadPrefill.debtPaymentType) {
+        setDebtPaymentType(numpadPrefill.debtPaymentType);
+      }
+      if (numpadPrefill.note) {
+        setNote(numpadPrefill.note);
+      }
+      setSelectedCardId(null);
+      setIsPending(false);
+      setSelectedTagId(null);
+    }
+  }, [numpadPrefill]);
+
   // Tự động gắn mục tiêu đầu tiên nếu danh mục khớp và người dùng chưa chọn
   useEffect(() => {
+    if (numpadPrefill?.goalId) {
+      setSelectedGoalId(numpadPrefill.goalId);
+      return;
+    }
     if (matchingGoals.length > 0) {
       setSelectedGoalId((prev) => {
         if (prev && matchingGoals.some((g) => g.id === prev)) return prev;
@@ -142,7 +183,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
     } else {
       setSelectedGoalId(null);
     }
-  }, [matchingGoals]);
+  }, [matchingGoals, numpadPrefill]);
 
   // Ghi chú / Diễn giải
   const [note, setNote] = useState<string>('');
@@ -153,6 +194,16 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
 
   // Tự động chuyển danh mục mặc định khi đổi loại giao dịch
   useEffect(() => {
+    // Nếu vừa nhận prefill cho cùng loại txType, ưu tiên giữ category và note từ prefill
+    if (numpadPrefill && numpadPrefill.categoryId) {
+      const prefillCat = categories.find((c) => c.id === numpadPrefill.categoryId);
+      if (prefillCat && (prefillCat.type || 'EXPENSE') === txType) {
+        setSelectedCategoryId(numpadPrefill.categoryId);
+        setNote(numpadPrefill.note || '');
+        return;
+      }
+    }
+
     const firstCat = categories.find((c) => !c.isArchived && (c.type || 'EXPENSE') === txType)
       || DEFAULT_CATEGORIES.find((c) => (c.type || 'EXPENSE') === txType);
     if (firstCat) {
@@ -161,7 +212,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
     setSelectedTagId(null);
     setNote('');
     setIsCategoryOpen(false);
-  }, [txType, categories]);
+  }, [txType, categories, numpadPrefill]);
 
   // Đóng dropdown khi bấm ra ngoài
   useEffect(() => {
@@ -217,6 +268,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
     setNote('');
     setSelectedTagId(null);
     setSelectedGoalId(null);
+    if (setNumpadPrefill) {
+      setNumpadPrefill(null);
+    }
   };
 
   // Phím cộng nhanh (+10k, +50k... hoặc +1tr, +2tr...)
@@ -295,9 +349,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         if (selectedGoalId) {
           pendingPayload.goalId = selectedGoalId;
           pendingPayload.goalName = selectedGoal?.title || '';
-          if (selectedGoal?.type === 'DEBT_PAYOFF') {
-            pendingPayload.debtPaymentType = debtPaymentType;
-          }
+        }
+        if (isDebtExpense) {
+          pendingPayload.debtPaymentType = debtPaymentType;
         }
 
         await logPendingExpense(pendingPayload);
@@ -310,6 +364,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
         setDebtPaymentType('PRINCIPAL');
         setSelectedCardId(null);
         setIsPending(false);
+        if (setNumpadPrefill) {
+          setNumpadPrefill(null);
+        }
 
         if (onSuccess) {
           onSuccess();
@@ -336,9 +393,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
       if (selectedGoalId) {
         txPayload.goalId = selectedGoalId;
         txPayload.goalName = selectedGoal?.title || '';
-        if (selectedGoal?.type === 'DEBT_PAYOFF') {
-          txPayload.debtPaymentType = debtPaymentType;
-        }
+      }
+      if (isDebtExpense) {
+        txPayload.debtPaymentType = debtPaymentType;
       }
 
       // Nếu quẹt thẻ tín dụng (Khoản chi) hoặc nhận Hoàn tiền thẻ (Thu nhập Cashback)
@@ -375,6 +432,9 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
       setPaidBy(userRole || 'Chồng');
       setSelectedGoalId(null);
       setSelectedCardId(null);
+      if (setNumpadPrefill) {
+        setNumpadPrefill(null);
+      }
 
       const dateSuffix = chosenDate !== todayStr ? ` (ngày ${formatDisplayDate(chosenDate)})` : '';
       const successNotice = chosenCard
@@ -903,8 +963,8 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
             })}
           </div>
 
-          {/* Công tắc 1-chạm: Trả nợ gốc vs Trả tiền lãi (chỉ hiện khi gắn với Khoản nợ) */}
-          {selectedGoal?.type === 'DEBT_PAYOFF' && (
+          {/* Công tắc 1-chạm: Trả nợ gốc vs Trả tiền lãi (hiển thị khi là khoản nợ) */}
+          {isDebtExpense && (
             <div className="pt-1.5 border-t border-[#E6E2DA]/80">
               <div className="grid grid-cols-2 gap-1.5 bg-[#F5F3EF] p-1 rounded-xl border border-[#E6E2DA]">
                 <button

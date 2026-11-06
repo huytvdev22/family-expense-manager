@@ -21,17 +21,19 @@ import {
   History,
   Receipt,
   ArrowUpDown,
-  ChevronDown
+  ChevronDown,
+  Pencil
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND, formatDateLabel } from '../utils/currency';
 import { playActionClick, playSuccessChime } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
 import { renderGoalIcon } from '../utils/categoryIcons';
-import type { FinancialGoal, GoalType } from '../types';
+import type { FinancialGoal, GoalType, Transaction } from '../types';
 import { sortFinancialGoals, type GoalSortOption } from '../utils/goalSorting';
 import { useToast } from './Toast';
 import { BottomSheet } from './BottomSheet';
+import { EditTransactionModal } from './EditTransactionModal';
 
 const GOAL_COLORS = [
   { label: 'Terracotta', hex: '#B45309' },
@@ -42,9 +44,31 @@ const GOAL_COLORS = [
   { label: 'Rose Wine', hex: '#E11D48' }
 ];
 
-export const FinancialFreedom: React.FC = () => {
-  const { financialGoals, transactions, createGoal, editGoal, removeGoal, activeHousehold } = useApp();
+interface FinancialFreedomProps {
+  onAddTransactionForGoal?: (goal: FinancialGoal) => void;
+}
+
+export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransactionForGoal }) => {
+  const { 
+    isFirebaseActive,
+    financialGoals, 
+    goalTransactions, 
+    transactions, 
+    createGoal, 
+    editGoal, 
+    removeGoal, 
+    activeHousehold, 
+    prepareNumpadForGoal 
+  } = useApp();
   const { showToast } = useToast();
+
+  // Danh sách giao dịch mục tiêu xuyên suốt toàn bộ các tháng (lấy từ toàn bộ lịch sử, không bị giới hạn bởi tháng đang chọn)
+  const allGoalTransactions = useMemo(() => {
+    if (isFirebaseActive) {
+      return goalTransactions || [];
+    }
+    return transactions.filter((tx) => Boolean(tx.goalId));
+  }, [isFirebaseActive, goalTransactions, transactions]);
 
   // Bộ lọc loại mục tiêu: 'ALL' | 'DEBT_PAYOFF' | 'SAVINGS'
   const [filterType, setFilterType] = useState<'ALL' | GoalType>('ALL');
@@ -66,10 +90,19 @@ export const FinancialFreedom: React.FC = () => {
   // Modal xem lịch sử tích lũy / trả nợ của mục tiêu
   const [selectedHistoryGoal, setSelectedHistoryGoal] = useState<FinancialGoal | null>(null);
 
-  // Thống kê số lượng giao dịch, tiền gốc và tiền lãi đã gắn với từng mục tiêu
+  // Giao dịch được chọn để chỉnh sửa trong modal lịch sử
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+
+  // Đối tượng mục tiêu đang xem lịch sử được đồng bộ realtime theo financialGoals
+  const activeHistoryGoal = useMemo(() => {
+    if (!selectedHistoryGoal) return null;
+    return financialGoals.find((g) => g.id === selectedHistoryGoal.id) || selectedHistoryGoal;
+  }, [financialGoals, selectedHistoryGoal]);
+
+  // Thống kê số lượng giao dịch, tiền gốc và tiền lãi đã gắn với từng mục tiêu (toàn bộ lịch sử các tháng)
   const goalLedgerStats = useMemo(() => {
     const map: Record<string, { count: number; principalPaid: number; interestPaid: number; totalAmount: number }> = {};
-    transactions.forEach((tx) => {
+    allGoalTransactions.forEach((tx) => {
       if (tx.goalId) {
         if (!map[tx.goalId]) {
           map[tx.goalId] = { count: 0, principalPaid: 0, interestPaid: 0, totalAmount: 0 };
@@ -84,7 +117,7 @@ export const FinancialFreedom: React.FC = () => {
       }
     });
     return map;
-  }, [transactions]);
+  }, [allGoalTransactions]);
 
   // Thống kê số lượng giao dịch đã gắn với từng mục tiêu
   const goalTxCounts = useMemo(() => {
@@ -95,17 +128,17 @@ export const FinancialFreedom: React.FC = () => {
     return counts;
   }, [goalLedgerStats]);
 
-  // Danh sách giao dịch của mục tiêu được chọn xem lịch sử
+  // Danh sách giao dịch của mục tiêu được chọn xem lịch sử (toàn bộ lịch sử các tháng)
   const historyTransactions = useMemo(() => {
     if (!selectedHistoryGoal) return [];
-    return transactions
+    return allGoalTransactions
       .filter((tx) => tx.goalId === selectedHistoryGoal.id)
       .sort((a, b) => {
-        const dateDiff = b.date.localeCompare(a.date);
+        const dateDiff = (b.date || '').localeCompare(a.date || '');
         if (dateDiff !== 0) return dateDiff;
         return (b.timestamp || 0) - (a.timestamp || 0);
       });
-  }, [transactions, selectedHistoryGoal]);
+  }, [allGoalTransactions, selectedHistoryGoal]);
 
   // Tổng số tiền đã thanh toán (chia gốc & lãi) / tích lũy qua các giao dịch
   const { historyTotalRecordedAmount, historyPrincipalPaid, historyInterestPaid } = useMemo(() => {
@@ -286,6 +319,17 @@ export const FinancialFreedom: React.FC = () => {
     }
 
     setIsModalOpen(false);
+  };
+
+  // Xử lý thêm nhanh giao dịch trực tiếp từ mục tiêu (Trả nợ / Tích lũy)
+  const handleAddForGoal = (goal: FinancialGoal) => {
+    playActionClick();
+    triggerHaptic(12);
+    if (onAddTransactionForGoal) {
+      onAddTransactionForGoal(goal);
+    } else if (prepareNumpadForGoal) {
+      prepareNumpadForGoal(goal);
+    }
   };
 
 
@@ -687,13 +731,13 @@ export const FinancialFreedom: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Dòng 3: Thông tin bổ sung & Nút cập nhật nhanh */}
-                  <div className="flex items-center justify-between gap-2 pt-1">
-                    <div className="text-[11px] text-[#78716C] truncate">
+                  {/* Dòng 3: Thông tin bổ sung & Nút hành động trực tiếp */}
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#F5F3EF]">
+                    <div className="text-[11px] text-[#78716C] truncate min-w-0">
                       {remainingMonths ? (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3 text-[#0F3D39]" />
-                          Còn ~<strong>{remainingMonths} kỳ</strong> (khoảng {Math.ceil(remainingMonths / 12)} năm)
+                        <span className="flex items-center gap-1 truncate">
+                          <Calendar className="w-3 h-3 text-[#0F3D39] shrink-0" />
+                          <span>Còn ~<strong>{remainingMonths} kỳ</strong></span>
                         </span>
                       ) : goal.monthlyTarget ? (
                         <span>Mỗi tháng: {formatVND(goal.monthlyTarget)}</span>
@@ -702,22 +746,37 @@ export const FinancialFreedom: React.FC = () => {
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        playActionClick();
-                        setSelectedHistoryGoal(goal);
-                      }}
-                      className="text-[11px] font-semibold text-[#0F3D39] hover:underline flex items-center gap-1.5 cursor-pointer shrink-0 py-0.5 px-1.5 rounded-lg hover:bg-[#0F3D39]/5 transition-colors"
-                    >
-                      <History className="w-3.5 h-3.5 text-[#0F3D39]" />
-                      <span>Xem lịch sử</span>
-                      {(goalTxCounts[goal.id] || 0) > 0 && (
-                        <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-[#0F3D39]/10 text-[#0F3D39] font-bold">
-                          {goalTxCounts[goal.id]}
-                        </span>
-                      )}
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          playActionClick();
+                          setSelectedHistoryGoal(goal);
+                        }}
+                        className="text-[11px] font-semibold text-[#78716C] hover:text-[#0F3D39] flex items-center gap-1 cursor-pointer py-1.5 px-2 rounded-xl hover:bg-[#FAF9F6] transition-colors"
+                        title="Xem lịch sử ghi nhận"
+                      >
+                        <History className="w-3.5 h-3.5 text-[#0F3D39]" />
+                        <span>Lịch sử</span>
+                        {(goalTxCounts[goal.id] || 0) > 0 && (
+                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-[#0F3D39]/10 text-[#0F3D39] font-bold">
+                            {goalTxCounts[goal.id]}
+                          </span>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleAddForGoal(goal)}
+                        className={`h-7 sm:h-8 px-2.5 sm:px-3 rounded-xl text-white text-xs font-bold flex items-center gap-1 shadow-2xs active:scale-95 transition-all cursor-pointer ${
+                          isDebt ? 'bg-[#B45309] hover:bg-[#9A3412]' : 'bg-[#0F3D39] hover:bg-[#174E4A]'
+                        }`}
+                        title={isDebt ? 'Ghi nhận trả nợ trực tiếp cho mục tiêu này' : 'Ghi nhận tích lũy trực tiếp cho mục tiêu này'}
+                      >
+                        <Plus className="w-3 h-3 stroke-[2.5]" />
+                        <span>{isDebt ? 'Trả nợ' : 'Tích lũy'}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
@@ -973,38 +1032,51 @@ export const FinancialFreedom: React.FC = () => {
       {/* =========================================================================
           4. MODAL XEM LỊCH SỬ TÍCH LŨY / TRẢ NỢ CỦA MỤC TIÊU
           ========================================================================= */}
-      {selectedHistoryGoal && (
+      {activeHistoryGoal && (
         <BottomSheet
-          isOpen={Boolean(selectedHistoryGoal)}
+          isOpen={Boolean(activeHistoryGoal)}
           onClose={() => setSelectedHistoryGoal(null)}
-          title={selectedHistoryGoal.title}
+          title={activeHistoryGoal.title}
           subtitle={
             <span
               className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full inline-block mt-0.5 ${
-                selectedHistoryGoal.type === 'DEBT_PAYOFF'
+                activeHistoryGoal.type === 'DEBT_PAYOFF'
                   ? 'bg-[#FEF3C7] text-[#B45309]'
                   : 'bg-[#ECFDF5] text-[#047857]'
               }`}
             >
-              {selectedHistoryGoal.type === 'DEBT_PAYOFF' ? 'Lịch sử trả nợ' : 'Lịch sử tích lũy'}
+              {activeHistoryGoal.type === 'DEBT_PAYOFF' ? 'Lịch sử trả nợ' : 'Lịch sử tích lũy'}
             </span>
           }
           icon={
             <div
               className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-xs"
-              style={{ backgroundColor: selectedHistoryGoal.color || '#0F3D39' }}
+              style={{ backgroundColor: activeHistoryGoal.color || '#0F3D39' }}
             >
-              {renderGoalIcon(selectedHistoryGoal.icon, selectedHistoryGoal.type, 'w-5 h-5')}
+              {renderGoalIcon(activeHistoryGoal.icon, activeHistoryGoal.type, 'w-5 h-5')}
             </div>
           }
           maxHeight="max-h-[90dvh] sm:max-h-[85vh]"
           bodyClassName="p-0 flex flex-col"
           footer={
-            <div className="p-3 sm:p-4 flex items-center justify-end">
+            <div className="p-3 sm:p-4 flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedHistoryGoal(null);
+                  handleAddForGoal(activeHistoryGoal);
+                }}
+                className={`flex-1 sm:flex-initial px-4 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all cursor-pointer min-h-[40px] ${
+                  activeHistoryGoal.type === 'DEBT_PAYOFF' ? 'bg-[#B45309] hover:bg-[#9A3412]' : 'bg-[#0F3D39] hover:bg-[#174E4A]'
+                }`}
+              >
+                <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>{activeHistoryGoal.type === 'DEBT_PAYOFF' ? 'Ghi nhận trả nợ' : 'Ghi nhận tích lũy'}</span>
+              </button>
               <button
                 type="button"
                 onClick={() => setSelectedHistoryGoal(null)}
-                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0F3D39] text-white text-xs font-bold hover:bg-[#174E4A] transition-colors cursor-pointer text-center min-h-[40px]"
+                className="px-5 py-2.5 rounded-xl border border-[#E6E2DA] hover:bg-[#FAF9F6] text-[#78716C] text-xs font-semibold transition-colors cursor-pointer text-center min-h-[40px]"
               >
                 Đóng
               </button>
@@ -1013,104 +1085,133 @@ export const FinancialFreedom: React.FC = () => {
         >
 
             {/* Thống kê tóm tắt nhanh */}
-            {selectedHistoryGoal.type === 'DEBT_PAYOFF' ? (
-              <div className="px-4 sm:px-5 py-3 bg-[#FAF9F6] border-b border-[#F5F3EF] grid grid-cols-3 gap-2 shrink-0">
-                <div>
-                  <span className="text-[10.5px] text-[#78716C] block">
-                    Đã trả gốc
-                  </span>
-                  <span className="text-xs sm:text-sm font-bold font-mono text-[#0F3D39]">
-                    -{formatVND(historyPrincipalPaid)}
-                  </span>
-                  <span className="text-[10px] text-[#78716C] block mt-0.5 font-mono">
-                    Giảm dư nợ gốc
-                  </span>
+            {activeHistoryGoal.type === 'DEBT_PAYOFF' ? (
+              <div className="px-4 sm:px-5 py-3 bg-[#FAF9F6] border-b border-[#F5F3EF] space-y-2 shrink-0">
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <span className="text-[10.5px] text-[#78716C] block">
+                      Đã trả gốc
+                    </span>
+                    <span className="text-xs sm:text-sm font-bold font-mono text-[#0F3D39]">
+                      -{formatVND(historyPrincipalPaid)}
+                    </span>
+                    <span className="text-[10px] text-[#78716C] block mt-0.5 font-mono">
+                      Giảm dư nợ gốc
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10.5px] text-[#78716C] block">
+                      Đã trả lãi
+                    </span>
+                    <span className="text-xs sm:text-sm font-bold font-mono text-[#B45309]">
+                      {formatVND(historyInterestPaid)}
+                    </span>
+                    <span className="text-[10px] text-[#78716C] block mt-0.5 font-mono">
+                      Không trừ gốc
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10.5px] text-[#78716C] block">
+                      Dư nợ hiện tại
+                    </span>
+                    <span className="text-xs sm:text-sm font-bold font-mono text-[#B45309]">
+                      {formatVND(activeHistoryGoal.currentAmount)}
+                    </span>
+                    {historyPrincipalPaid > 0 &&
+                      activeHistoryGoal.currentAmount !== Math.max(0, activeHistoryGoal.initialAmount - historyPrincipalPaid) && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const targetDebt = Math.max(0, activeHistoryGoal.initialAmount - historyPrincipalPaid);
+                            const countPrincipalTxs = historyTransactions.filter((t) => t.debtPaymentType !== 'INTEREST').length;
+                            if (
+                              confirm(
+                                `Cân chỉnh "Dư nợ hiện tại" theo toàn bộ lịch sử trả nợ:\n\n` +
+                                `• Vốn nợ ban đầu: ${formatVND(activeHistoryGoal.initialAmount)}\n` +
+                                `• Tổng tiền trả gốc trong toàn bộ lịch sử (${countPrincipalTxs} kỳ): -${formatVND(historyPrincipalPaid)}\n` +
+                                `• Dư nợ chuẩn xác: ${formatVND(targetDebt)}\n\n` +
+                                `Bạn có xác nhận đồng bộ số dư nợ thành ${formatVND(targetDebt)}?`
+                              )
+                            ) {
+                              await editGoal(activeHistoryGoal.id, { currentAmount: targetDebt });
+                              setSelectedHistoryGoal((prev) => (prev ? { ...prev, currentAmount: targetDebt } : null));
+                              showToast('Đã cân chỉnh dư nợ gốc theo toàn bộ lịch sử sổ cái!', 'success');
+                            }
+                          }}
+                          className="text-[10px] text-[#0F3D39] hover:underline font-semibold cursor-pointer flex items-center justify-end gap-1 mt-0.5 ml-auto"
+                          title="Đồng bộ dư nợ gốc hiện tại khớp với tổng tiền trả gốc trong toàn bộ lịch sử"
+                        >
+                          <RotateCcw className="w-2.5 h-2.5" />
+                          <span>Khớp theo sổ cái</span>
+                        </button>
+                      )}
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10.5px] text-[#78716C] block">
-                    Đã trả lãi
-                  </span>
-                  <span className="text-xs sm:text-sm font-bold font-mono text-[#B45309]">
-                    {formatVND(historyInterestPaid)}
-                  </span>
-                  <span className="text-[10px] text-[#78716C] block mt-0.5 font-mono">
-                    Không trừ gốc
-                  </span>
+
+                {/* Thông tin nợ ban đầu & Tổng tiền đã thanh toán */}
+                <div className="flex items-center justify-between pt-2 border-t border-[#E6E2DA]/60 text-[10.5px] font-mono text-[#78716C]">
+                  <span>Vốn nợ ban đầu: <strong className="text-[#1C1917]">{formatVND(activeHistoryGoal.initialAmount)}</strong></span>
+                  <span>Tổng đã trả (Gốc + Lãi): <strong className="text-[#1C1917]">{formatVND(historyTotalRecordedAmount)}</strong> ({historyTransactions.length} kỳ)</span>
                 </div>
-                <div className="text-right">
-                  <span className="text-[10.5px] text-[#78716C] block">
-                    Dư nợ hiện tại
-                  </span>
-                  <span className="text-xs sm:text-sm font-bold font-mono text-[#B45309]">
-                    {formatVND(selectedHistoryGoal.currentAmount)}
-                  </span>
-                  {historyPrincipalPaid > 0 &&
-                    selectedHistoryGoal.currentAmount !== Math.max(0, selectedHistoryGoal.initialAmount - historyPrincipalPaid) && (
+              </div>
+            ) : (
+              <div className="px-4 sm:px-5 py-3 bg-[#FAF9F6] border-b border-[#F5F3EF] space-y-2 shrink-0">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <span className="text-[11px] text-[#78716C] block">
+                      Đã tích lũy qua sổ cái
+                    </span>
+                    <span className="text-sm font-bold font-mono text-[#0F3D39]">
+                      +{formatVND(historyTotalRecordedAmount)}
+                    </span>
+                    <span className="text-[10px] text-[#78716C] block mt-0.5 font-mono">
+                      (Toàn bộ {historyTransactions.length} lần ghi nhận)
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[11px] text-[#78716C] block">
+                      Số tiền hiện có
+                    </span>
+                    <span className="text-sm font-bold font-mono text-[#0F3D39]">
+                      {formatVND(activeHistoryGoal.currentAmount)}
+                    </span>
+                    {activeHistoryGoal.currentAmount !== historyTotalRecordedAmount && (
                       <button
                         type="button"
                         onClick={async () => {
-                          const targetDebt = Math.max(0, selectedHistoryGoal.initialAmount - historyPrincipalPaid);
                           if (
                             confirm(
-                              `Bạn có muốn cân chỉnh "Dư nợ hiện tại" thành ${formatVND(targetDebt)} (= Nợ gốc ban đầu ${formatVND(selectedHistoryGoal.initialAmount)} - Đã trả gốc ${formatVND(historyPrincipalPaid)})?`
+                              `Cân chỉnh "Số tiền hiện có" của quỹ theo toàn bộ lịch sử tích lũy:\n\n` +
+                              `• Tổng tích lũy từ trước đến nay (${historyTransactions.length} lần): +${formatVND(historyTotalRecordedAmount)}\n` +
+                              `• Số tiền hiện tại của quỹ: ${formatVND(activeHistoryGoal.currentAmount)}\n\n` +
+                              `Bạn có muốn đồng bộ số tiền hiện có thành ${formatVND(historyTotalRecordedAmount)}?`
                             )
                           ) {
-                            await editGoal(selectedHistoryGoal.id, { currentAmount: targetDebt });
-                            setSelectedHistoryGoal((prev) => (prev ? { ...prev, currentAmount: targetDebt } : null));
-                            showToast('Đã cân chỉnh dư nợ gốc theo sổ cái!', 'success');
+                            await editGoal(activeHistoryGoal.id, { currentAmount: historyTotalRecordedAmount });
+                            setSelectedHistoryGoal((prev) => prev ? { ...prev, currentAmount: historyTotalRecordedAmount } : null);
+                            showToast('Đã cân chỉnh số tiền theo toàn bộ lịch sử!', 'success');
                           }
                         }}
                         className="text-[10px] text-[#0F3D39] hover:underline font-semibold cursor-pointer flex items-center justify-end gap-1 mt-0.5 ml-auto"
-                        title="Đồng bộ dư nợ gốc hiện tại khớp với tổng tiền trả gốc trên sổ cái"
+                        title="Đồng bộ số dư mục tiêu khớp với tổng các lần tích lũy trong toàn bộ lịch sử"
                       >
                         <RotateCcw className="w-2.5 h-2.5" />
                         <span>Khớp theo sổ cái</span>
                       </button>
                     )}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="px-4 sm:px-5 py-3 bg-[#FAF9F6] border-b border-[#F5F3EF] grid grid-cols-2 gap-3 shrink-0">
-                <div>
-                  <span className="text-[11px] text-[#78716C] block">
-                    Đã tích lũy qua sổ cái
-                  </span>
-                  <span className="text-sm font-bold font-mono text-[#0F3D39]">
-                    +{formatVND(historyTotalRecordedAmount)}
-                  </span>
-                  <span className="text-[10px] text-[#78716C] block mt-0.5 font-mono">
-                    ({historyTransactions.length} giao dịch)
-                  </span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[11px] text-[#78716C] block">
-                    Số tiền hiện có
-                  </span>
-                  <span className="text-sm font-bold font-mono text-[#0F3D39]">
-                    {formatVND(selectedHistoryGoal.currentAmount)}
-                  </span>
-                  {selectedHistoryGoal.currentAmount !== historyTotalRecordedAmount && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (confirm(`Bạn có muốn cân chỉnh "Số tiền hiện có" của quỹ thành ${formatVND(historyTotalRecordedAmount)} (khớp đúng 100% với tổng các giao dịch trong sổ cái)?`)) {
-                          await editGoal(selectedHistoryGoal.id, { currentAmount: historyTotalRecordedAmount });
-                          setSelectedHistoryGoal((prev) => prev ? { ...prev, currentAmount: historyTotalRecordedAmount } : null);
-                          showToast('Đã cân chỉnh số tiền theo sổ cái!', 'success');
-                        }
-                      }}
-                      className="text-[10px] text-[#0F3D39] hover:underline font-semibold cursor-pointer flex items-center justify-end gap-1 mt-0.5 ml-auto"
-                      title="Đồng bộ số dư mục tiêu khớp với tổng các lần tích lũy trên sổ cái"
-                    >
-                      <RotateCcw className="w-2.5 h-2.5" />
-                      <span>Khớp theo sổ cái</span>
-                    </button>
-                  )}
-                </div>
+
+                {activeHistoryGoal.targetAmount > 0 && (
+                  <div className="flex items-center justify-between pt-1.5 border-t border-[#E6E2DA]/60 text-[10.5px] font-mono text-[#78716C]">
+                    <span>Mục tiêu tích lũy: <strong className="text-[#0F3D39]">{formatVND(activeHistoryGoal.targetAmount)}</strong></span>
+                    <span>Tiến độ: <strong className="text-[#0F3D39]">{Math.min(100, Math.round((activeHistoryGoal.currentAmount / activeHistoryGoal.targetAmount) * 100))}%</strong></span>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Danh sách các lần ghi nhận */}
+            {/* Danh sách các lần ghi nhận (cho phép bấm vào từng khoản để sửa) */}
             <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain touch-pan-y flex-1 space-y-2.5">
               {historyTransactions.length === 0 ? (
                 <div className="text-center py-8 px-4 bg-[#FAF9F6] rounded-2xl border border-dashed border-[#E6E2DA]">
@@ -1128,21 +1229,29 @@ export const FinancialFreedom: React.FC = () => {
               ) : (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-[11px] text-[#78716C] px-1">
-                    <span>Tất cả các lần đã ghi nhận</span>
+                    <span>Lịch sử ghi nhận qua các tháng (Chạm để chỉnh sửa)</span>
                     <span className="font-mono font-medium">{historyTransactions.length} giao dịch</span>
                   </div>
                   <div className="divide-y divide-[#F5F3EF] border border-[#F5F3EF] rounded-2xl overflow-hidden bg-[#FAF9F6]/60">
                     {historyTransactions.map((tx) => {
                       const isIncome = tx.type === 'INCOME';
-                      const isInterestPayment = selectedHistoryGoal.type === 'DEBT_PAYOFF' && tx.debtPaymentType === 'INTEREST';
+                      const isInterestPayment = activeHistoryGoal.type === 'DEBT_PAYOFF' && tx.debtPaymentType === 'INTEREST';
                       return (
-                        <div key={tx.id} className="p-3 hover:bg-white transition-colors flex items-center justify-between gap-3">
+                        <div
+                          key={tx.id}
+                          onClick={() => {
+                            playActionClick();
+                            triggerHaptic(10);
+                            setEditingTx(tx);
+                          }}
+                          className="p-3 hover:bg-white transition-colors flex items-center justify-between gap-3 cursor-pointer group"
+                        >
                           <div className="min-w-0">
                             <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-xs font-semibold text-[#1C1917] truncate">
+                              <span className="text-xs font-semibold text-[#1C1917] truncate group-hover:text-[#0F3D39] transition-colors">
                                 {tx.note || tx.categoryName}
                               </span>
-                              {selectedHistoryGoal.type === 'DEBT_PAYOFF' && (
+                              {activeHistoryGoal.type === 'DEBT_PAYOFF' && (
                                 <span
                                   className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-md border shrink-0 ${
                                     isInterestPayment
@@ -1172,27 +1281,44 @@ export const FinancialFreedom: React.FC = () => {
                             </div>
                           </div>
 
-                          <div className="text-right shrink-0">
-                            <span
-                              className={`text-xs sm:text-sm font-bold font-mono block ${
-                                selectedHistoryGoal.type === 'SAVINGS'
-                                  ? 'text-[#059669]'
+                          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                            <div className="text-right shrink-0">
+                              <span
+                                className={`text-xs sm:text-sm font-bold font-mono block ${
+                                  activeHistoryGoal.type === 'SAVINGS'
+                                    ? 'text-[#059669]'
+                                    : isInterestPayment
+                                    ? 'text-[#B45309]'
+                                    : 'text-[#0F3D39]'
+                                }`}
+                              >
+                                {activeHistoryGoal.type === 'SAVINGS'
+                                  ? `+${formatVND(tx.amount)}`
                                   : isInterestPayment
-                                  ? 'text-[#B45309]'
-                                  : 'text-[#0F3D39]'
-                              }`}
-                            >
-                              {selectedHistoryGoal.type === 'SAVINGS'
-                                ? `+${formatVND(tx.amount)}`
-                                : isInterestPayment
-                                ? formatVND(tx.amount)
-                                : `-${formatVND(tx.amount)}`}
-                            </span>
-                            {selectedHistoryGoal.type === 'DEBT_PAYOFF' && (
-                              <span className="text-[9.5px] font-mono text-[#78716C] block">
-                                {isInterestPayment ? 'Không trừ gốc' : 'Giảm nợ gốc'}
+                                  ? formatVND(tx.amount)
+                                  : `-${formatVND(tx.amount)}`}
                               </span>
-                            )}
+                              {activeHistoryGoal.type === 'DEBT_PAYOFF' && (
+                                <span className="text-[9.5px] font-mono text-[#78716C] block">
+                                  {isInterestPayment ? 'Không trừ gốc' : 'Giảm nợ gốc'}
+                                </span>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                playActionClick();
+                                triggerHaptic(10);
+                                setEditingTx(tx);
+                              }}
+                              className="text-[#A8A29E] hover:text-[#0F3D39] p-1.5 rounded-lg hover:bg-[#F5F3EF] opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
+                              title={`Chỉnh sửa ${isIncome ? 'khoản thu' : 'khoản chi'}`}
+                              aria-label={`Chỉnh sửa ${tx.note || tx.categoryName}`}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </div>
                       );
@@ -1203,6 +1329,14 @@ export const FinancialFreedom: React.FC = () => {
             </div>
         </BottomSheet>
       )}
+
+      {/* Modal Chỉnh sửa giao dịch khi click vào dòng lịch sử */}
+      <EditTransactionModal
+        isOpen={Boolean(editingTx)}
+        onClose={() => setEditingTx(null)}
+        transaction={editingTx}
+        zIndex="z-70"
+      />
     </div>
   );
 };

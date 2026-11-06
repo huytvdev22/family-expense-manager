@@ -57,6 +57,7 @@ import {
   subscribeSettlementBatches,
   subscribeSettledCreditCardTransactions,
   subscribeCardCashbackTransactions,
+  subscribeGoalTransactions,
   undoSettlementBatch,
   undoSingleTransactionSettlement,
   updateTransactionSettlementInfo
@@ -66,7 +67,7 @@ import {
   DEFAULT_QUICK_TAGS,
   DEFAULT_INCOME_QUICK_TAGS
 } from '../services/mockData';
-import type { Household, Category, Transaction, MonthlySummary, UserProfile, FinancialGoal, QuickTagItem, PendingExpense, CreditCard, UnsettledCardGroup, SettlementBatch } from '../types';
+import type { Household, Category, Transaction, MonthlySummary, UserProfile, FinancialGoal, QuickTagItem, PendingExpense, CreditCard, UnsettledCardGroup, SettlementBatch, NumpadPrefillConfig } from '../types';
 import { getCurrentYearMonth, getLocalDateString, getLocalYearMonthString, formatVND, calculateCardNextDueDate, getCardBillingCycleInfo, classifyCardTransaction, formatTxMonth } from '../utils/currency';
 import { isSoundEnabled, setSoundEnabled, playSuccessChime, playActionClick } from '../utils/audio';
 import { triggerHaptic } from '../utils/haptics';
@@ -150,10 +151,16 @@ interface AppContextType {
 
   // Mục tiêu Tự do Tài chính (Khoản nợ & Tích lũy)
   financialGoals: FinancialGoal[];
+  goalTransactions: Transaction[];
   createGoal: (goalData: Omit<FinancialGoal, 'id' | 'createdAt' | 'updatedAt' | 'householdId'>) => Promise<void>;
   editGoal: (goalId: string, updates: Partial<FinancialGoal>) => Promise<void>;
   removeGoal: (goalId: string) => Promise<void>;
   updateGoalAmount: (goalId: string, newAmount: number) => Promise<void>;
+
+  // Cấu hình điền sẵn cho Numpad khi thêm trực tiếp từ Mục tiêu
+  numpadPrefill: NumpadPrefillConfig | null;
+  setNumpadPrefill: (prefill: NumpadPrefillConfig | null) => void;
+  prepareNumpadForGoal: (goal: FinancialGoal) => NumpadPrefillConfig;
 
   // Khoản chờ thanh toán (Pending Expenses)
   pendingExpenses: PendingExpense[];
@@ -203,6 +210,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [monthlySummary, setMonthlySummary] = useState<MonthlySummary | null>(null);
   const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>([]);
+  const [goalTransactions, setGoalTransactions] = useState<Transaction[]>([]);
   const [pendingExpenses, setPendingExpenses] = useState<PendingExpense[]>([]);
   const [creditCards, setCreditCards] = useState<CreditCard[]>([]);
   const [unsettledCardTransactions, setUnsettledCardTransactions] = useState<Transaction[]>([]);
@@ -229,6 +237,30 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [userRole, setUserRole] = useState<'Chồng' | 'Vợ'>(() => {
     return (localStorage.getItem('user_role') as 'Chồng' | 'Vợ') || 'Chồng';
   });
+  const [numpadPrefill, setNumpadPrefill] = useState<NumpadPrefillConfig | null>(null);
+
+  // Chuẩn bị cấu hình điền sẵn cho Numpad khi bấm ghi nhận từ một mục tiêu
+  const prepareNumpadForGoal = (goal: FinancialGoal): NumpadPrefillConfig => {
+    const isDebt = goal.type === 'DEBT_PAYOFF';
+    const targetCat = categories.find((c) => !c.isArchived && (
+      isDebt 
+        ? (c.id === 'cat_debt' || c.name.toLowerCase().includes('nợ') || c.name.toLowerCase().includes('ngân hàng'))
+        : (c.categoryKey === 'SAVING' || c.id === 'cat_saving' || c.name.toLowerCase().includes('tích lũy') || c.name.toLowerCase().includes('tiết kiệm'))
+    )) || categories.find((c) => !c.isArchived && (c.type || 'EXPENSE') === 'EXPENSE');
+
+    const config: NumpadPrefillConfig = {
+      goalId: goal.id,
+      goalTitle: goal.title,
+      goalType: goal.type,
+      categoryId: targetCat?.id || (isDebt ? 'cat_debt' : 'cat_saving'),
+      txType: 'EXPENSE',
+      debtPaymentType: isDebt ? 'PRINCIPAL' : undefined,
+      note: isDebt ? `Trả gốc - ${goal.title}` : `Tích lũy - ${goal.title}`
+    };
+
+    setNumpadPrefill(config);
+    return config;
+  };
 
   const isFirebaseActive = Boolean(isFirebaseConfigured && auth);
 
@@ -407,6 +439,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Dọn sạch mock data ngay lập tức khi đăng nhập tài khoản thực
         setPendingExpenses([]);
         setTransactions([]);
+        setGoalTransactions([]);
         setCreditCards([]);
         try {
           const profile = await getOrCreateUserProfile({
@@ -502,6 +535,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setUserHouseholds([]);
         setCategories(DEFAULT_CATEGORIES);
         setTransactions([]);
+        setGoalTransactions([]);
         setMonthlySummary(null);
         setFinancialGoals([]);
         setPendingExpenses([]);
@@ -605,6 +639,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       setCashbackTransactions(items);
     });
 
+    const unsubGoalTx = subscribeGoalTransactions(activeHousehold.id, (items) => {
+      setGoalTransactions(items);
+    });
+
     return () => {
       unsubCat();
       unsubTx();
@@ -617,6 +655,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       unsubBatches();
       unsubSettledCardTx();
       unsubCashbackTx();
+      unsubGoalTx();
     };
   }, [isFirebaseActive, activeHousehold?.id, currentYearMonth, firebaseUser]);
 
@@ -1899,6 +1938,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         // Dọn dẹp danh sách cũ trước khi nạp dữ liệu của tổ ấm mới
         setPendingExpenses([]);
         setTransactions([]);
+        setGoalTransactions([]);
         setActiveHousehold(h);
         setCurrentUser((prev) => prev ? { ...prev, activeHouseholdId: householdId } : null);
         if (db && currentUser) {
@@ -1925,6 +1965,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setActiveHousehold(null);
     setUserHouseholds([]);
     setTransactions([]);
+    setGoalTransactions([]);
     setPendingExpenses([]);
     setCreditCards([]);
     setUnsettledCardTransactions([]);
@@ -1993,10 +2034,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         userHouseholds,
         switchHousehold,
         financialGoals,
+        goalTransactions,
         createGoal,
         editGoal,
         removeGoal,
         updateGoalAmount,
+        numpadPrefill,
+        setNumpadPrefill,
+        prepareNumpadForGoal,
         pendingExpenses,
         activePendingExpenses,
         totalPendingAmount,
