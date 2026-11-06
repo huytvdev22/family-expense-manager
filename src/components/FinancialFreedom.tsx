@@ -87,11 +87,20 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
   const [formColor, setFormColor] = useState<string>(GOAL_COLORS[0].hex);
   const [formNote, setFormNote] = useState<string>('');
 
+  // Modal xem chi tiết mục tiêu tài chính
+  const [selectedDetailGoal, setSelectedDetailGoal] = useState<FinancialGoal | null>(null);
+
   // Modal xem lịch sử tích lũy / trả nợ của mục tiêu
   const [selectedHistoryGoal, setSelectedHistoryGoal] = useState<FinancialGoal | null>(null);
 
   // Giao dịch được chọn để chỉnh sửa trong modal lịch sử
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+
+  // Đối tượng mục tiêu đang xem chi tiết được đồng bộ realtime theo financialGoals
+  const activeDetailGoal = useMemo(() => {
+    if (!selectedDetailGoal) return null;
+    return financialGoals.find((g) => g.id === selectedDetailGoal.id) || selectedDetailGoal;
+  }, [financialGoals, selectedDetailGoal]);
 
   // Đối tượng mục tiêu đang xem lịch sử được đồng bộ realtime theo financialGoals
   const activeHistoryGoal = useMemo(() => {
@@ -651,7 +660,12 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
               return (
                 <div
                   key={goal.id}
-                  className="p-4 sm:p-5 rounded-3xl bg-white border border-[#E6E2DA] shadow-2xs hover:shadow-sm transition-all space-y-3.5 flex flex-col justify-between group"
+                  onClick={() => {
+                    playActionClick();
+                    triggerHaptic(8);
+                    setSelectedDetailGoal(goal);
+                  }}
+                  className="p-4 sm:p-5 rounded-3xl bg-white border border-[#E6E2DA] shadow-2xs hover:shadow-sm transition-all space-y-3.5 flex flex-col justify-between group cursor-pointer"
                 >
                   {/* Dòng 1: Tiêu đề & Nút thao tác */}
                   <div className="flex items-start justify-between gap-3">
@@ -685,7 +699,10 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
                     <div className="flex items-center gap-1 shrink-0">
                       <button
                         type="button"
-                        onClick={() => handleOpenEdit(goal)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenEdit(goal);
+                        }}
                         className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-[#FAF9F6] text-[#78716C] hover:text-[#0F3D39] active:scale-90 transition-all cursor-pointer"
                         title="Chỉnh sửa mục tiêu"
                         aria-label="Chỉnh sửa mục tiêu"
@@ -694,7 +711,8 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (confirm(`Bạn có chắc chắn muốn xóa mục tiêu "${goal.title}"?`)) {
                             removeGoal(goal.id);
                           }
@@ -728,7 +746,10 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
                         <div className="flex items-center justify-between text-[10px] text-[#B45309] font-mono pt-0.5">
                           <button
                             type="button"
-                            onClick={() => handleOpenEdit(goal)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEdit(goal);
+                            }}
                             className="underline font-semibold hover:text-[#92400E] cursor-pointer"
                           >
                             ⚠️ Chưa đặt mức mục tiêu (chạm để đặt)
@@ -782,7 +803,8 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           playActionClick();
                           setSelectedHistoryGoal(goal);
                         }}
@@ -800,7 +822,10 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
 
                       <button
                         type="button"
-                        onClick={() => handleAddForGoal(goal)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddForGoal(goal);
+                        }}
                         className={`h-7 sm:h-8 px-2.5 sm:px-3 rounded-xl text-white text-xs font-bold flex items-center gap-1 shadow-2xs active:scale-95 transition-all cursor-pointer ${
                           isDebt ? 'bg-[#B45309] hover:bg-[#9A3412]' : 'bg-[#0F3D39] hover:bg-[#174E4A]'
                         }`}
@@ -1063,6 +1088,290 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
       </BottomSheet>
 
       {/* =========================================================================
+          3.1. MODAL XEM CHI TIẾT MỤC TIÊU TÀI CHÍNH (BOTTOMSHEET)
+          ========================================================================= */}
+      {activeDetailGoal && (() => {
+        const isDebt = activeDetailGoal.type === 'DEBT_PAYOFF';
+        const stats = goalLedgerStats[activeDetailGoal.id] || { count: 0, principalPaid: 0, interestPaid: 0, totalAmount: 0 };
+        const paidPrincipal = isDebt ? Math.max(0, activeDetailGoal.initialAmount - activeDetailGoal.currentAmount) : activeDetailGoal.currentAmount;
+        const totalPaid = isDebt ? (paidPrincipal + stats.interestPaid) : stats.totalAmount;
+        const percent = isDebt 
+          ? (activeDetailGoal.initialAmount > 0 ? Math.round((paidPrincipal / activeDetailGoal.initialAmount) * 100) : 0)
+          : (activeDetailGoal.targetAmount > 0 ? Math.round((activeDetailGoal.currentAmount / activeDetailGoal.targetAmount) * 100) : 0);
+
+        // Tính toán khớp sổ cái
+        const calculatedDebtRemaining = isDebt ? Math.max(0, activeDetailGoal.initialAmount - stats.principalPaid) : 0;
+        const hasDebtDiscrepancy = isDebt && stats.count > 0 && calculatedDebtRemaining !== activeDetailGoal.currentAmount;
+        const hasSavingsDiscrepancy = !isDebt && stats.count > 0 && stats.totalAmount !== activeDetailGoal.currentAmount;
+
+        // Dự báo số kỳ còn lại
+        const remainingMonths = (isDebt && activeDetailGoal.monthlyTarget && activeDetailGoal.monthlyTarget > 0)
+          ? Math.ceil(activeDetailGoal.currentAmount / activeDetailGoal.monthlyTarget)
+          : (!isDebt && activeDetailGoal.targetAmount > 0 && activeDetailGoal.monthlyTarget && activeDetailGoal.monthlyTarget > 0)
+            ? Math.ceil(Math.max(0, activeDetailGoal.targetAmount - activeDetailGoal.currentAmount) / activeDetailGoal.monthlyTarget)
+            : null;
+
+        return (
+          <BottomSheet
+            isOpen={Boolean(activeDetailGoal)}
+            onClose={() => setSelectedDetailGoal(null)}
+            title={activeDetailGoal.title}
+            subtitle={
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span
+                  className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full inline-block ${
+                    isDebt ? 'bg-[#FEF3C7] text-[#B45309]' : 'bg-[#ECFDF5] text-[#047857]'
+                  }`}
+                >
+                  {isDebt ? 'Chi tiết khoản nợ' : 'Chi tiết quỹ tích lũy'}
+                </span>
+                {activeDetailGoal.status === 'COMPLETED' && (
+                  <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#065F46] inline-flex items-center gap-0.5">
+                    <CheckCircle2 className="w-2.5 h-2.5" />
+                    Đã hoàn thành
+                  </span>
+                )}
+              </div>
+            }
+            icon={
+              <div
+                className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-xs"
+                style={{ backgroundColor: activeDetailGoal.color || (isDebt ? '#B45309' : '#10B981') }}
+              >
+                {renderGoalIcon(activeDetailGoal.icon, activeDetailGoal.type, 'w-5 h-5')}
+              </div>
+            }
+            headerRight={
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = activeDetailGoal;
+                    setSelectedDetailGoal(null);
+                    handleOpenEdit(target);
+                  }}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-[#FAF9F6] text-[#78716C] hover:text-[#0F3D39] transition-colors cursor-pointer"
+                  title="Chỉnh sửa mục tiêu"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = activeDetailGoal;
+                    if (confirm(`Bạn có chắc chắn muốn xóa mục tiêu "${target.title}"?`)) {
+                      setSelectedDetailGoal(null);
+                      removeGoal(target.id);
+                    }
+                  }}
+                  className="w-8 h-8 rounded-xl flex items-center justify-center hover:bg-[#FEF2F2] text-[#78716C] hover:text-[#DC2626] transition-colors cursor-pointer"
+                  title="Xóa mục tiêu"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            }
+            maxHeight="max-h-[92dvh] sm:max-h-[85vh]"
+            footer={
+              <div className="p-3 sm:p-4 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = activeDetailGoal;
+                    setSelectedDetailGoal(null);
+                    setSelectedHistoryGoal(target);
+                  }}
+                  className="px-3.5 py-2.5 rounded-xl border border-[#E6E2DA] hover:bg-[#FAF9F6] text-[#1C1917] text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer min-h-[42px]"
+                >
+                  <History className="w-4 h-4 text-[#0F3D39]" />
+                  <span>Xem lịch sử ({stats.count})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const target = activeDetailGoal;
+                    setSelectedDetailGoal(null);
+                    handleAddForGoal(target);
+                  }}
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all cursor-pointer min-h-[42px] ${
+                    isDebt ? 'bg-[#B45309] hover:bg-[#9A3412]' : 'bg-[#0F3D39] hover:bg-[#174E4A]'
+                  }`}
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <span>{isDebt ? 'Ghi nhận trả nợ' : 'Ghi nhận tích lũy'}</span>
+                </button>
+              </div>
+            }
+          >
+            <div className="p-4 sm:p-5 space-y-4">
+              {/* Thẻ Hero: Dư nợ hiện tại hoặc Số tiền hiện có */}
+              <div className="p-4 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-[#78716C]">
+                    {isDebt ? 'Dư nợ hiện tại' : 'Số tiền hiện có'}
+                  </span>
+                  {(hasDebtDiscrepancy || hasSavingsDiscrepancy) && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        playActionClick();
+                        triggerHaptic(10);
+                        if (isDebt) {
+                          if (confirm(`Bạn có muốn tự động cân chỉnh "Dư nợ hiện tại" thành ${formatVND(calculatedDebtRemaining)} (bằng Vốn nợ ban đầu trừ đi ${formatVND(stats.principalPaid)} tiền gốc đã trả trên sổ cái)?`)) {
+                            await editGoal(activeDetailGoal.id, { currentAmount: calculatedDebtRemaining });
+                            setSelectedDetailGoal((prev) => prev ? { ...prev, currentAmount: calculatedDebtRemaining } : null);
+                            showToast('Đã cân chỉnh dư nợ theo sổ cái!', 'success');
+                          }
+                        } else {
+                          if (confirm(`Bạn có muốn tự động cân chỉnh "Số tiền hiện có" của quỹ thành ${formatVND(stats.totalAmount)} (khớp với tổng các giao dịch trong sổ cái)?`)) {
+                            await editGoal(activeDetailGoal.id, { currentAmount: stats.totalAmount });
+                            setSelectedDetailGoal((prev) => prev ? { ...prev, currentAmount: stats.totalAmount } : null);
+                            showToast('Đã cân chỉnh số tiền theo sổ cái!', 'success');
+                          }
+                        }
+                      }}
+                      className="text-[10px] text-[#0F3D39] hover:underline font-bold cursor-pointer inline-flex items-center gap-1 bg-[#E7EFEF] px-2 py-0.5 rounded-lg border border-[#0F3D39]/20"
+                      title="Đồng bộ số dư mục tiêu khớp với tổng ghi nhận trên sổ cái"
+                    >
+                      <RotateCcw className="w-2.5 h-2.5" />
+                      <span>Khớp theo sổ cái</span>
+                    </button>
+                  )}
+                </div>
+
+                <p className={`text-2xl sm:text-3xl font-bold font-mono tracking-tight ${isDebt ? 'text-[#B45309]' : 'text-[#0F3D39]'}`}>
+                  {formatVND(activeDetailGoal.currentAmount)}
+                </p>
+
+                {/* Thanh tiến độ */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="w-full h-3 bg-[#E6E2DA] rounded-full overflow-hidden p-0.5">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.min(100, Math.max(0, percent))}%`,
+                        backgroundColor: activeDetailGoal.color || (isDebt ? '#B45309' : '#10B981')
+                      }}
+                    />
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-[#78716C] font-mono">
+                    <span>{isDebt ? `Đã hoàn thành ${percent}% kế hoạch trả nợ` : `Đạt ${percent}% chỉ tiêu`}</span>
+                    <span className="font-bold text-[#1C1917]">{percent}%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Lưới các thông số chi tiết (vốn ban đầu, đã trả gốc, đã trả lãi, tổng đã trả...) */}
+              <div>
+                <h4 className="text-xs font-bold text-[#78716C] uppercase tracking-wider mb-2 font-mono">
+                  Thông số chi tiết
+                </h4>
+                {isDebt ? (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="p-3 rounded-2xl bg-white border border-[#E6E2DA] shadow-2xs">
+                      <span className="text-[11px] text-[#78716C] block">Vốn nợ ban đầu</span>
+                      <span className="text-sm sm:text-base font-bold font-mono text-[#1C1917] mt-0.5 block">
+                        {formatVND(activeDetailGoal.initialAmount)}
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-white border border-[#E6E2DA] shadow-2xs">
+                      <span className="text-[11px] text-[#78716C] block">Dư nợ hiện tại</span>
+                      <span className="text-sm sm:text-base font-bold font-mono text-[#B45309] mt-0.5 block">
+                        {formatVND(activeDetailGoal.currentAmount)}
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-[#ECFDF5]/60 border border-[#A7F3D0] shadow-2xs">
+                      <span className="text-[11px] text-[#065F46] font-medium block">Đã trả gốc</span>
+                      <span className="text-sm sm:text-base font-bold font-mono text-[#047857] mt-0.5 block">
+                        {formatVND(paidPrincipal)}
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-[#FEF3C7]/60 border border-[#FDE68A] shadow-2xs">
+                      <span className="text-[11px] text-[#92400E] font-medium block">Đã trả lãi</span>
+                      <span className="text-sm sm:text-base font-bold font-mono text-[#B45309] mt-0.5 block">
+                        {formatVND(stats.interestPaid)}
+                      </span>
+                    </div>
+
+                    <div className="col-span-2 p-3 rounded-2xl bg-[#F5F3EF] border border-[#E6E2DA] flex items-center justify-between">
+                      <span className="text-xs font-medium text-[#1C1917]">Tổng tiền đã chi trả (Gốc + Lãi)</span>
+                      <span className="text-sm sm:text-base font-bold font-mono text-[#0F3D39]">
+                        {formatVND(totalPaid)}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div className="p-3 rounded-2xl bg-white border border-[#E6E2DA] shadow-2xs">
+                      <span className="text-[11px] text-[#78716C] block">Mục tiêu cần đạt</span>
+                      <span className="text-sm sm:text-base font-bold font-mono text-[#1C1917] mt-0.5 block">
+                        {formatVND(activeDetailGoal.targetAmount)}
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-[#ECFDF5]/60 border border-[#A7F3D0] shadow-2xs">
+                      <span className="text-[11px] text-[#065F46] font-medium block">Số tiền hiện có</span>
+                      <span className="text-sm sm:text-base font-bold font-mono text-[#047857] mt-0.5 block">
+                        {formatVND(activeDetailGoal.currentAmount)}
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-white border border-[#E6E2DA] shadow-2xs">
+                      <span className="text-[11px] text-[#78716C] block">Còn thiếu</span>
+                      <span className="text-sm sm:text-base font-bold font-mono text-[#B45309] mt-0.5 block">
+                        {formatVND(Math.max(0, activeDetailGoal.targetAmount - activeDetailGoal.currentAmount))}
+                      </span>
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-white border border-[#E6E2DA] shadow-2xs">
+                      <span className="text-[11px] text-[#78716C] block">Ghi nhận từ sổ cái</span>
+                      <span className="text-sm sm:text-base font-bold font-mono text-[#0F3D39] mt-0.5 block">
+                        {formatVND(stats.totalAmount)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Kế hoạch định kỳ & Số kỳ dự kiến */}
+              <div className="p-3.5 rounded-2xl bg-white border border-[#E6E2DA] shadow-2xs space-y-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-[#0F3D39]" />
+                  <span className="text-xs font-bold text-[#1C1917]">Kế hoạch định kỳ</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-[#78716C]">
+                  <span>Hạn mức dự kiến mỗi tháng:</span>
+                  <span className="font-mono font-bold text-[#1C1917]">
+                    {activeDetailGoal.monthlyTarget ? formatVND(activeDetailGoal.monthlyTarget) : 'Chưa thiết lập'}
+                  </span>
+                </div>
+                {remainingMonths ? (
+                  <div className="flex items-center justify-between text-xs text-[#78716C] pt-1 border-t border-[#F5F3EF]">
+                    <span>Thời gian ước tính còn lại:</span>
+                    <span className="font-mono font-bold text-[#0F3D39]">
+                      ~{remainingMonths} tháng (kỳ)
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Ghi chú mục tiêu (nếu có) */}
+              {activeDetailGoal.note && (
+                <div className="p-3 rounded-2xl bg-[#FAF9F6] border border-[#E6E2DA] text-xs text-[#78716C]">
+                  <span className="font-bold text-[#1C1917] block mb-0.5">Ghi chú:</span>
+                  <p className="leading-relaxed whitespace-pre-wrap">{activeDetailGoal.note}</p>
+                </div>
+              )}
+            </div>
+          </BottomSheet>
+        );
+      })()}
+
+      {/* =========================================================================
           4. MODAL XEM LỊCH SỬ TÍCH LŨY / TRẢ NỢ CỦA MỤC TIÊU
           ========================================================================= */}
       {activeHistoryGoal && (
@@ -1116,134 +1425,6 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
             </div>
           }
         >
-
-            {/* Thống kê tóm tắt nhanh */}
-            {activeHistoryGoal.type === 'DEBT_PAYOFF' ? (
-              <div className="px-4 sm:px-5 py-3 bg-[#FAF9F6] border-b border-[#F5F3EF] space-y-2 shrink-0">
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
-                    <span className="text-[10.5px] text-[#78716C] block">
-                      Đã trả gốc
-                    </span>
-                    <span className="text-xs sm:text-sm font-bold font-mono text-[#0F3D39]">
-                      -{formatVND(historyPrincipalPaid)}
-                    </span>
-                    <span className="text-[10px] text-[#78716C] block mt-0.5 font-mono">
-                      Giảm dư nợ gốc
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[10.5px] text-[#78716C] block">
-                      Đã trả lãi
-                    </span>
-                    <span className="text-xs sm:text-sm font-bold font-mono text-[#B45309]">
-                      {formatVND(historyInterestPaid)}
-                    </span>
-                    <span className="text-[10px] text-[#78716C] block mt-0.5 font-mono">
-                      Không trừ gốc
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[10.5px] text-[#78716C] block">
-                      Dư nợ hiện tại
-                    </span>
-                    <span className="text-xs sm:text-sm font-bold font-mono text-[#B45309]">
-                      {formatVND(activeHistoryGoal.currentAmount)}
-                    </span>
-                    {historyPrincipalPaid > 0 &&
-                      activeHistoryGoal.currentAmount !== Math.max(0, activeHistoryGoal.initialAmount - historyPrincipalPaid) && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const targetDebt = Math.max(0, activeHistoryGoal.initialAmount - historyPrincipalPaid);
-                            const countPrincipalTxs = historyTransactions.filter((t) => t.debtPaymentType !== 'INTEREST').length;
-                            if (
-                              confirm(
-                                `Cân chỉnh "Dư nợ hiện tại" theo toàn bộ lịch sử trả nợ:\n\n` +
-                                `• Vốn nợ ban đầu: ${formatVND(activeHistoryGoal.initialAmount)}\n` +
-                                `• Tổng tiền trả gốc trong toàn bộ lịch sử (${countPrincipalTxs} kỳ): -${formatVND(historyPrincipalPaid)}\n` +
-                                `• Dư nợ chuẩn xác: ${formatVND(targetDebt)}\n\n` +
-                                `Bạn có xác nhận đồng bộ số dư nợ thành ${formatVND(targetDebt)}?`
-                              )
-                            ) {
-                              await editGoal(activeHistoryGoal.id, { currentAmount: targetDebt });
-                              setSelectedHistoryGoal((prev) => (prev ? { ...prev, currentAmount: targetDebt } : null));
-                              showToast('Đã cân chỉnh dư nợ gốc theo toàn bộ lịch sử sổ cái!', 'success');
-                            }
-                          }}
-                          className="text-[10px] text-[#0F3D39] hover:underline font-semibold cursor-pointer flex items-center justify-end gap-1 mt-0.5 ml-auto"
-                          title="Đồng bộ dư nợ gốc hiện tại khớp với tổng tiền trả gốc trong toàn bộ lịch sử"
-                        >
-                          <RotateCcw className="w-2.5 h-2.5" />
-                          <span>Khớp theo sổ cái</span>
-                        </button>
-                      )}
-                  </div>
-                </div>
-
-                {/* Thông tin nợ ban đầu & Tổng tiền đã thanh toán */}
-                <div className="flex items-center justify-between pt-2 border-t border-[#E6E2DA]/60 text-[10.5px] font-mono text-[#78716C]">
-                  <span>Vốn nợ ban đầu: <strong className="text-[#1C1917]">{formatVND(activeHistoryGoal.initialAmount)}</strong></span>
-                  <span>Tổng đã trả (Gốc + Lãi): <strong className="text-[#1C1917]">{formatVND(historyTotalRecordedAmount)}</strong> ({historyTransactions.length} kỳ)</span>
-                </div>
-              </div>
-            ) : (
-              <div className="px-4 sm:px-5 py-3 bg-[#FAF9F6] border-b border-[#F5F3EF] space-y-2 shrink-0">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <span className="text-[11px] text-[#78716C] block">
-                      Đã tích lũy qua sổ cái
-                    </span>
-                    <span className="text-sm font-bold font-mono text-[#0F3D39]">
-                      +{formatVND(historyTotalRecordedAmount)}
-                    </span>
-                    <span className="text-[10px] text-[#78716C] block mt-0.5 font-mono">
-                      (Toàn bộ {historyTransactions.length} lần ghi nhận)
-                    </span>
-                  </div>
-                  <div className="text-right">
-                    <span className="text-[11px] text-[#78716C] block">
-                      Số tiền hiện có
-                    </span>
-                    <span className="text-sm font-bold font-mono text-[#0F3D39]">
-                      {formatVND(activeHistoryGoal.currentAmount)}
-                    </span>
-                    {activeHistoryGoal.currentAmount !== historyTotalRecordedAmount && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (
-                            confirm(
-                              `Cân chỉnh "Số tiền hiện có" của quỹ theo toàn bộ lịch sử tích lũy:\n\n` +
-                              `• Tổng tích lũy từ trước đến nay (${historyTransactions.length} lần): +${formatVND(historyTotalRecordedAmount)}\n` +
-                              `• Số tiền hiện tại của quỹ: ${formatVND(activeHistoryGoal.currentAmount)}\n\n` +
-                              `Bạn có muốn đồng bộ số tiền hiện có thành ${formatVND(historyTotalRecordedAmount)}?`
-                            )
-                          ) {
-                            await editGoal(activeHistoryGoal.id, { currentAmount: historyTotalRecordedAmount });
-                            setSelectedHistoryGoal((prev) => prev ? { ...prev, currentAmount: historyTotalRecordedAmount } : null);
-                            showToast('Đã cân chỉnh số tiền theo toàn bộ lịch sử!', 'success');
-                          }
-                        }}
-                        className="text-[10px] text-[#0F3D39] hover:underline font-semibold cursor-pointer flex items-center justify-end gap-1 mt-0.5 ml-auto"
-                        title="Đồng bộ số dư mục tiêu khớp với tổng các lần tích lũy trong toàn bộ lịch sử"
-                      >
-                        <RotateCcw className="w-2.5 h-2.5" />
-                        <span>Khớp theo sổ cái</span>
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {activeHistoryGoal.targetAmount > 0 && (
-                  <div className="flex items-center justify-between pt-1.5 border-t border-[#E6E2DA]/60 text-[10.5px] font-mono text-[#78716C]">
-                    <span>Mục tiêu tích lũy: <strong className="text-[#0F3D39]">{formatVND(activeHistoryGoal.targetAmount)}</strong></span>
-                    <span>Tiến độ: <strong className="text-[#0F3D39]">{Math.min(100, Math.round((activeHistoryGoal.currentAmount / activeHistoryGoal.targetAmount) * 100))}%</strong></span>
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Danh sách các lần ghi nhận (cho phép bấm vào từng khoản để sửa) */}
             <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain touch-pan-y flex-1 space-y-2.5">
               {historyTransactions.length === 0 ? (
@@ -1321,8 +1502,6 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
                                 </div>
                                 <div className="flex items-center gap-2 text-[10px] text-[#78716C] mt-0.5">
                                   <span>{formatDateLabel(tx.date)}</span>
-                                  <span>•</span>
-                                  <span className="truncate">{tx.categoryName}</span>
                                 </div>
                               </div>
 
@@ -1343,11 +1522,6 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
                                       ? formatVND(tx.amount)
                                       : `-${formatVND(tx.amount)}`}
                                   </span>
-                                  {activeHistoryGoal.type === 'DEBT_PAYOFF' && (
-                                    <span className="text-[9.5px] font-mono text-[#78716C] block">
-                                      {isInterestPayment ? 'Không trừ gốc' : 'Giảm nợ gốc'}
-                                    </span>
-                                  )}
                                 </div>
 
                                 <button
