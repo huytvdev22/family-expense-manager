@@ -1,6 +1,6 @@
-import type { Category } from '../types';
+import type { Category, FinancialGoal } from '../types';
 
-export type AIPromptPurpose = 'EXPENSE' | 'INCOME' | 'PENDING' | 'ALL';
+export type AIPromptPurpose = 'EXPENSE' | 'INCOME' | 'PENDING' | 'DEBT_PAYMENT' | 'ALL';
 
 export interface AIPromptPurposeOption {
   id: AIPromptPurpose;
@@ -17,6 +17,13 @@ export const AI_PROMPT_PURPOSES: AIPromptPurposeOption[] = [
     badge: 'Chi tiêu',
     description: 'Trích xuất lịch sử trừ tiền ngân hàng, bill mua sắm, quẹt thẻ...',
     colorClass: 'bg-[#FEF3C7] text-[#B45309] border-[#FDE68A]'
+  },
+  {
+    id: 'DEBT_PAYMENT',
+    title: 'Trả nợ vay (Gốc / Lãi)',
+    badge: 'Khoản nợ',
+    description: 'Trích xuất lịch sử trả nợ ngân hàng, tự phân biệt tiền gốc và tiền lãi...',
+    colorClass: 'bg-[#FFFBEB] text-[#B45309] border-[#B45309]/30'
   },
   {
     id: 'INCOME',
@@ -44,17 +51,19 @@ export const AI_PROMPT_PURPOSES: AIPromptPurposeOption[] = [
 interface GeneratePromptParams {
   purpose: AIPromptPurpose;
   categories: Category[];
+  debtGoals?: FinancialGoal[];
   memberNames?: string[];
   currentRole?: 'Chồng' | 'Vợ';
 }
 
 /**
  * Sinh Prompt chuẩn cho AI (ChatGPT, Gemini, Claude)
- * Tự động chèn danh sách danh mục thực tế của tổ ấm và vai trò thành viên
+ * Tự động chèn danh sách danh mục thực tế của tổ ấm, các khoản nợ và vai trò thành viên
  */
 export function generateAIPrompt({
   purpose,
   categories,
+  debtGoals = [],
   memberNames = ['Chồng', 'Vợ'],
   currentRole = 'Chồng'
 }: GeneratePromptParams): string {
@@ -69,12 +78,69 @@ export function generateAIPrompt({
     .filter((c) => c.type === 'INCOME' && !c.isArchived)
     .map((c) => c.name);
 
+  // Danh sách các khoản nợ hiện có của gia đình
+  const activeDebtTitles = debtGoals
+    .filter((g) => g.type === 'DEBT_PAYOFF')
+    .map((g) => g.title);
+
+  const debtListStr = activeDebtTitles.length > 0
+    ? activeDebtTitles.join(', ')
+    : 'Vay ngân hàng mua nhà, Vay mua xe, Khoản nợ gia đình';
+
   const activeMembersStr = memberNames.join(' / ');
 
+  // 1. MỤC ĐÍCH: TRẢ NỢ VAY (CHUYÊN SÂU GỐC & LÃI)
+  if (purpose === 'DEBT_PAYMENT') {
+    return `Hãy đọc ảnh chụp màn hình lịch sử giao dịch ngân hàng / biên nhận chuyển tiền trả nợ đính kèm và trích xuất TOÀN BỘ các khoản trả nợ thành một mảng JSON thuần túy đặt bên trong codeblock markdown \`\`\`json ... \`\`\`. Chỉ trả về codeblock JSON này, không viết thêm bất kỳ lời chào hay giải thích nào khác.
+
+Quy tắc trích xuất:
+1. "date": Ngày giao dịch theo định dạng "YYYY-MM-DD" (nếu ảnh chỉ ghi ngày tháng như 06/11 thì lấy năm hiện tại là ${currentYear}, ví dụ: "${currentYear}-11-06").
+2. "amount": Số tiền nguyên dương (VD: 10000000, không có dấu âm, không chứa chữ "VND").
+3. "type": Cố định là "EXPENSE".
+4. "category": Cố định là "Trả nợ ngân hàng".
+5. "goalName": BẮT BUỘC chọn 1 tên khoản nợ phù hợp nhất trong danh sách các khoản nợ của gia đình sau: [${debtListStr}].
+6. "debtPaymentType": 
+   - Nếu nội dung chuyển khoản có từ khóa liên quan đến tiền lãi (ví dụ: "lãi", "lai", "lãi vay", "tiền lãi", "interest") -> điền "INTEREST".
+   - Nếu là trả nợ gốc hoặc thanh toán định kỳ chung -> điền "PRINCIPAL".
+7. "note": Nội dung chuyển khoản ngân hàng hoặc ghi chú giao dịch.
+8. "paidBy": "${activeMembersStr}" (mặc định để "${currentRole}").
+
+Định dạng mẫu bắt buộc:
+\`\`\`json
+[
+  {
+    "date": "${currentYear}-11-06",
+    "amount": 10000000,
+    "type": "EXPENSE",
+    "category": "Trả nợ ngân hàng",
+    "goalName": "${activeDebtTitles[0] || 'Vay ngân hàng mua nhà'}",
+    "debtPaymentType": "PRINCIPAL",
+    "note": "Tra no goc dinh ky ky 11",
+    "paidBy": "${currentRole}"
+  },
+  {
+    "date": "${currentYear}-11-06",
+    "amount": 3200000,
+    "type": "EXPENSE",
+    "category": "Trả nợ ngân hàng",
+    "goalName": "${activeDebtTitles[0] || 'Vay ngân hàng mua nhà'}",
+    "debtPaymentType": "INTEREST",
+    "note": "Tra tien lai vay thang 11",
+    "paidBy": "${currentRole}"
+  }
+]
+\`\`\``;
+  }
+
+  // 2. MỤC ĐÍCH: KHOẢN CHI TIÊU
   if (purpose === 'EXPENSE') {
     const catListStr = expenseCategories.length > 0 
       ? expenseCategories.join(', ')
-      : 'Ăn uống, Đi chợ, Điện nước, Mua sắm, Di chuyển & Xăng, Nhà cửa, Y tế, Khác';
+      : 'Ăn uống, Đi chợ, Điện nước, Mua sắm, Di chuyển & Xăng, Nhà cửa, Trả nợ ngân hàng, Khác';
+
+    const debtNotice = activeDebtTitles.length > 0
+      ? `\nLưu ý đặc biệt cho khoản trả nợ: Nếu giao dịch là trả nợ cho một trong các khoản [${debtListStr}], hãy điền "category": "Trả nợ ngân hàng", kèm "goalName": "Tên khoản nợ" và "debtPaymentType": "PRINCIPAL" (nếu trả gốc) hoặc "INTEREST" (nếu trả lãi).`
+      : '';
 
     return `Hãy đọc ảnh chụp màn hình lịch sử giao dịch ngân hàng / hóa đơn / biên lai đính kèm và trích xuất TOÀN BỘ các khoản chi tiêu thành một mảng JSON thuần túy đặt bên trong codeblock markdown \`\`\`json ... \`\`\`. Chỉ trả về codeblock JSON này, không viết thêm bất kỳ lời chào hay giải thích nào khác.
 
@@ -82,7 +148,7 @@ Quy tắc trích xuất:
 1. "date": Ngày giao dịch theo định dạng "YYYY-MM-DD" (nếu ảnh chỉ ghi ngày tháng như 06/11 thì lấy năm hiện tại là ${currentYear}, ví dụ: "${currentYear}-11-06").
 2. "amount": Số tiền nguyên dương (VD: 50000, không có dấu âm "-", không có dấu chấm phẩy, không có chữ "đ" hay "VND").
 3. "type": Cố định là "EXPENSE".
-4. "category": BẮT BUỘC chọn 1 tên danh mục phù hợp nhất trong danh sách sau: [${catListStr}]. Nếu không chắc chắn hãy chọn "Khác".
+4. "category": BẮT BUỘC chọn 1 tên danh mục phù hợp nhất trong danh sách sau: [${catListStr}]. Nếu không chắc chắn hãy chọn "Khác".${debtNotice}
 5. "note": Nội dung chuyển khoản, tên quán/cửa hàng hoặc người nhận tiền.
 6. "paidBy": "${activeMembersStr}" (nếu ảnh không thể hiện rõ ai chi thì mặc định để "${currentRole}").
 
@@ -101,6 +167,7 @@ Quy tắc trích xuất:
 \`\`\``;
   }
 
+  // 3. MỤC ĐÍCH: KHOẢN THU NHẬP
   if (purpose === 'INCOME') {
     const catListStr = incomeCategories.length > 0 
       ? incomeCategories.join(', ')
@@ -131,6 +198,7 @@ Quy tắc trích xuất:
 \`\`\``;
   }
 
+  // 4. MỤC ĐÍCH: KHOẢN CHỜ THANH TOÁN (PENDING)
   if (purpose === 'PENDING') {
     const catListStr = expenseCategories.length > 0 
       ? expenseCategories.join(', ')
@@ -139,7 +207,7 @@ Quy tắc trích xuất:
     return `Hãy đọc ảnh chụp thông báo hóa đơn / tin nhắn nhắc nợ / khoản phải chi sắp tới đính kèm và trích xuất thành một mảng JSON các khoản CHỜ THANH TOÁN đặt bên trong codeblock markdown \`\`\`json ... \`\`\`. Chỉ trả về codeblock JSON này, không viết thêm bất kỳ lời chào hay giải thích nào khác.
 
 Quy tắc trích xuất:
-1. "title": Tên khoản cần trả (VD: "Tiền điện EVN T10", "Tiền nước", "Học phí mầm non", "Trả góp ngân hàng").
+1. "title": Tên khoản cần trả (VD: "Tiền điện EVN T10", "Tiền nước", "Học phí mầm non", "Trả nợ ngân hàng").
 2. "amount": Số tiền cần thanh toán (nguyên dương, VD: 1250000).
 3. "dueDate": Hạn chót thanh toán theo định dạng "YYYY-MM-DD" (nếu có trên ảnh, nếu không có để trống "").
 4. "category": BẮT BUỘC chọn 1 tên danh mục trong danh sách sau: [${catListStr}].
@@ -161,9 +229,13 @@ Quy tắc trích xuất:
 \`\`\``;
   }
 
-  // Mặc định: ALL (Cả Thu lẫn Chi)
-  const allExpenseStr = expenseCategories.join(', ') || 'Ăn uống, Đi chợ, Điện nước, Mua sắm, Khác';
+  // 5. MẶC ĐỊNH: ALL (CẢ THU LẪN CHI)
+  const allExpenseStr = expenseCategories.join(', ') || 'Ăn uống, Đi chợ, Điện nước, Mua sắm, Trả nợ ngân hàng, Khác';
   const allIncomeStr = incomeCategories.join(', ') || 'Lương, Thưởng, Khác';
+
+  const debtNoticeAll = activeDebtTitles.length > 0
+    ? `\nLưu ý đặc biệt cho khoản trả nợ: Nếu giao dịch là trả nợ cho các khoản [${debtListStr}], hãy điền "category": "Trả nợ ngân hàng", kèm "goalName": "Tên khoản nợ" và "debtPaymentType": "PRINCIPAL" (nếu trả gốc) hoặc "INTEREST" (nếu trả lãi).`
+    : '';
 
   return `Hãy đọc ảnh chụp sao kê tài khoản ngân hàng / lịch sử biến động số dư đính kèm và trích xuất TOÀN BỘ các giao dịch (cả tiền vào và tiền ra) thành một mảng JSON thuần túy đặt bên trong codeblock markdown \`\`\`json ... \`\`\`. Chỉ trả về codeblock JSON này, không viết thêm bất kỳ lời giải thích nào khác.
 
@@ -173,7 +245,7 @@ Quy tắc trích xuất:
 3. "type": Nếu là tiền ra / trừ tiền / thanh toán thì ghi "EXPENSE". Nếu là tiền vào / cộng tiền / nhận chuyển khoản thì ghi "INCOME".
 4. "category": 
    - Với khoản chi (EXPENSE), chọn 1 trong: [${allExpenseStr}].
-   - Với khoản thu (INCOME), chọn 1 trong: [${allIncomeStr}].
+   - Với khoản thu (INCOME), chọn 1 trong: [${allIncomeStr}].${debtNoticeAll}
 5. "note": Nội dung chuyển khoản hoặc tên đơn vị giao dịch.
 6. "paidBy": "${activeMembersStr}" (mặc định "${currentRole}").
 
@@ -199,4 +271,3 @@ Quy tắc trích xuất:
 ]
 \`\`\``;
 }
-

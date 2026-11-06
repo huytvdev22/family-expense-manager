@@ -34,6 +34,7 @@ import { sortFinancialGoals, type GoalSortOption } from '../utils/goalSorting';
 import { useToast } from './Toast';
 import { BottomSheet } from './BottomSheet';
 import { EditTransactionModal } from './EditTransactionModal';
+import { AIBatchImportModal } from './AIBatchImportModal';
 
 const GOAL_COLORS = [
   { label: 'Terracotta', hex: '#B45309' },
@@ -95,6 +96,9 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
 
   // Giao dịch được chọn để chỉnh sửa trong modal lịch sử
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+
+  // Modal Nhập trả nợ từ AI
+  const [isAIModalOpen, setIsAIModalOpen] = useState<boolean>(false);
 
   // Đối tượng mục tiêu đang xem chi tiết được đồng bộ realtime theo financialGoals
   const activeDetailGoal = useMemo(() => {
@@ -395,15 +399,32 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => handleOpenCreate('DEBT_PAYOFF')}
-          className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-xl bg-[#0F3D39] hover:bg-[#174E4A] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all cursor-pointer shrink-0"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          <span className="hidden xs:inline">Thêm mục tiêu</span>
-          <span className="xs:hidden">Thêm</span>
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              playActionClick();
+              triggerHaptic(10);
+              setIsAIModalOpen(true);
+            }}
+            className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl bg-[#E7EFEF] hover:bg-[#D8E6E4] text-[#0F3D39] border border-[#0F3D39]/20 text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all cursor-pointer"
+            title="Nhập lịch sử trả nợ từ AI (ChatGPT, Gemini...)"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#B45309]" />
+            <span className="hidden xs:inline">Nhập từ AI</span>
+            <span className="xs:hidden">AI</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleOpenCreate('DEBT_PAYOFF')}
+            className="h-8 sm:h-9 px-3 sm:px-3.5 rounded-xl bg-[#0F3D39] hover:bg-[#174E4A] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden xs:inline">Thêm mục tiêu</span>
+            <span className="xs:hidden">Thêm</span>
+          </button>
+        </div>
       </div>
 
       {/* BANNER 2 CỘT TỔNG HỢP: KHOẢN NỢ & QUỸ TÍCH LŨY */}
@@ -1557,6 +1578,13 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
         onClose={() => setEditingTx(null)}
         transaction={editingTx}
         zIndex="z-70"
+      />
+
+      {/* Modal Nhập trả nợ từ AI */}
+      <AIBatchImportModal
+        isOpen={isAIModalOpen}
+        onClose={() => setIsAIModalOpen(false)}
+        initialPurpose="DEBT_PAYMENT"
       />
     </div>
   );

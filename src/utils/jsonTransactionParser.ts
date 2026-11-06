@@ -1,4 +1,4 @@
-import type { Category, CategoryKey } from '../types';
+import type { Category, CategoryKey, FinancialGoal, DebtPaymentType } from '../types';
 import { getLocalDateString } from './currency';
 
 export interface ParsedTransactionItem {
@@ -12,6 +12,9 @@ export interface ParsedTransactionItem {
   paidBy: string;
   date: string; // "YYYY-MM-DD"
   note: string;
+  goalId?: string;
+  goalName?: string;
+  debtPaymentType?: DebtPaymentType;
 }
 
 export interface ParsedPendingItem {
@@ -184,6 +187,7 @@ export function findMatchingCategory(
 export function parseAITransactionsJson(
   rawInput: string,
   categories: Category[],
+  debtGoals: FinancialGoal[] = [],
   defaultRole: 'Chồng' | 'Vợ' = 'Chồng'
 ): ParseResult<ParsedTransactionItem> {
   const cleanJson = extractJsonFromText(rawInput);
@@ -243,8 +247,50 @@ export function parseAITransactionsJson(
       paidBy = 'Chồng';
     }
 
-    // Map danh mục
-    const rawCatName = String(item.category || item.danhMuc || item.phanLoai || note || '');
+    // Nhận diện khoản nợ nếu có
+    const rawGoalName = String(item.goalName || item.goal || item.khoanNo || '').trim();
+    let goalId: string | undefined = undefined;
+    let goalName: string | undefined = undefined;
+    let debtPaymentType: DebtPaymentType | undefined = undefined;
+
+    // Tìm khoản nợ khớp
+    const matchedDebt = debtGoals.find((g) => {
+      if (g.type !== 'DEBT_PAYOFF') return false;
+      const titleLower = g.title.toLowerCase();
+      if (rawGoalName && (titleLower.includes(rawGoalName.toLowerCase()) || rawGoalName.toLowerCase().includes(titleLower))) {
+        return true;
+      }
+      if (note && titleLower.includes(note.toLowerCase())) {
+        return true;
+      }
+      return false;
+    });
+
+    if (matchedDebt) {
+      goalId = matchedDebt.id;
+      goalName = matchedDebt.title;
+      type = 'EXPENSE'; // Trả nợ luôn là chi phí
+
+      // Xác định Trả gốc hay Trả lãi
+      const rawPaymentType = String(item.debtPaymentType || item.loaiTraNo || item.phanLoaiNo || '').toUpperCase();
+      const noteLower = note.toLowerCase();
+      if (
+        rawPaymentType.includes('INTEREST') ||
+        rawPaymentType.includes('LAI') ||
+        noteLower.includes('lãi') ||
+        noteLower.includes('lai') ||
+        noteLower.includes('interest')
+      ) {
+        debtPaymentType = 'INTEREST';
+      } else {
+        debtPaymentType = 'PRINCIPAL';
+      }
+    }
+
+    // Map danh mục (nếu có gắn nợ thì ưu tiên danh mục Trả nợ ngân hàng)
+    const rawCatName = goalId
+      ? 'Trả nợ ngân hàng'
+      : String(item.category || item.danhMuc || item.phanLoai || note || '');
     const matchedCategory = findMatchingCategory(rawCatName, type, categories);
 
     validItems.push({
@@ -257,7 +303,10 @@ export function parseAITransactionsJson(
       categoryKey: matchedCategory.categoryKey || 'OTHER',
       paidBy,
       date,
-      note
+      note,
+      goalId,
+      goalName,
+      debtPaymentType
     });
   });
 

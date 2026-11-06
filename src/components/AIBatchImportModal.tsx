@@ -14,7 +14,9 @@ import {
   FileCode,
   CheckCircle2,
   Loader2,
-  Info
+  Info,
+  Target,
+  Landmark
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND, getLocalDateString } from '../utils/currency';
@@ -34,7 +36,7 @@ import {
   parseAITransactionsJson,
   parseAIPendingExpensesJson
 } from '../utils/jsonTransactionParser';
-import type { Category } from '../types';
+import type { Category, DebtPaymentType } from '../types';
 
 interface AIBatchImportModalProps {
   isOpen: boolean;
@@ -51,6 +53,7 @@ export const AIBatchImportModal: React.FC<AIBatchImportModalProps> = ({
     categories,
     userRole,
     activeHousehold,
+    financialGoals,
     logBatchTransactions,
     logBatchPendingExpenses,
     firebaseUser
@@ -85,15 +88,21 @@ export const AIBatchImportModal: React.FC<AIBatchImportModalProps> = ({
     return ['Chồng', 'Vợ'];
   }, [activeHousehold]);
 
+  // Danh sách các khoản nợ của tổ ấm
+  const debtGoals = useMemo(() => {
+    return (financialGoals || []).filter((g) => g.type === 'DEBT_PAYOFF');
+  }, [financialGoals]);
+
   // Sinh Prompt động theo mục đích và danh mục hiện tại của gia đình
   const currentPrompt = useMemo(() => {
     return generateAIPrompt({
       purpose: selectedPurpose,
       categories,
+      debtGoals,
       memberNames,
       currentRole: userRole
     });
-  }, [selectedPurpose, categories, memberNames, userRole]);
+  }, [selectedPurpose, categories, debtGoals, memberNames, userRole]);
 
   // Reset form khi mở modal
   useEffect(() => {
@@ -164,6 +173,33 @@ export const AIBatchImportModal: React.FC<AIBatchImportModalProps> = ({
     "category": "Học phí",
     "note": "Chuyển khoản theo số tài khoản trường",
     "assignedTo": "Vợ"
+  }
+]
+\`\`\``;
+      setRawJsonInput(sample);
+    } else if (selectedPurpose === 'DEBT_PAYMENT') {
+      const debtTitle = debtGoals[0]?.title || 'Vay ngân hàng mua nhà';
+      const sample = `\`\`\`json
+[
+  {
+    "date": "${sampleYear}-11-06",
+    "amount": 10000000,
+    "type": "EXPENSE",
+    "category": "Trả nợ ngân hàng",
+    "goalName": "${debtTitle}",
+    "debtPaymentType": "PRINCIPAL",
+    "note": "Trừ nợ gốc định kỳ kỳ 11",
+    "paidBy": "${userRole}"
+  },
+  {
+    "date": "${sampleYear}-11-06",
+    "amount": 3450000,
+    "type": "EXPENSE",
+    "category": "Trả nợ ngân hàng",
+    "goalName": "${debtTitle}",
+    "debtPaymentType": "INTEREST",
+    "note": "Trừ tiền lãi vay tháng 11",
+    "paidBy": "${userRole}"
   }
 ]
 \`\`\``;
@@ -246,7 +282,7 @@ export const AIBatchImportModal: React.FC<AIBatchImportModalProps> = ({
       setParseError(null);
       showToast(`Đã nhận diện thành công ${result.items.length} khoản chờ!`, 'success');
     } else {
-      const result = parseAITransactionsJson(rawJsonInput, categories, userRole);
+      const result = parseAITransactionsJson(rawJsonInput, categories, debtGoals, userRole);
       if (!result.success || result.items.length === 0) {
         setParseError(result.error || 'Không trích xuất được giao dịch nào.');
         return;
@@ -375,7 +411,10 @@ export const AIBatchImportModal: React.FC<AIBatchImportModalProps> = ({
           paidBy: tx.paidBy,
           paidByUid: firebaseUser?.uid || '',
           date: tx.date || getLocalDateString(),
-          note: tx.note.trim()
+          note: tx.note.trim(),
+          goalId: tx.goalId,
+          goalName: tx.goalName,
+          debtPaymentType: tx.debtPaymentType
         }));
 
         await logBatchTransactions(payload);
@@ -756,6 +795,85 @@ export const AIBatchImportModal: React.FC<AIBatchImportModalProps> = ({
                             </div>
                           </div>
                         </div>
+
+                        {/* Hàng 4 (Tùy chọn): Gắn vào Khoản nợ & Phân loại Trả gốc / Trả lãi */}
+                        {isExpense && debtGoals.length > 0 && (
+                          <div className="pt-2 border-t border-[#F5F3EF] flex items-center justify-between gap-2 flex-wrap text-xs">
+                            <div className="flex items-center gap-1.5 flex-1 min-w-[180px]">
+                              <Target className="w-3.5 h-3.5 text-[#B45309] shrink-0" />
+                              <select
+                                value={tx.goalId || ''}
+                                onChange={(e) => {
+                                  const selectedId = e.target.value;
+                                  if (!selectedId) {
+                                    handleUpdateTxField(tx.id, {
+                                      goalId: undefined,
+                                      goalName: undefined,
+                                      debtPaymentType: undefined
+                                    });
+                                  } else {
+                                    const g = debtGoals.find((item) => item.id === selectedId);
+                                    if (g) {
+                                      const debtCat = categories.find(
+                                        (c) => c.type === 'EXPENSE' && (c.id === 'cat_debt' || c.name.toLowerCase().includes('nợ'))
+                                      );
+                                      handleUpdateTxField(tx.id, {
+                                        goalId: g.id,
+                                        goalName: g.title,
+                                        debtPaymentType: tx.debtPaymentType || 'PRINCIPAL',
+                                        ...(debtCat
+                                          ? {
+                                              categoryId: debtCat.id,
+                                              categoryName: debtCat.name,
+                                              categoryKey: debtCat.categoryKey
+                                            }
+                                          : {})
+                                      });
+                                    }
+                                  }
+                                }}
+                                className="bg-[#FAF9F6] border border-[#E6E2DA] p-1.5 rounded-xl text-xs text-[#1C1917] font-medium w-full outline-hidden cursor-pointer"
+                              >
+                                <option value="">-- Không gắn nợ --</option>
+                                {debtGoals.map((g) => (
+                                  <option key={g.id} value={g.id}>
+                                    🎯 {g.title}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            {/* Toggle 1-chạm Trả gốc ↔ Trả lãi nếu đã gắn nợ */}
+                            {tx.goalId && (
+                              <div className="flex items-center gap-1 bg-[#FAF9F6] p-1 rounded-xl border border-[#E6E2DA]">
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateTxField(tx.id, { debtPaymentType: 'PRINCIPAL' })}
+                                  className={`px-2 py-0.5 text-[10px] font-bold rounded-lg transition-colors cursor-pointer ${
+                                    tx.debtPaymentType !== 'INTEREST'
+                                      ? 'bg-[#0F3D39] text-white shadow-2xs'
+                                      : 'text-[#78716C] hover:bg-white'
+                                  }`}
+                                  title="Giảm dư nợ gốc trên mục tiêu"
+                                >
+                                  Trả gốc
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateTxField(tx.id, { debtPaymentType: 'INTEREST' })}
+                                  className={`px-2 py-0.5 text-[10px] font-bold rounded-lg transition-colors cursor-pointer ${
+                                    tx.debtPaymentType === 'INTEREST'
+                                      ? 'bg-[#B45309] text-white shadow-2xs'
+                                      : 'text-[#78716C] hover:bg-white'
+                                  }`}
+                                  title="Ghi nhận tiền lãi (không trừ gốc)"
+                                >
+                                  Trả lãi
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
