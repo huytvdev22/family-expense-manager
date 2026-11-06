@@ -692,21 +692,25 @@ export const AIBatchImportModal: React.FC<AIBatchImportModalProps> = ({
                           </div>
 
                           <div className="flex items-center gap-2">
-                            {/* Ô nhập số tiền */}
-                            <div className="relative">
+                            {/* Ô nhập số tiền có phân cách hàng nghìn theo chuẩn tiền tệ */}
+                            <div className="relative flex items-center">
                               <input
-                                type="number"
-                                value={tx.amount || ''}
-                                onChange={(e) =>
-                                  handleUpdateTxField(tx.id, {
-                                    amount: Math.max(0, Number(e.target.value))
-                                  })
-                                }
-                                className={`text-sm sm:text-base font-bold font-mono text-right w-28 sm:w-36 p-1.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] focus:bg-white focus:border-[#0F3D39] outline-hidden ${
+                                type="text"
+                                inputMode="numeric"
+                                value={tx.amount > 0 ? formatVND(tx.amount, false) : ''}
+                                onChange={(e) => {
+                                  const cleanDigits = e.target.value.replace(/\D/g, '');
+                                  const num = cleanDigits ? parseInt(cleanDigits, 10) : 0;
+                                  handleUpdateTxField(tx.id, { amount: num });
+                                }}
+                                className={`text-sm sm:text-base font-bold font-mono text-right w-28 sm:w-36 p-1.5 pr-5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] focus:bg-white focus:border-[#0F3D39] outline-hidden ${
                                   isExpense ? 'text-[#B45309]' : 'text-[#047857]'
                                 }`}
                                 placeholder="0"
                               />
+                              <span className="absolute right-1.5 text-[11px] font-mono text-[#A8A29E] pointer-events-none">
+                                ₫
+                              </span>
                             </div>
 
                             <button
@@ -904,17 +908,24 @@ export const AIBatchImportModal: React.FC<AIBatchImportModalProps> = ({
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            value={item.amount || ''}
-                            onChange={(e) =>
-                              handleUpdatePendingField(item.id, {
-                                amount: Math.max(0, Number(e.target.value))
-                              })
-                            }
-                            className="text-sm sm:text-base font-bold font-mono text-right w-28 sm:w-36 p-1.5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] focus:bg-white focus:border-[#15803D] text-[#15803D] outline-hidden"
-                            placeholder="0"
-                          />
+                          {/* Ô nhập số tiền có phân cách hàng nghìn theo chuẩn tiền tệ */}
+                          <div className="relative flex items-center">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={item.amount > 0 ? formatVND(item.amount, false) : ''}
+                              onChange={(e) => {
+                                const cleanDigits = e.target.value.replace(/\D/g, '');
+                                const num = cleanDigits ? parseInt(cleanDigits, 10) : 0;
+                                handleUpdatePendingField(item.id, { amount: num });
+                              }}
+                              className="text-sm sm:text-base font-bold font-mono text-right w-28 sm:w-36 p-1.5 pr-5 rounded-xl border border-[#E6E2DA] bg-[#FAF9F6] focus:bg-white focus:border-[#15803D] text-[#15803D] outline-hidden"
+                              placeholder="0"
+                            />
+                            <span className="absolute right-1.5 text-[11px] font-mono text-[#A8A29E] pointer-events-none">
+                              ₫
+                            </span>
+                          </div>
                           <button
                             type="button"
                             onClick={() => handleDeletePendingItem(item.id)}
