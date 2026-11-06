@@ -180,6 +180,7 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
     const groups: Record<string, {
       monthKey: string;
       monthLabel: string;
+      totalAmount: number;
       items: Transaction[];
     }> = {};
 
@@ -194,10 +195,12 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
         groups[monthKey] = {
           monthKey,
           monthLabel: label,
+          totalAmount: 0,
           items: [],
         };
       }
       groups[monthKey].items.push(tx);
+      groups[monthKey].totalAmount += tx.amount;
     });
 
     // Sắp xếp các tháng giảm dần (tháng gần nhất lên trước)
@@ -1470,12 +1473,15 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
 
                   {groupedHistoryByMonth.map((group) => (
                     <div key={group.monthKey} className="space-y-1.5">
-                      {/* Tiêu đề nhóm tháng tối giản */}
-                      <div className="flex items-center gap-2 px-1 pt-1">
-                        <span className="text-xs font-bold text-[#78716C] font-mono">
+                      {/* Tiêu đề nhóm tháng tối giản kèm 1 con số tổng tiền đã trả của tháng đó cùng hàng */}
+                      <div className="flex items-center justify-between gap-2 px-1 pt-2 pb-0.5">
+                        <span className="text-xs font-bold text-[#78716C] font-mono shrink-0">
                           {group.monthLabel}
                         </span>
                         <div className="flex-1 h-px bg-[#E6E2DA]/60" />
+                        <span className="text-xs font-bold font-mono text-[#1C1917] shrink-0">
+                          {formatVND(group.totalAmount)}
+                        </span>
                       </div>
 
                       {/* Danh sách các lần ghi nhận trong tháng đó */}
@@ -1539,9 +1545,7 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
                                   >
                                     {activeHistoryGoal.type === 'SAVINGS'
                                       ? `+${formatVND(tx.amount)}`
-                                      : isInterestPayment
-                                      ? formatVND(tx.amount)
-                                      : `-${formatVND(tx.amount)}`}
+                                      : formatVND(tx.amount)}
                                   </span>
                                 </div>
 
