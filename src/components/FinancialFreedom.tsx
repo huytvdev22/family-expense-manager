@@ -35,6 +35,7 @@ import { useToast } from './Toast';
 import { BottomSheet } from './BottomSheet';
 import { EditTransactionModal } from './EditTransactionModal';
 import { AIBatchImportModal } from './AIBatchImportModal';
+import { GoalBurndownChart } from './GoalBurndownChart';
 
 const GOAL_COLORS = [
   { label: 'Terracotta', hex: '#B45309' },
@@ -1285,6 +1286,12 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
                   </div>
                 </div>
               </div>
+
+              {/* Biểu đồ Burndown: 2 đường Kế hoạch vs Thực tế */}
+              <GoalBurndownChart
+                goal={activeDetailGoal}
+                transactions={allGoalTransactions}
+              />
 
               {/* Lưới các thông số chi tiết (vốn ban đầu, đã trả gốc, đã trả lãi, tổng đã trả...) */}
               <div>
