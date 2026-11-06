@@ -160,6 +160,51 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
     };
   }, [historyTransactions]);
 
+  // Nhóm danh sách giao dịch lịch sử theo từng tháng (YYYY-MM)
+  const groupedHistoryByMonth = useMemo(() => {
+    if (!historyTransactions.length) return [];
+
+    const groups: Record<string, {
+      monthKey: string;
+      monthLabel: string;
+      items: Transaction[];
+      monthTotal: number;
+      monthPrincipalPaid: number;
+      monthInterestPaid: number;
+    }> = {};
+
+    historyTransactions.forEach((tx) => {
+      const monthKey = tx.date ? tx.date.substring(0, 7) : 'other';
+      if (!groups[monthKey]) {
+        let label = 'Khác';
+        if (monthKey !== 'other' && monthKey.includes('-')) {
+          const [y, m] = monthKey.split('-');
+          label = `Tháng ${parseInt(m, 10)}/${y}`;
+        }
+        groups[monthKey] = {
+          monthKey,
+          monthLabel: label,
+          items: [],
+          monthTotal: 0,
+          monthPrincipalPaid: 0,
+          monthInterestPaid: 0,
+        };
+      }
+      groups[monthKey].items.push(tx);
+      groups[monthKey].monthTotal += tx.amount;
+      if (tx.debtPaymentType === 'INTEREST') {
+        groups[monthKey].monthInterestPaid += tx.amount;
+      } else {
+        groups[monthKey].monthPrincipalPaid += tx.amount;
+      }
+    });
+
+    // Sắp xếp các tháng giảm dần (tháng gần nhất lên trước)
+    return Object.keys(groups)
+      .sort((a, b) => b.localeCompare(a))
+      .map((key) => groups[key]);
+  }, [historyTransactions]);
+
   // Thứ tự sắp xếp mục tiêu: Mặc định ưu tiên sắp hoàn thành lên trước, theo số tiền
   const [sortBy, setSortBy] = useState<GoalSortOption>('COMPLETION_AND_AMOUNT');
   const [isSortOpen, setIsSortOpen] = useState<boolean>(false);
@@ -1227,103 +1272,146 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
                   </p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-4">
                   <div className="flex items-center justify-between text-[11px] text-[#78716C] px-1">
                     <span>Lịch sử ghi nhận qua các tháng (Chạm để chỉnh sửa)</span>
                     <span className="font-mono font-medium">{historyTransactions.length} giao dịch</span>
                   </div>
-                  <div className="divide-y divide-[#F5F3EF] border border-[#F5F3EF] rounded-2xl overflow-hidden bg-[#FAF9F6]/60">
-                    {historyTransactions.map((tx) => {
-                      const isIncome = tx.type === 'INCOME';
-                      const isInterestPayment = activeHistoryGoal.type === 'DEBT_PAYOFF' && tx.debtPaymentType === 'INTEREST';
-                      return (
-                        <div
-                          key={tx.id}
-                          onClick={() => {
-                            playActionClick();
-                            triggerHaptic(10);
-                            setEditingTx(tx);
-                          }}
-                          className="p-3 hover:bg-white transition-colors flex items-center justify-between gap-3 cursor-pointer group"
-                        >
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-xs font-semibold text-[#1C1917] truncate group-hover:text-[#0F3D39] transition-colors">
-                                {tx.note || tx.categoryName}
-                              </span>
-                              {activeHistoryGoal.type === 'DEBT_PAYOFF' && (
-                                <span
-                                  className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-md border shrink-0 ${
-                                    isInterestPayment
-                                      ? 'bg-[#FEF3C7] text-[#B45309] border-[#FDE68A]'
-                                      : 'bg-[#E7EFEF] text-[#0F3D39] border-[#0F3D39]/20'
-                                  }`}
-                                >
-                                  {isInterestPayment ? 'Trả lãi' : 'Trả gốc'}
+
+                  {groupedHistoryByMonth.map((group) => (
+                    <div key={group.monthKey} className="space-y-1.5">
+                      {/* Header ngăn cách từng tháng */}
+                      <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-[#F5F3EF] border border-[#E6E2DA]/80">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Calendar className="w-3.5 h-3.5 text-[#0F3D39] shrink-0" />
+                          <span className="text-xs font-bold text-[#1C1917] font-mono">
+                            {group.monthLabel}
+                          </span>
+                          <span className="text-[10px] text-[#78716C] font-mono">
+                            ({group.items.length} lần)
+                          </span>
+                        </div>
+
+                        <div className="text-right font-mono text-xs font-bold shrink-0">
+                          {activeHistoryGoal.type === 'SAVINGS' ? (
+                            <span className="text-[#059669]">
+                              +{formatVND(group.monthTotal)}
+                            </span>
+                          ) : (
+                            <div className="flex items-center gap-1.5 text-[11px]">
+                              {group.monthPrincipalPaid > 0 && (
+                                <span className="text-[#0F3D39]" title="Tiền trả gốc trong tháng">
+                                  Gốc: -{formatVND(group.monthPrincipalPaid)}
                                 </span>
                               )}
-                              <span
-                                className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium shrink-0 ${
-                                  isIncome
-                                    ? 'bg-[#ECFDF5] text-[#047857]'
-                                    : tx.paidBy === 'Chồng'
-                                    ? 'bg-[#E7EFEF] text-[#0F3D39]'
-                                    : 'bg-[#FEF3C7] text-[#B45309]'
-                                }`}
-                              >
-                                {isIncome ? `${tx.paidBy} nhận` : tx.paidBy}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2 text-[10px] text-[#78716C] mt-0.5">
-                              <span>{formatDateLabel(tx.date)}</span>
-                              <span>•</span>
-                              <span className="truncate">{tx.categoryName}</span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                            <div className="text-right shrink-0">
-                              <span
-                                className={`text-xs sm:text-sm font-bold font-mono block ${
-                                  activeHistoryGoal.type === 'SAVINGS'
-                                    ? 'text-[#059669]'
-                                    : isInterestPayment
-                                    ? 'text-[#B45309]'
-                                    : 'text-[#0F3D39]'
-                                }`}
-                              >
-                                {activeHistoryGoal.type === 'SAVINGS'
-                                  ? `+${formatVND(tx.amount)}`
-                                  : isInterestPayment
-                                  ? formatVND(tx.amount)
-                                  : `-${formatVND(tx.amount)}`}
-                              </span>
-                              {activeHistoryGoal.type === 'DEBT_PAYOFF' && (
-                                <span className="text-[9.5px] font-mono text-[#78716C] block">
-                                  {isInterestPayment ? 'Không trừ gốc' : 'Giảm nợ gốc'}
+                              {group.monthPrincipalPaid > 0 && group.monthInterestPaid > 0 && (
+                                <span className="text-[#A8A29E]">•</span>
+                              )}
+                              {group.monthInterestPaid > 0 && (
+                                <span className="text-[#B45309]" title="Tiền trả lãi trong tháng">
+                                  Lãi: {formatVND(group.monthInterestPaid)}
                                 </span>
                               )}
                             </div>
+                          )}
+                        </div>
+                      </div>
 
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
+                      {/* Danh sách các lần ghi nhận trong tháng đó */}
+                      <div className="divide-y divide-[#F5F3EF] border border-[#E6E2DA]/80 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                        {group.items.map((tx) => {
+                          const isIncome = tx.type === 'INCOME';
+                          const isInterestPayment = activeHistoryGoal.type === 'DEBT_PAYOFF' && tx.debtPaymentType === 'INTEREST';
+                          return (
+                            <div
+                              key={tx.id}
+                              onClick={() => {
                                 playActionClick();
                                 triggerHaptic(10);
                                 setEditingTx(tx);
                               }}
-                              className="text-[#A8A29E] hover:text-[#0F3D39] p-1.5 rounded-lg hover:bg-[#F5F3EF] opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
-                              title={`Chỉnh sửa ${isIncome ? 'khoản thu' : 'khoản chi'}`}
-                              aria-label={`Chỉnh sửa ${tx.note || tx.categoryName}`}
+                              className="p-3 hover:bg-[#FAF9F6] transition-colors flex items-center justify-between gap-3 cursor-pointer group"
                             >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-xs font-semibold text-[#1C1917] truncate group-hover:text-[#0F3D39] transition-colors">
+                                    {tx.note || tx.categoryName}
+                                  </span>
+                                  {activeHistoryGoal.type === 'DEBT_PAYOFF' && (
+                                    <span
+                                      className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-md border shrink-0 ${
+                                        isInterestPayment
+                                          ? 'bg-[#FEF3C7] text-[#B45309] border-[#FDE68A]'
+                                          : 'bg-[#E7EFEF] text-[#0F3D39] border-[#0F3D39]/20'
+                                      }`}
+                                    >
+                                      {isInterestPayment ? 'Trả lãi' : 'Trả gốc'}
+                                    </span>
+                                  )}
+                                  <span
+                                    className={`text-[9px] font-mono px-1.5 py-0.2 rounded-full font-medium shrink-0 ${
+                                      isIncome
+                                        ? 'bg-[#ECFDF5] text-[#047857]'
+                                        : tx.paidBy === 'Chồng'
+                                        ? 'bg-[#E7EFEF] text-[#0F3D39]'
+                                        : 'bg-[#FEF3C7] text-[#B45309]'
+                                    }`}
+                                  >
+                                    {isIncome ? `${tx.paidBy} nhận` : tx.paidBy}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-2 text-[10px] text-[#78716C] mt-0.5">
+                                  <span>{formatDateLabel(tx.date)}</span>
+                                  <span>•</span>
+                                  <span className="truncate">{tx.categoryName}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                                <div className="text-right shrink-0">
+                                  <span
+                                    className={`text-xs sm:text-sm font-bold font-mono block ${
+                                      activeHistoryGoal.type === 'SAVINGS'
+                                        ? 'text-[#059669]'
+                                        : isInterestPayment
+                                        ? 'text-[#B45309]'
+                                        : 'text-[#0F3D39]'
+                                    }`}
+                                  >
+                                    {activeHistoryGoal.type === 'SAVINGS'
+                                      ? `+${formatVND(tx.amount)}`
+                                      : isInterestPayment
+                                      ? formatVND(tx.amount)
+                                      : `-${formatVND(tx.amount)}`}
+                                  </span>
+                                  {activeHistoryGoal.type === 'DEBT_PAYOFF' && (
+                                    <span className="text-[9.5px] font-mono text-[#78716C] block">
+                                      {isInterestPayment ? 'Không trừ gốc' : 'Giảm nợ gốc'}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    playActionClick();
+                                    triggerHaptic(10);
+                                    setEditingTx(tx);
+                                  }}
+                                  className="text-[#A8A29E] hover:text-[#0F3D39] p-1.5 rounded-lg hover:bg-[#F5F3EF] opacity-70 group-hover:opacity-100 transition-all cursor-pointer"
+                                  title={`Chỉnh sửa ${isIncome ? 'khoản thu' : 'khoản chi'}`}
+                                  aria-label={`Chỉnh sửa ${tx.note || tx.categoryName}`}
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
