@@ -168,9 +168,6 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
       monthKey: string;
       monthLabel: string;
       items: Transaction[];
-      monthTotal: number;
-      monthPrincipalPaid: number;
-      monthInterestPaid: number;
     }> = {};
 
     historyTransactions.forEach((tx) => {
@@ -185,18 +182,9 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
           monthKey,
           monthLabel: label,
           items: [],
-          monthTotal: 0,
-          monthPrincipalPaid: 0,
-          monthInterestPaid: 0,
         };
       }
       groups[monthKey].items.push(tx);
-      groups[monthKey].monthTotal += tx.amount;
-      if (tx.debtPaymentType === 'INTEREST') {
-        groups[monthKey].monthInterestPaid += tx.amount;
-      } else {
-        groups[monthKey].monthPrincipalPaid += tx.amount;
-      }
     });
 
     // Sắp xếp các tháng giảm dần (tháng gần nhất lên trước)
@@ -1280,45 +1268,16 @@ export const FinancialFreedom: React.FC<FinancialFreedomProps> = ({ onAddTransac
 
                   {groupedHistoryByMonth.map((group) => (
                     <div key={group.monthKey} className="space-y-1.5">
-                      {/* Header ngăn cách từng tháng */}
-                      <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-[#F5F3EF] border border-[#E6E2DA]/80">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <Calendar className="w-3.5 h-3.5 text-[#0F3D39] shrink-0" />
-                          <span className="text-xs font-bold text-[#1C1917] font-mono">
-                            {group.monthLabel}
-                          </span>
-                          <span className="text-[10px] text-[#78716C] font-mono">
-                            ({group.items.length} lần)
-                          </span>
-                        </div>
-
-                        <div className="text-right font-mono text-xs font-bold shrink-0">
-                          {activeHistoryGoal.type === 'SAVINGS' ? (
-                            <span className="text-[#059669]">
-                              +{formatVND(group.monthTotal)}
-                            </span>
-                          ) : (
-                            <div className="flex items-center gap-1.5 text-[11px]">
-                              {group.monthPrincipalPaid > 0 && (
-                                <span className="text-[#0F3D39]" title="Tiền trả gốc trong tháng">
-                                  Gốc: -{formatVND(group.monthPrincipalPaid)}
-                                </span>
-                              )}
-                              {group.monthPrincipalPaid > 0 && group.monthInterestPaid > 0 && (
-                                <span className="text-[#A8A29E]">•</span>
-                              )}
-                              {group.monthInterestPaid > 0 && (
-                                <span className="text-[#B45309]" title="Tiền trả lãi trong tháng">
-                                  Lãi: {formatVND(group.monthInterestPaid)}
-                                </span>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                      {/* Tiêu đề nhóm tháng tối giản */}
+                      <div className="flex items-center gap-2 px-1 pt-1">
+                        <span className="text-xs font-bold text-[#78716C] font-mono">
+                          {group.monthLabel}
+                        </span>
+                        <div className="flex-1 h-px bg-[#E6E2DA]/60" />
                       </div>
 
                       {/* Danh sách các lần ghi nhận trong tháng đó */}
-                      <div className="divide-y divide-[#F5F3EF] border border-[#E6E2DA]/80 rounded-2xl overflow-hidden bg-white shadow-2xs">
+                      <div className="divide-y divide-[#F5F3EF] border border-[#F5F3EF] rounded-2xl overflow-hidden bg-white shadow-2xs">
                         {group.items.map((tx) => {
                           const isIncome = tx.type === 'INCOME';
                           const isInterestPayment = activeHistoryGoal.type === 'DEBT_PAYOFF' && tx.debtPaymentType === 'INTEREST';
