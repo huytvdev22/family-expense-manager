@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Trash2, Receipt, Calendar, Pencil, ChevronDown, ChevronRight, ChevronsUpDown } from 'lucide-react';
+import { Trash2, Receipt, Calendar, Pencil, ChevronDown, ChevronRight, ChevronsUpDown, Sparkles } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND, formatCompactVND, formatDateLabel, formatDisplayDate } from '../utils/currency';
 import { playActionClick } from '../utils/audio';
@@ -7,11 +7,13 @@ import { triggerHaptic } from '../utils/haptics';
 import type { Transaction } from '../types';
 import { useToast } from './Toast';
 import { EditTransactionModal } from './EditTransactionModal';
+import { AIBatchImportModal } from './AIBatchImportModal';
 
 export const TransactionList: React.FC = () => {
   const { transactions, removeTransaction, compactCurrency, defaultCollapseDays } = useApp();
   const { showToast } = useToast();
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [isAIModalOpen, setIsAIModalOpen] = useState<boolean>(false);
 
   // Lưu danh sách các ngày đang bị thu gọn (date: "YYYY-MM-DD")
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
@@ -98,21 +100,42 @@ export const TransactionList: React.FC = () => {
 
   if (transactions.length === 0) {
     return (
-      <section className="bg-white border border-[#E6E2DA] rounded-3xl p-8 text-center shadow-sm">
-        <div className="w-12 h-12 mx-auto rounded-2xl bg-[#F5F3EF] flex items-center justify-center text-[#78716C] mb-3">
-          <Receipt className="w-6 h-6 stroke-[1.5]" />
-        </div>
-        <h3 className="text-sm font-semibold text-[#1C1917]">Sổ cái đang trống</h3>
-        <p className="text-xs text-[#78716C] mt-1 max-w-sm mx-auto leading-relaxed">
-          Chưa có khoản chi tiêu hoặc thu nhập nào được ghi nhận trong tháng này. Hãy chạm bàn phím bên dưới để ghi lại giao dịch đầu tiên của tổ ấm nhé!
-        </p>
-      </section>
+      <>
+        <section className="bg-white border border-[#E6E2DA] rounded-3xl p-8 text-center shadow-sm space-y-3">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-[#F5F3EF] flex items-center justify-center text-[#78716C] mb-1">
+            <Receipt className="w-6 h-6 stroke-[1.5]" />
+          </div>
+          <h3 className="text-sm font-semibold text-[#1C1917]">Sổ cái đang trống</h3>
+          <p className="text-xs text-[#78716C] mt-1 max-w-sm mx-auto leading-relaxed">
+            Chưa có khoản chi tiêu hoặc thu nhập nào được ghi nhận trong tháng này. Hãy chạm bàn phím để ghi lại hoặc dán giao dịch từ AI nhé!
+          </p>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                playActionClick();
+                triggerHaptic(10);
+                setIsAIModalOpen(true);
+              }}
+              className="px-4 py-2.5 bg-[#0F3D39] text-white text-xs font-semibold rounded-xl hover:bg-[#174E4A] transition-all cursor-pointer shadow-xs inline-flex items-center gap-1.5 active:scale-95"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-[#FEF3C7]" />
+              <span>Nhập nhanh từ AI</span>
+            </button>
+          </div>
+        </section>
+
+        <AIBatchImportModal
+          isOpen={isAIModalOpen}
+          onClose={() => setIsAIModalOpen(false)}
+        />
+      </>
     );
   }
 
   return (
     <section className="bg-white border border-[#E6E2DA] rounded-3xl p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#F5F3EF]">
+      <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#F5F3EF] flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Receipt className="w-4 h-4 text-[#0F3D39]" />
           <h2 className="text-xs uppercase tracking-wider font-semibold text-[#78716C]">
@@ -120,6 +143,20 @@ export const TransactionList: React.FC = () => {
           </h2>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              playActionClick();
+              triggerHaptic(10);
+              setIsAIModalOpen(true);
+            }}
+            className="flex items-center gap-1 text-[11px] font-bold text-[#0F3D39] hover:text-[#174E4A] cursor-pointer bg-[#E7EFEF] hover:bg-[#D8E6E4] border border-[#0F3D39]/20 px-2.5 py-1 rounded-xl transition-all shadow-2xs active:scale-95"
+            title="Nhập hàng loạt giao dịch từ ChatGPT, Gemini..."
+          >
+            <Sparkles className="w-3 h-3 text-[#B45309]" />
+            <span>Nhập từ AI</span>
+          </button>
+
           {groupedTransactions.length > 0 && (
             <button
               type="button"
@@ -329,6 +366,12 @@ export const TransactionList: React.FC = () => {
         isOpen={Boolean(editingTx)}
         onClose={() => setEditingTx(null)}
         transaction={editingTx}
+      />
+
+      {/* Modal Nhập hàng loạt từ AI */}
+      <AIBatchImportModal
+        isOpen={isAIModalOpen}
+        onClose={() => setIsAIModalOpen(false)}
       />
     </section>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Delete, Check, Tag, Target, ChevronDown, Clock, Calendar, CreditCard as CreditCardIcon } from 'lucide-react';
+import { Delete, Check, Tag, Target, ChevronDown, Clock, Calendar, CreditCard as CreditCardIcon, Sparkles } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND, getLocalDateString, formatDisplayDate, formatDueDateBadge } from '../utils/currency';
 import { playKeyClick, playActionClick } from '../utils/audio';
@@ -9,6 +9,7 @@ import { QuickTags } from './QuickTags';
 import { DEFAULT_CATEGORIES } from '../services/mockData';
 import type { QuickTagItem, CategoryKey, Transaction, PendingExpense, DebtPaymentType } from '../types';
 import { useToast } from './Toast';
+import { AIBatchImportModal } from './AIBatchImportModal';
 
 interface NumpadProps {
   onSuccess?: () => void;
@@ -65,6 +66,7 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
   const [isPending, setIsPending] = useState<boolean>(false);
   const [dueDate, setDueDate] = useState<string>(() => getFutureDate(7));
   const [assignedTo, setAssignedTo] = useState<'Chồng' | 'Vợ' | 'Cả hai'>(userRole || 'Chồng');
+  const [isAIModalOpen, setIsAIModalOpen] = useState<boolean>(false);
 
   // Thẻ tín dụng được chọn (nếu thanh toán qua thẻ)
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
@@ -484,56 +486,72 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
 
   return (
     <div className={`bg-white border border-[#E6E2DA] ${isBottomSheet ? 'rounded-2xl p-2 sm:p-2.5 shadow-2xs gap-1.5 sm:gap-2' : 'rounded-3xl p-3.5 sm:p-4 shadow-sm gap-2.5 sm:gap-3'} flex flex-col ${className}`}>
-      {/* 0. Bộ chuyển đổi 3 chế độ: Khoản chi vs Khoản chờ vs Thu nhập */}
-      <div className="bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs gap-1">
+      {/* 0. Bộ chuyển đổi 3 chế độ: Khoản chi vs Khoản chờ vs Thu nhập & Nút Nhập từ AI */}
+      <div className="flex items-center gap-1.5">
+        <div className="flex-1 bg-[#F5F3EF] border border-[#E6E2DA] rounded-2xl p-1 flex items-center shadow-2xs gap-1">
+          <button
+            type="button"
+            onClick={() => {
+              playActionClick();
+              triggerHaptic(10);
+              setTxType('EXPENSE');
+              setIsPending(false);
+            }}
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition-all tactile-btn ${
+              txType === 'EXPENSE' && !isPending
+                ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
+                : 'text-[#78716C] hover:text-[#1C1917]'
+            }`}
+          >
+            <span>💸 Khoản chi</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              playActionClick();
+              triggerHaptic(10);
+              setTxType('EXPENSE');
+              setIsPending(true);
+              setSelectedCardId(null);
+            }}
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition-all tactile-btn ${
+              txType === 'EXPENSE' && isPending
+                ? 'bg-[#B45309] text-white shadow-2xs font-bold'
+                : 'text-[#78716C] hover:text-[#1C1917]'
+            }`}
+          >
+            <span>⏳ Khoản chờ</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              playActionClick();
+              triggerHaptic(10);
+              setTxType('INCOME');
+              setIsPending(false);
+            }}
+            className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition-all tactile-btn ${
+              txType === 'INCOME'
+                ? 'bg-[#10B981] text-white shadow-2xs font-bold'
+                : 'text-[#78716C] hover:text-[#1C1917]'
+            }`}
+          >
+            <span>💰 Thu nhập</span>
+          </button>
+        </div>
+
         <button
           type="button"
           onClick={() => {
             playActionClick();
             triggerHaptic(10);
-            setTxType('EXPENSE');
-            setIsPending(false);
+            setIsAIModalOpen(true);
           }}
-          className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition-all tactile-btn ${
-            txType === 'EXPENSE' && !isPending
-              ? 'bg-[#0F3D39] text-white shadow-2xs font-bold'
-              : 'text-[#78716C] hover:text-[#1C1917]'
-          }`}
+          className="h-[38px] px-2 sm:px-2.5 bg-[#E7EFEF] hover:bg-[#D8E6E4] border border-[#0F3D39]/20 rounded-2xl text-[#0F3D39] text-xs font-bold flex items-center gap-1 transition-all shadow-2xs active:scale-95 shrink-0 cursor-pointer"
+          title="Nhập hàng loạt từ AI (ChatGPT, Gemini...)"
         >
-          <span>💸 Khoản chi</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            playActionClick();
-            triggerHaptic(10);
-            setTxType('EXPENSE');
-            setIsPending(true);
-            setSelectedCardId(null);
-          }}
-          className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition-all tactile-btn ${
-            txType === 'EXPENSE' && isPending
-              ? 'bg-[#B45309] text-white shadow-2xs font-bold'
-              : 'text-[#78716C] hover:text-[#1C1917]'
-          }`}
-        >
-          <span>⏳ Khoản chờ</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            playActionClick();
-            triggerHaptic(10);
-            setTxType('INCOME');
-            setIsPending(false);
-          }}
-          className={`flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1 transition-all tactile-btn ${
-            txType === 'INCOME'
-              ? 'bg-[#10B981] text-white shadow-2xs font-bold'
-              : 'text-[#78716C] hover:text-[#1C1917]'
-          }`}
-        >
-          <span>💰 Thu nhập</span>
+          <Sparkles className="w-3.5 h-3.5 text-[#B45309]" />
+          <span className="hidden xs:inline">AI</span>
         </button>
       </div>
 
@@ -1109,6 +1127,13 @@ export const Numpad: React.FC<NumpadProps> = ({ onSuccess, className = '', isBot
       <p className="hidden sm:block text-[10.5px] text-center text-[#A8A29E] font-mono">
         ⌨️ Gõ trực tiếp bằng bàn phím (0-9, Backspace, Enter)
       </p>
+
+      {/* Modal Nhập hàng loạt từ AI */}
+      <AIBatchImportModal
+        isOpen={isAIModalOpen}
+        onClose={() => setIsAIModalOpen(false)}
+        initialPurpose={isPending ? 'PENDING' : txType === 'INCOME' ? 'INCOME' : 'EXPENSE'}
+      />
     </div>
   );
 };

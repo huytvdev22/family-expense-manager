@@ -10,7 +10,8 @@ import {
   Receipt, 
   CheckCircle2,
   Plus,
-  History
+  History,
+  Sparkles
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { formatVND, formatCompactVND, formatDueDateBadge, formatDisplayDate, formatTxMonth } from '../utils/currency';
@@ -23,6 +24,7 @@ import { SettleCreditCardBottomSheet } from './SettleCreditCardBottomSheet';
 import { CardManagerModal } from './CardManagerModal';
 import { EditTransactionModal } from './EditTransactionModal';
 import { SettlementHistoryBottomSheet } from './SettlementHistoryBottomSheet';
+import { AIBatchImportModal } from './AIBatchImportModal';
 import type { PendingExpense, CreditCard, Transaction, UnsettledCardGroup } from '../types';
 
 export const PendingExpensesSection: React.FC = () => {
@@ -55,6 +57,9 @@ export const PendingExpensesSection: React.FC = () => {
 
   // Bottom Sheet lịch sử quyết toán thẻ tín dụng
   const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
+
+  // Modal Nhập hóa đơn từ AI
+  const [isAIModalOpen, setIsAIModalOpen] = useState<boolean>(false);
 
   // Trạng thái mở rộng accordion danh sách giao dịch con của từng thẻ
   const [expandedCardIds, setExpandedCardIds] = useState<Record<string, boolean>>({});
@@ -235,6 +240,21 @@ export const PendingExpensesSection: React.FC = () => {
             >
               <CardIcon className="w-3.5 h-3.5" />
               <span>{hasCreditCards ? 'Thẻ' : '+ Thẻ'}</span>
+            </button>
+
+            {/* Nút Nhập hóa đơn từ AI */}
+            <button
+              type="button"
+              onClick={() => {
+                playActionClick();
+                triggerHaptic(10);
+                setIsAIModalOpen(true);
+              }}
+              className="text-[11px] text-[#15803D] hover:text-[#166534] hover:bg-[#F0FDF4] px-2 py-1 rounded-xl flex items-center gap-1 font-semibold transition-colors cursor-pointer border border-[#BBF7D0]"
+              title="Nhập hóa đơn/khoản chờ từ ảnh bằng AI"
+            >
+              <Sparkles className="w-3 h-3 text-[#15803D]" />
+              <span>+ Hóa đơn AI</span>
             </button>
           </div>
         </div>
@@ -587,6 +607,13 @@ export const PendingExpensesSection: React.FC = () => {
       <SettlementHistoryBottomSheet
         isOpen={isHistoryOpen}
         onClose={() => setIsHistoryOpen(false)}
+      />
+
+      {/* Modal Nhập hóa đơn từ AI */}
+      <AIBatchImportModal
+        isOpen={isAIModalOpen}
+        onClose={() => setIsAIModalOpen(false)}
+        initialPurpose="PENDING"
       />
     </>
   );

@@ -137,6 +137,7 @@ interface AppContextType {
   
   // Hành động tài chính & tổ ấm
   logTransaction: (tx: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'>) => Promise<void>;
+  logBatchTransactions: (txList: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'>[]) => Promise<number>;
   editTransaction: (oldTx: Transaction, updatedTx: Transaction) => Promise<void>;
   removeTransaction: (tx: Transaction) => Promise<void>;
   updateBudget: (newBudget: number) => Promise<void>;
@@ -167,6 +168,7 @@ interface AppContextType {
   activePendingExpenses: PendingExpense[];
   totalPendingAmount: number;
   logPendingExpense: (data: Omit<PendingExpense, 'id' | 'createdAt' | 'updatedAt' | 'householdId'>) => Promise<string>;
+  logBatchPendingExpenses: (pendingList: Omit<PendingExpense, 'id' | 'createdAt' | 'updatedAt' | 'householdId'>[]) => Promise<number>;
   editPendingExpense: (id: string, updates: Partial<PendingExpense>) => Promise<void>;
   removePendingExpense: (id: string) => Promise<void>;
   confirmPaidPendingExpense: (pendingItem: PendingExpense, paidBy: 'Chồng' | 'Vợ', date?: string) => Promise<void>;
@@ -968,6 +970,37 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // HÀNH ĐỘNG GHI SỔ GIAO DỊCH HÀNG LOẠT (TỪ AI HOẶC NHẬP LÔ)
+  const logBatchTransactions = async (
+    txList: Omit<Transaction, 'id' | 'createdAt' | 'timestamp'>[]
+  ): Promise<number> => {
+    if (!isFirebaseActive || !activeHousehold || !firebaseUser || txList.length === 0) return 0;
+    
+    let savedCount = 0;
+    for (const txData of txList) {
+      try {
+        await addTransactionWithSummary(activeHousehold.id, txData);
+        savedCount++;
+        // Cập nhật mục tiêu tài chính nếu có liên kết
+        if (txData.goalId) {
+          const effectiveDelta = getEffectiveGoalDelta(txData);
+          if (effectiveDelta !== 0) {
+            adjustGoalBalance(txData.goalId, effectiveDelta);
+          }
+        }
+      } catch (err) {
+        console.error('Lỗi khi lưu giao dịch theo lô:', err);
+      }
+    }
+
+    if (savedCount > 0) {
+      playSuccessChime();
+      triggerHaptic(20);
+      showToast(`Đã lưu thành công ${savedCount} giao dịch vào sổ cái!`, 'success');
+    }
+    return savedCount;
+  };
+
   // Kiểm tra kích hoạt nhắc nhở ghi chép hàng ngày lúc 20:30 tối
   useEffect(() => {
     const todayStr = getLocalDateString();
@@ -1110,6 +1143,34 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       showToast('Không thể lưu khoản chờ. Vui lòng thử lại!', 'error');
       throw err;
     }
+  };
+
+  // HÀNH ĐỘNG GHI NHẬN KHOẢN CHỜ THEO LÔ (TỪ AI HOẶC NHẬP LÔ)
+  const logBatchPendingExpenses = async (
+    pendingList: Omit<PendingExpense, 'id' | 'createdAt' | 'updatedAt' | 'householdId'>[]
+  ): Promise<number> => {
+    if (!isFirebaseActive || !activeHousehold || !firebaseUser || pendingList.length === 0) return 0;
+
+    let savedCount = 0;
+    const householdId = activeHousehold.id;
+    for (const item of pendingList) {
+      try {
+        await addPendingExpense(householdId, {
+          ...item,
+          householdId
+        });
+        savedCount++;
+      } catch (err) {
+        console.error('Lỗi khi lưu khoản chờ theo lô:', err);
+      }
+    }
+
+    if (savedCount > 0) {
+      playSuccessChime();
+      triggerHaptic(20);
+      showToast(`Đã lưu thành công ${savedCount} khoản chờ thanh toán!`, 'success');
+    }
+    return savedCount;
   };
 
   // HÀNH ĐỘNG CẬP NHẬT KHOẢN CHỜ
@@ -2024,6 +2085,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         mobileShowBalanceDetails,
         toggleMobileShowBalanceDetails,
         logTransaction,
+        logBatchTransactions,
         editTransaction,
         removeTransaction,
         updateBudget,
@@ -2046,6 +2108,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         activePendingExpenses,
         totalPendingAmount,
         logPendingExpense,
+        logBatchPendingExpenses,
         editPendingExpense,
         removePendingExpense,
         confirmPaidPendingExpense,
